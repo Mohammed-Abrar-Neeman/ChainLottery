@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --primary: 244 100% 69%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 222 25% 23%;
+    --secondary-foreground: 240 100% 99%;
+    
+    --accent: 262 80% 84%;
+    --accent-foreground: 222 47% 11%;
+    
+    --background: 220 33% 98%;
+    --foreground: 222 47% 11%;
+    
+    --muted: 220 14% 96%;
+    --muted-foreground: 215 16% 47%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    
+    --destructive: 0 92% 70%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --warning: 45 93% 61%;
+    --warning-foreground: 0 0% 20%;
+    
+    --success: 142 69% 51%;
+    --success-foreground: 0 0% 100%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 222 47% 11%;
+    
+    --sidebar-background: 222 25% 23%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 244 100% 69%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 262 80% 84%;
+    --sidebar-accent-foreground: 0 0% 0%;
+    --sidebar-border: 0 0% 20%;
+    --sidebar-ring: 0 0% 83%;
+    
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    font-family: 'Inter', sans-serif;
+    @apply font-sans antialiased bg-background text-foreground;
+    background-image: 
+      radial-gradient(at 80% 20%, rgba(108, 99, 255, 0.1) 0px, transparent 50%),
+      radial-gradient(at 20% 80%, rgba(159, 122, 234, 0.1) 0px, transparent 50%);
+    background-attachment: fixed;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-medium;
+  }
+  
+  .font-mono {
+    font-family: 'Roboto Mono', monospace;
+  }
+  
+  .glass {
+    @apply bg-white/70 backdrop-blur-sm border border-white/20;
+  }
+  
+  .glass-dark {
+    @apply bg-secondary/70 backdrop-blur-sm border border-white/10 text-white;
+  }
+  
+  .truncate-address {
+    @apply inline-block max-w-[150px] whitespace-nowrap overflow-hidden text-ellipsis;
+  }
+}

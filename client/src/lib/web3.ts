@@ -1,0 +1,225 @@
+import { ethers, providers } from 'ethers';
+import { toast } from '@/hooks/use-toast';
+
+// Types
+export interface Web3Provider {
+  provider: providers.Web3Provider | null;
+  signer: ethers.Signer | null;
+  chainId: string | null;
+  accounts: string[];
+  connect: (providerType: ProviderType) => Promise<boolean>;
+  disconnect: () => void;
+  getBalance: (address: string) => Promise<string>;
+  switchNetwork: (chainId: string) => Promise<boolean>;
+}
+
+export type ProviderType = 'metamask' | 'walletconnect' | 'coinbase';
+
+// Initialize ethereum from window
+export const getEthereum = () => {
+  if (typeof window !== 'undefined' && window.ethereum) {
+    return window.ethereum;
+  }
+  return null;
+};
+
+// Create ethers provider from ethereum object
+export const createProvider = (ethereum: any): providers.Web3Provider | null => {
+  if (!ethereum) return null;
+  return new ethers.providers.Web3Provider(ethereum, 'any');
+};
+
+// Get connected accounts
+export const getAccounts = async (provider: providers.Web3Provider | null): Promise<string[]> => {
+  if (!provider) return [];
+  try {
+    return await provider.listAccounts();
+  } catch (error) {
+    console.error('Error getting accounts:', error);
+    return [];
+  }
+};
+
+// Connect to wallet
+export const connectWallet = async (providerType: ProviderType): Promise<{
+  provider: providers.Web3Provider | null;
+  accounts: string[];
+  chainId: string | null;
+}> => {
+  try {
+    // For now we just support metamask
+    // In a full implementation, we would add support for WalletConnect and Coinbase Wallet
+    if (providerType !== 'metamask') {
+      toast({
+        title: "Provider not supported",
+        description: "Currently only MetaMask is supported. Please install MetaMask to continue.",
+        variant: "destructive"
+      });
+      return { provider: null, accounts: [], chainId: null };
+    }
+    
+    const ethereum = getEthereum();
+    
+    if (!ethereum) {
+      toast({
+        title: "MetaMask not detected",
+        description: "Please install MetaMask to use this feature.",
+        variant: "destructive"
+      });
+      
+      // Open in new tab
+      window.open('https://metamask.io/download.html', '_blank');
+      return { provider: null, accounts: [], chainId: null };
+    }
+    
+    const provider = createProvider(ethereum);
+    if (!provider) {
+      throw new Error('Failed to create provider');
+    }
+    
+    // Request accounts
+    const accounts = await provider.send('eth_requestAccounts', []);
+    const network = await provider.getNetwork();
+    const chainId = network.chainId.toString();
+    
+    return { provider, accounts, chainId };
+  } catch (error) {
+    console.error('Error connecting to wallet:', error);
+    let errorMessage = "Failed to connect to wallet";
+    
+    if (error instanceof Error) {
+      // Handle user rejected request
+      if (error.message.includes('User rejected')) {
+        errorMessage = "Connection rejected. Please approve the connection in your wallet.";
+      }
+    }
+    
+    toast({
+      title: "Connection Error",
+      description: errorMessage,
+      variant: "destructive"
+    });
+    
+    return { provider: null, accounts: [], chainId: null };
+  }
+};
+
+// Get ETH balance
+export const getBalance = async (
+  provider: providers.Web3Provider | null,
+  address: string
+): Promise<string> => {
+  if (!provider || !address) return '0';
+  
+  try {
+    const balance = await provider.getBalance(address);
+    return ethers.utils.formatEther(balance);
+  } catch (error) {
+    console.error('Error getting balance:', error);
+    return '0';
+  }
+};
+
+// Format a blockchain address for display
+export const formatAddress = (address: string): string => {
+  if (!address) return '';
+  return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+};
+
+// Convert wei to ether string with format
+export const formatEther = (wei: string | number): string => {
+  try {
+    return parseFloat(ethers.utils.formatEther(wei.toString())).toFixed(4);
+  } catch (error) {
+    console.error('Error formatting ether:', error);
+    return '0';
+  }
+};
+
+// Convert ether to wei
+export const parseEther = (ether: string): string => {
+  try {
+    return ethers.utils.parseEther(ether).toString();
+  } catch (error) {
+    console.error('Error parsing ether:', error);
+    return '0';
+  }
+};
+
+// Switch to a specific network chain
+export const switchNetwork = async (
+  provider: providers.Web3Provider | null,
+  chainId: string
+): Promise<boolean> => {
+  if (!provider) return false;
+  
+  const hexChainId = `0x${parseInt(chainId).toString(16)}`;
+  
+  try {
+    await provider.send('wallet_switchEthereumChain', [{ chainId: hexChainId }]);
+    return true;
+  } catch (error: any) {
+    // If the chain hasn't been added to MetaMask
+    if (error.code === 4902) {
+      try {
+        // Add the chain
+        await addNetwork(provider, chainId);
+        return true;
+      } catch (addError) {
+        console.error('Error adding network:', addError);
+        toast({
+          title: "Network Error",
+          description: "Failed to add network. Please add it manually in your wallet.",
+          variant: "destructive"
+        });
+        return false;
+      }
+    } else {
+      console.error('Error switching network:', error);
+      toast({
+        title: "Network Error",
+        description: "Failed to switch network. Please try again.",
+        variant: "destructive"
+      });
+      return false;
+    }
+  }
+};
+
+// Add a network to the wallet
+const addNetwork = async (
+  provider: providers.Web3Provider,
+  chainId: string
+): Promise<void> => {
+  // Network parameters for common chains
+  const networks: Record<string, any> = {
+    '1': {
+      chainId: '0x1',
+      chainName: 'Ethereum Mainnet',
+      nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+      rpcUrls: ['https://mainnet.infura.io/v3/'],
+      blockExplorerUrls: ['https://etherscan.io']
+    },
+    '11155111': {
+      chainId: '0xaa36a7',
+      chainName: 'Sepolia Testnet',
+      nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 },
+      rpcUrls: ['https://sepolia.infura.io/v3/'],
+      blockExplorerUrls: ['https://sepolia.etherscan.io']
+    },
+    '5': {
+      chainId: '0x5',
+      chainName: 'Goerli Testnet',
+      nativeCurrency: { name: 'Goerli Ether', symbol: 'ETH', decimals: 18 },
+      rpcUrls: ['https://goerli.infura.io/v3/'],
+      blockExplorerUrls: ['https://goerli.etherscan.io']
+    }
+  };
+  
+  const params = networks[chainId];
+  if (!params) {
+    throw new Error(`Network parameters not found for chain ID: ${chainId}`);
+  }
+  
+  await provider.send('wallet_addEthereumChain', [params]);
+};
