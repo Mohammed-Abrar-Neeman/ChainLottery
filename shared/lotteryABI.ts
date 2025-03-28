@@ -1,22 +1,6 @@
 export const lotteryABI = [
   {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "vrfCoordinatorV2",
-        "type": "address"
-      },
-      {
-        "internalType": "uint64",
-        "name": "subscriptionId",
-        "type": "uint64"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "keyHash",
-        "type": "bytes32"
-      }
-    ],
+    "inputs": [],
     "stateMutability": "nonpayable",
     "type": "constructor"
   },
@@ -24,19 +8,50 @@ export const lotteryABI = [
     "anonymous": false,
     "inputs": [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "player",
-        "type": "address"
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "drawId",
+        "type": "uint256"
       },
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "ticketCount",
+        "name": "drawBlock",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "isFutureBlockDraw",
+        "type": "bool"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "ticketPrice",
         "type": "uint256"
       }
     ],
-    "name": "TicketsPurchased",
+    "name": "DrawStarted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "drawId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint8[6]",
+        "name": "winningNumbers",
+        "type": "uint8[6]"
+      }
+    ],
+    "name": "DrawCompleted",
     "type": "event"
   },
   {
@@ -53,242 +68,92 @@ export const lotteryABI = [
         "internalType": "uint256",
         "name": "amount",
         "type": "uint256"
+      }
+    ],
+    "name": "PrizeClaimed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "buyer",
+        "type": "address"
       },
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "roundNumber",
+        "name": "drawId",
         "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint8[5]",
+        "name": "numbers",
+        "type": "uint8[5]"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "lottoNumber",
+        "type": "uint8"
       }
     ],
-    "name": "WinnerSelected",
+    "name": "TicketPurchased",
     "type": "event"
   },
   {
     "inputs": [],
-    "name": "buyTickets",
+    "name": "admin",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "drawId_",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint8[5]",
+        "name": "numbers",
+        "type": "uint8[5]"
+      },
+      {
+        "internalType": "uint8",
+        "name": "lottoNumber",
+        "type": "uint8"
+      }
+    ],
+    "name": "buyTicket",
     "outputs": [],
     "stateMutability": "payable",
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "currentRound",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "endLottery",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "requestId",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getJackpotAmount",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getParticipants",
-    "outputs": [
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "walletAddress",
-            "type": "address"
-          },
-          {
-            "internalType": "uint256",
-            "name": "ticketCount",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "timestamp",
-            "type": "uint256"
-          }
-        ],
-        "internalType": "struct Lottery.Participant[]",
-        "name": "",
-        "type": "tuple[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getParticipantsCount",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "roundNumber",
-        "type": "uint256"
-      }
-    ],
-    "name": "getRoundInfo",
-    "outputs": [
-      {
-        "components": [
-          {
-            "internalType": "uint256",
-            "name": "startTime",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "endTime",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "poolAmount",
-            "type": "uint256"
-          },
-          {
-            "internalType": "address",
-            "name": "winner",
-            "type": "address"
-          },
-          {
-            "internalType": "uint256",
-            "name": "prizeAmount",
-            "type": "uint256"
-          },
-          {
-            "internalType": "bool",
-            "name": "isFinalized",
-            "type": "bool"
-          }
-        ],
-        "internalType": "struct Lottery.RoundInfo",
-        "name": "",
-        "type": "tuple"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getRoundTimeRemaining",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getTicketPrice",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "player",
-        "type": "address"
-      }
-    ],
-    "name": "getTicketsPurchasedByPlayer",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "lotteryDuration",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "owner",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "requestId",
+        "name": "drawId_",
         "type": "uint256"
       },
       {
-        "internalType": "uint256[]",
-        "name": "randomWords",
-        "type": "uint256[]"
+        "internalType": "uint256",
+        "name": "ticketIndex",
+        "type": "uint256"
       }
     ],
-    "name": "rawFulfillRandomWords",
+    "name": "claimPrize",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -297,40 +162,79 @@ export const lotteryABI = [
     "inputs": [
       {
         "internalType": "uint256",
+        "name": "drawId_",
+        "type": "uint256"
+      }
+    ],
+    "name": "completeDrawWithBlockHash",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "drawId_",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint8[6]",
+        "name": "_winningNumbers",
+        "type": "uint8[6]"
+      }
+    ],
+    "name": "completeDrawManually",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "drawId",
+    "outputs": [
+      {
+        "internalType": "uint256",
         "name": "",
         "type": "uint256"
       }
     ],
-    "name": "roundHistory",
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "draws",
     "outputs": [
       {
         "internalType": "uint256",
-        "name": "startTime",
+        "name": "ticketPrice",
         "type": "uint256"
       },
       {
         "internalType": "uint256",
-        "name": "endTime",
+        "name": "jackpot",
         "type": "uint256"
       },
       {
         "internalType": "uint256",
-        "name": "poolAmount",
-        "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "winner",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "prizeAmount",
+        "name": "drawBlock",
         "type": "uint256"
       },
       {
         "internalType": "bool",
-        "name": "isFinalized",
+        "name": "isFutureBlockDraw",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "completed",
         "type": "bool"
       }
     ],
@@ -338,15 +242,14 @@ export const lotteryABI = [
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "startNewRound",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "ticketPrice",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "drawId_",
+        "type": "uint256"
+      }
+    ],
+    "name": "getTotalTicketsSold",
     "outputs": [
       {
         "internalType": "uint256",
@@ -355,6 +258,24 @@ export const lotteryABI = [
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_ticketPrice",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "_isFutureBlockDraw",
+        "type": "bool"
+      }
+    ],
+    "name": "startNewDraw",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   }
 ];

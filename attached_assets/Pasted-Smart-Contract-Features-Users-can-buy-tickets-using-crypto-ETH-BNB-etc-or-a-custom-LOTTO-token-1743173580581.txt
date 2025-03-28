@@ -1,0 +1,60 @@
+Smart Contract Features
+Users can buy tickets using crypto (ETH, BNB, etc.) or a custom LOTTO token.
+Admin selects draw type (future block hash or manual update).
+If future block hash is chosen, the winning numbers are derived from the hash of a future block.
+If manual draw (X) is chosen, the admin updates the winning numbers after announcing them
+Ticket validity is enforced (users can only claim prizes for the current draw).
+Automatic prize distribution based on matching numbers.
+Funds handling (80% of ticket sales go to the jackpot, 20% goes to the admin).
+Security mechanisms to prevent fraud.
+ The smart contract fully dynamic, allowing the admin to:
+Set a different ticket price for each draw.
+Choose whether a draw is based on a future block hash or manually updated (X-based).
+Start multiple draws at once, each with its own settings.
+Pages & Features
+Home Page (Lottery Dashboard)
+Display current active draws (ticket price, draw type, jackpot, countdown timer).
+Show past results (winning numbers, jackpot, claimable prizes).
+Buy Ticket button for each active draw.
+Live jackpot counter (updates as tickets are purchased).
+Ticket Purchase Page
+User selects 5 numbers (01-70) + 1 LOTTO number (01-30).
+Quick Pick button (randomly selects numbers).
+MetaMask integration for payment.
+Confirmation message after successful purchase.
+My Tickets Page (For Users)
+Display all purchased tickets (for active & past draws).
+“Check My Numbers” feature to compare against winning numbers.
+If the user has won, show a “Claim Prize” button.
+Prize Claim Page
+Users can claim their winnings directly from the smart contract.
+Real-time prize check (only displays claim button if the user has won).
+Admin Panel (For Admin Only)
+MetaMask Signature Authentication (admin must sign a message to access).
+Start New Draw (admin sets ticket price & selects draw type).
+Complete Draw (if using manual X-based draw).
+View ticket sales & jackpot funds.
+Withdraw the 20% operational fee.
+Header & Footer (Common on All Pages)
+Header:
+Site logo & navigation menu
+
+
+Links to Home, Buy Tickets, My Tickets, Results, Admin Panel (if admin)
+
+
+Wallet connect button
+
+
+Footer:
+Terms & Conditions, Privacy Policy
+
+
+Social Media Links
+*	Tech Stack
+Frontend: React.js + Next.js (for SSR & better performance)
+Blockchain Interaction: ethers.js + Web3.js
+UI Library: Tailwind CSS / Material UI
+State Management: Redux Toolkit
+Wallet Integration: MetaMask / WalletConnect
+

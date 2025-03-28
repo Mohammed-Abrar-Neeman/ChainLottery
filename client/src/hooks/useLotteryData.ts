@@ -1,6 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getLotteryData, LotteryData, buyLotteryTickets, formatTimeRemaining } from '@/lib/lotteryContract';
+import { 
+  getLotteryData, 
+  LotteryData, 
+  formatTimeRemaining, 
+  generateQuickPick,
+  buyLotteryTicket 
+} from '@/lib/lotteryContract';
 import { apiRequest } from '@/lib/queryClient';
 import { useWallet } from '@/hooks/useWallet';
 import { toast } from '@/hooks/use-toast';
@@ -60,31 +66,33 @@ export function useLotteryData() {
     enabled: true,
   });
   
-  // Mutation for buying tickets
-  const buyTicketsMutation = useMutation({
-    mutationFn: async ({ ticketCount }: { ticketCount: number }) => {
+  // Mutation for buying lottery ticket
+  const buyTicketMutation = useMutation({
+    mutationFn: async ({ numbers, lottoNumber }: { numbers: number[], lottoNumber: number }) => {
       if (!provider || !chainId) {
         throw new Error('Wallet not connected');
       }
       
       // Execute the blockchain transaction
-      const result = await buyLotteryTickets(provider, chainId, ticketCount);
+      const result = await buyLotteryTicket(provider, chainId, numbers, lottoNumber);
       
       if (!result.success || !result.txHash || !account) {
         throw new Error('Transaction failed');
       }
       
       // Record the purchase in the backend
-      if (participants?.id) {
+      // Note: in a production app, we'd want to listen for events from the smart contract
+      // rather than recording purchases manually
+      if (lotteryData?.currentDraw) {
         await apiRequest('POST', '/api/lottery/record-purchase', {
-          roundId: participants.id,
+          roundId: lotteryData.currentDraw,
           walletAddress: account,
-          ticketCount,
+          ticketCount: 1, // Each transaction is 1 ticket in the new contract
           transactionHash: result.txHash
         });
       }
       
-      return { success: true, txHash: result.txHash };
+      return { success: true, txHash: result.txHash, numbers, lottoNumber };
     },
     onSuccess: () => {
       // Invalidate and refetch relevant queries
@@ -97,8 +105,8 @@ export function useLotteryData() {
     }
   });
   
-  // Function to buy tickets
-  const buyTickets = useCallback(async (ticketCount: number) => {
+  // Function to generate a quick pick and buy a ticket
+  const buyQuickPickTicket = useCallback(async () => {
     if (!isConnected) {
       toast({
         title: "Wallet Not Connected",
@@ -109,12 +117,35 @@ export function useLotteryData() {
     }
     
     try {
-      return await buyTicketsMutation.mutateAsync({ ticketCount });
+      // Generate random numbers
+      const quickPick = generateQuickPick();
+      
+      // Buy ticket with those numbers
+      return await buyTicketMutation.mutateAsync(quickPick);
     } catch (error) {
-      console.error('Error buying tickets:', error);
+      console.error('Error buying quick pick ticket:', error);
       return { success: false, txHash: null };
     }
-  }, [buyTicketsMutation, isConnected]);
+  }, [buyTicketMutation, isConnected]);
+  
+  // Function to buy a custom number ticket
+  const buyCustomTicket = useCallback(async (numbers: number[], lottoNumber: number) => {
+    if (!isConnected) {
+      toast({
+        title: "Wallet Not Connected",
+        description: "Please connect your wallet to buy tickets.",
+        variant: "destructive"
+      });
+      return { success: false, txHash: null };
+    }
+    
+    try {
+      return await buyTicketMutation.mutateAsync({ numbers, lottoNumber });
+    } catch (error) {
+      console.error('Error buying custom ticket:', error);
+      return { success: false, txHash: null };
+    }
+  }, [buyTicketMutation, isConnected]);
   
   // Format USD values
   const formatUSD = useCallback((ethValue: string) => {
@@ -124,6 +155,21 @@ export function useLotteryData() {
     const usdValue = parseFloat(ethValue) * ethPrice;
     return `$${usdValue.toFixed(2)}`;
   }, []);
+  
+  // For backward compatibility with existing UI components
+  const buyTickets = useCallback(async (ticketCount: number) => {
+    if (ticketCount !== 1) {
+      toast({
+        title: "Multiple Tickets Not Supported",
+        description: "In the new contract, tickets must be purchased one at a time with specific numbers.",
+        variant: "destructive"
+      });
+      return { success: false, txHash: null };
+    }
+    
+    // Buy a single quick pick ticket
+    return await buyQuickPickTicket();
+  }, [buyQuickPickTicket]);
   
   return {
     lotteryData,
@@ -139,8 +185,11 @@ export function useLotteryData() {
     pastWinners,
     isLoadingPastWinners,
     pastWinnersError,
-    buyTickets,
-    isBuyingTickets: buyTicketsMutation.isPending,
+    buyTickets, // For backward compatibility
+    buyQuickPickTicket,
+    buyCustomTicket,
+    generateQuickPick,
+    isBuyingTickets: buyTicketMutation.isPending,
     formatUSD,
     refetchLotteryData
   };

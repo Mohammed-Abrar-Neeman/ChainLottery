@@ -14,7 +14,7 @@ export const contractAddresses: ContractAddresses = {
   },
   // Sepolia Testnet
   '11155111': {
-    lottery: '0x7C9e73d4C71dae564d41F78d56439bB4ba87592B'
+    lottery: '0xfea5cf2172a8701e8715069263e95c74eacb4817'
   },
   // Goerli Testnet 
   '5': {

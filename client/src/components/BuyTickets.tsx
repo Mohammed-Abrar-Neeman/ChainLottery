@@ -1,66 +1,92 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useLotteryData } from '@/hooks/useLotteryData';
 import { useWallet } from '@/hooks/useWallet';
-import { Minus, Plus, Wallet, ExternalLink } from 'lucide-react';
+import { Wallet, Shuffle, TicketIcon, RefreshCw } from 'lucide-react';
 import WalletModal from './modals/WalletModal';
 import BuyConfirmationModal from './modals/BuyConfirmationModal';
 import TransactionPendingModal from './modals/TransactionPendingModal';
 import TransactionSuccessModal from './modals/TransactionSuccessModal';
+import { Badge } from '@/components/ui/badge';
 
 export default function BuyTickets() {
-  const [ticketCount, setTicketCount] = useState(1);
+  // State for selected numbers (5 main numbers + 1 LOTTO number)
+  const [selectedNumbers, setSelectedNumbers] = useState<number[]>([]);
+  const [selectedLottoNumber, setSelectedLottoNumber] = useState<number | null>(null);
+  
+  // UI states
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [showBuyConfirmModal, setShowBuyConfirmModal] = useState(false);
   const [showPendingModal, setShowPendingModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [transactionHash, setTransactionHash] = useState('');
   
-  const { lotteryData, formatUSD, buyTickets, isBuyingTickets } = useLotteryData();
+  const { 
+    lotteryData, 
+    formatUSD, 
+    buyQuickPickTicket,
+    buyCustomTicket,
+    generateQuickPick, 
+    isBuyingTickets 
+  } = useLotteryData();
   const { isConnected } = useWallet();
   
   const ticketPrice = parseFloat(lotteryData?.ticketPrice || '0.01');
   const networkFee = 0.0025; // Estimated gas fee in ETH
+  const totalCost = ticketPrice + networkFee;
   
-  const incrementTickets = () => {
-    if (ticketCount < 100) {
-      setTicketCount(ticketCount + 1);
-    }
-  };
+  // Generate a quick pick when component mounts
+  useEffect(() => {
+    handleQuickPick();
+  }, []);
   
-  const decrementTickets = () => {
-    if (ticketCount > 1) {
-      setTicketCount(ticketCount - 1);
-    }
-  };
-  
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value);
-    if (!isNaN(value)) {
-      if (value > 100) {
-        setTicketCount(100);
-      } else if (value < 1) {
-        setTicketCount(1);
-      } else {
-        setTicketCount(value);
+  // Handle number selection
+  const toggleNumber = (num: number) => {
+    if (selectedNumbers.includes(num)) {
+      setSelectedNumbers(selectedNumbers.filter(n => n !== num));
+    } else {
+      if (selectedNumbers.length < 5) {
+        setSelectedNumbers([...selectedNumbers, num]);
       }
     }
   };
   
+  // Handle LOTTO number selection
+  const toggleLottoNumber = (num: number) => {
+    if (selectedLottoNumber === num) {
+      setSelectedLottoNumber(null);
+    } else {
+      setSelectedLottoNumber(num);
+    }
+  };
+  
+  // Handle quick pick generation
+  const handleQuickPick = () => {
+    const { numbers, lottoNumber } = generateQuickPick();
+    setSelectedNumbers(numbers);
+    setSelectedLottoNumber(lottoNumber);
+  };
+  
+  // Handle buy click
   const handleBuyClick = () => {
     if (!isConnected) {
       setShowWalletModal(true);
-    } else {
+    } else if (selectedNumbers.length === 5 && selectedLottoNumber !== null) {
       setShowBuyConfirmModal(true);
     }
   };
   
+  // Handle confirm purchase
   const handleConfirmPurchase = async () => {
+    if (selectedNumbers.length !== 5 || selectedLottoNumber === null) {
+      return;
+    }
+    
     setShowBuyConfirmModal(false);
     setShowPendingModal(true);
     
-    const result = await buyTickets(ticketCount);
+    const result = await buyCustomTicket(selectedNumbers, selectedLottoNumber);
     
     setShowPendingModal(false);
     
@@ -70,8 +96,82 @@ export default function BuyTickets() {
     }
   };
   
-  const totalTicketsPrice = ticketPrice * ticketCount;
-  const totalCost = totalTicketsPrice + networkFee;
+  // Handle quick pick purchase
+  const handleQuickPickPurchase = async () => {
+    if (!isConnected) {
+      setShowWalletModal(true);
+      return;
+    }
+    
+    setShowPendingModal(true);
+    
+    const result = await buyQuickPickTicket();
+    
+    setShowPendingModal(false);
+    
+    if (result.success && result.txHash) {
+      setTransactionHash(result.txHash);
+      setShowSuccessModal(true);
+      
+      // Generate new numbers for next purchase
+      handleQuickPick();
+    }
+  };
+  
+  // Render number selection grid (1-70)
+  const renderNumberGrid = () => {
+    const grid = [];
+    for (let i = 1; i <= 70; i++) {
+      grid.push(
+        <Button
+          key={i}
+          type="button"
+          variant={selectedNumbers.includes(i) ? "default" : "outline"}
+          onClick={() => toggleNumber(i)}
+          className={`h-10 w-10 p-0 font-mono ${
+            selectedNumbers.includes(i) 
+              ? "bg-primary text-white" 
+              : "bg-gray-100 hover:bg-gray-200"
+          }`}
+          disabled={selectedNumbers.length >= 5 && !selectedNumbers.includes(i)}
+        >
+          {i < 10 ? `0${i}` : i}
+        </Button>
+      );
+    }
+    return (
+      <div className="grid grid-cols-10 gap-2 mb-6">
+        {grid}
+      </div>
+    );
+  };
+  
+  // Render LOTTO number selection grid (1-30)
+  const renderLottoNumberGrid = () => {
+    const grid = [];
+    for (let i = 1; i <= 30; i++) {
+      grid.push(
+        <Button
+          key={i}
+          type="button"
+          variant={selectedLottoNumber === i ? "default" : "outline"}
+          onClick={() => toggleLottoNumber(i)}
+          className={`h-10 w-10 p-0 font-mono ${
+            selectedLottoNumber === i 
+              ? "bg-accent text-white" 
+              : "bg-gray-100 hover:bg-gray-200"
+          }`}
+        >
+          {i < 10 ? `0${i}` : i}
+        </Button>
+      );
+    }
+    return (
+      <div className="grid grid-cols-10 gap-2 mb-6">
+        {grid}
+      </div>
+    );
+  };
   
   return (
     <section id="buy-tickets" className="mb-16">
@@ -80,51 +180,66 @@ export default function BuyTickets() {
       <div className="glass rounded-2xl shadow-glass p-6 lg:p-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
-            <div className="mb-8">
-              <label className="block text-gray-700 font-medium mb-2">Number of Tickets</label>
-              <div className="flex items-center mb-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={decrementTickets}
-                  className="h-12 w-12 rounded-l-lg bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition"
-                >
-                  <Minus className="h-4 w-4" />
-                </Button>
-                <Input
-                  type="number"
-                  value={ticketCount}
-                  onChange={handleInputChange}
-                  min={1}
-                  max={100}
-                  className="h-12 w-full border-y border-gray-200 font-mono text-center text-xl rounded-none"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={incrementTickets}
-                  className="h-12 w-12 rounded-r-lg bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition"
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-              
-              <div className="flex justify-between text-sm text-gray-600 mb-8">
-                <span>Min: 1 ticket</span>
-                <span>Max: 100 tickets per transaction</span>
-              </div>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold">Pick 5 Numbers (1-70)</h3>
+              <Badge variant="outline" className="font-mono">
+                {selectedNumbers.length}/5 Selected
+              </Badge>
+            </div>
+            
+            {renderNumberGrid()}
+            
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold">Pick 1 LOTTO Number (1-30)</h3>
+              <Badge variant="outline" className="font-mono">
+                {selectedLottoNumber ? "1/1 Selected" : "0/1 Selected"}
+              </Badge>
+            </div>
+            
+            {renderLottoNumberGrid()}
+            
+            <div className="flex gap-4 mb-6">
+              <Button 
+                onClick={handleQuickPick}
+                variant="outline"
+                className="flex-1 flex items-center justify-center"
+              >
+                <Shuffle className="mr-2 h-4 w-4" />
+                Quick Pick
+              </Button>
+              <Button 
+                onClick={handleQuickPickPurchase}
+                variant="secondary"
+                disabled={isBuyingTickets}
+                className="flex-1 flex items-center justify-center"
+              >
+                <TicketIcon className="mr-2 h-4 w-4" />
+                Buy Quick Pick
+              </Button>
             </div>
             
             <div className="mb-6">
               <h3 className="text-lg font-semibold mb-2">Summary</h3>
               <div className="border border-gray-200 rounded-lg p-4 space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Ticket Price:</span>
-                  <span className="font-mono">{ticketPrice.toFixed(4)} ETH</span>
+                  <span className="text-gray-600">Your Numbers:</span>
+                  <span className="font-mono">
+                    {selectedNumbers.length > 0 
+                      ? selectedNumbers.sort((a, b) => a - b).map(n => n < 10 ? `0${n}` : n).join(', ') 
+                      : 'None selected'}
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Number of Tickets:</span>
-                  <span className="font-mono">{ticketCount}</span>
+                  <span className="text-gray-600">Your LOTTO Number:</span>
+                  <span className="font-mono">
+                    {selectedLottoNumber 
+                      ? (selectedLottoNumber < 10 ? `0${selectedLottoNumber}` : selectedLottoNumber) 
+                      : 'None selected'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Ticket Price:</span>
+                  <span className="font-mono">{ticketPrice.toFixed(4)} ETH</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Network Fee (est.):</span>
@@ -148,10 +263,10 @@ export default function BuyTickets() {
             ) : (
               <Button
                 onClick={handleBuyClick}
-                disabled={isBuyingTickets}
+                disabled={isBuyingTickets || selectedNumbers.length !== 5 || selectedLottoNumber === null}
                 className="w-full bg-primary hover:bg-opacity-90 text-white font-semibold rounded-full py-4 transition flex items-center justify-center"
               >
-                {isBuyingTickets ? 'Processing...' : 'Buy Tickets'}
+                {isBuyingTickets ? 'Processing...' : 'Buy Ticket'}
               </Button>
             )}
           </div>
@@ -163,43 +278,45 @@ export default function BuyTickets() {
               <div className="flex">
                 <div className="flex-shrink-0 h-8 w-8 rounded-full bg-white bg-opacity-20 flex items-center justify-center font-semibold mr-3">1</div>
                 <div>
-                  <p>Buy as many tickets as you want (1-100 per transaction)</p>
+                  <p>Pick 5 numbers (1-70) + 1 LOTTO number (1-30)</p>
                 </div>
               </div>
               
               <div className="flex">
                 <div className="flex-shrink-0 h-8 w-8 rounded-full bg-white bg-opacity-20 flex items-center justify-center font-semibold mr-3">2</div>
                 <div>
-                  <p>Wait for the lottery round to end (~24 hours)</p>
+                  <p>Wait for the lottery draw to complete</p>
                 </div>
               </div>
               
               <div className="flex">
                 <div className="flex-shrink-0 h-8 w-8 rounded-full bg-white bg-opacity-20 flex items-center justify-center font-semibold mr-3">3</div>
                 <div>
-                  <p>If you win, the prize is automatically sent to your wallet</p>
+                  <p>Match numbers to win prizes based on tier system</p>
                 </div>
               </div>
               
               <div className="flex">
                 <div className="flex-shrink-0 h-8 w-8 rounded-full bg-white bg-opacity-20 flex items-center justify-center font-semibold mr-3">4</div>
                 <div>
-                  <p>Winner selection is verifiably random using ChainLink VRF</p>
+                  <p>Claim your prize if you win</p>
                 </div>
               </div>
             </div>
             
             <div className="mt-6 pt-4 border-t border-white border-opacity-20">
-              <h4 className="text-sm font-semibold uppercase mb-2">Prize Distribution</h4>
-              <div className="flex items-center mb-2">
-                <div className="w-full bg-white bg-opacity-10 rounded-full h-4 mr-2">
-                  <div className="bg-accent h-4 rounded-full" style={{ width: '70%' }}></div>
-                </div>
-                <span className="text-sm font-mono">70%</span>
-              </div>
-              <p className="text-sm text-white text-opacity-70">
-                70% to Winner, 20% to Next Lottery, 10% to Treasury
-              </p>
+              <h4 className="text-sm font-semibold uppercase mb-2">Prize Tiers</h4>
+              <ul className="text-sm space-y-1 text-white text-opacity-90">
+                <li>• 5 + LOTTO: 100% of Jackpot</li>
+                <li>• 5 Numbers: 1% of Jackpot</li>
+                <li>• 4 + LOTTO: 0.01% of Jackpot</li>
+                <li>• 4 Numbers: 0.001% of Jackpot</li>
+                <li>• 3 + LOTTO: 0.0001% of Jackpot</li>
+                <li>• 3 Numbers: 10 ETH</li>
+                <li>• 2 + LOTTO: 8 ETH</li>
+                <li>• 1 + LOTTO: 3 ETH</li>
+                <li>• LOTTO only: 2 ETH</li>
+              </ul>
             </div>
           </div>
         </div>
@@ -214,11 +331,13 @@ export default function BuyTickets() {
         open={showBuyConfirmModal}
         onClose={() => setShowBuyConfirmModal(false)}
         onConfirm={handleConfirmPurchase}
-        ticketCount={ticketCount}
+        ticketCount={1}
         ticketPrice={ticketPrice}
-        totalTicketsPrice={totalTicketsPrice}
+        totalTicketsPrice={ticketPrice}
         networkFee={networkFee}
         totalCost={totalCost}
+        selectedNumbers={selectedNumbers}
+        selectedLottoNumber={selectedLottoNumber}
       />
       
       <TransactionPendingModal
@@ -230,9 +349,11 @@ export default function BuyTickets() {
       <TransactionSuccessModal
         open={showSuccessModal}
         onClose={() => setShowSuccessModal(false)}
-        ticketCount={ticketCount}
+        ticketCount={1}
         totalCost={totalCost}
         transactionHash={transactionHash}
+        selectedNumbers={selectedNumbers}
+        selectedLottoNumber={selectedLottoNumber}
       />
     </section>
   );

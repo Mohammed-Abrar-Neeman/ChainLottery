@@ -7,7 +7,7 @@ import { toast } from '@/hooks/use-toast';
 export interface LotteryData {
   jackpotAmount: string;
   ticketPrice: string;
-  currentRound: number;
+  currentDraw: number;
   timeRemaining: number;
   participants: Participant[];
   participantCount: number;
@@ -19,13 +19,19 @@ export interface Participant {
   timestamp: number;
 }
 
-export interface LotteryRound {
-  startTime: number;
-  endTime: number;
-  poolAmount: string;
-  winner: string;
-  prizeAmount: string;
-  isFinalized: boolean;
+export interface LotteryTicket {
+  numbers: number[];
+  lottoNumber: number;
+  buyer: string;
+}
+
+export interface LotteryDraw {
+  ticketPrice: string;
+  jackpot: string;
+  drawBlock: number;
+  isFutureBlockDraw: boolean;
+  completed: boolean;
+  winningNumbers?: number[];
 }
 
 // Get lottery contract instance
@@ -70,81 +76,86 @@ export const getLotteryData = async (
   if (!contract) return null;
   
   try {
-    const [
-      jackpotAmount,
-      ticketPrice,
-      currentRound,
-      timeRemaining,
-      participants,
-      participantCount
-    ] = await Promise.all([
-      contract.getJackpotAmount(),
-      contract.getTicketPrice(),
-      contract.currentRound(),
-      contract.getRoundTimeRemaining(),
-      contract.getParticipants(),
-      contract.getParticipantsCount()
-    ]);
+    // Get current draw ID
+    const currentDraw = await contract.drawId();
     
+    // Get current draw info
+    const drawInfo = await contract.draws(currentDraw);
+    
+    // Get total tickets sold for this draw
+    const ticketsSold = await contract.getTotalTicketsSold(currentDraw);
+    
+    // Calculate time remaining (using block time estimation)
+    const currentBlock = await provider.getBlockNumber();
+    const blocksRemaining = Math.max(0, drawInfo.drawBlock.toNumber() - currentBlock);
+    const timeRemaining = blocksRemaining * 12; // Approx 12 seconds per block
+    
+    // For our interface we still need the same data shape
     return {
-      jackpotAmount: ethers.utils.formatEther(jackpotAmount),
-      ticketPrice: ethers.utils.formatEther(ticketPrice),
-      currentRound: currentRound.toNumber(),
-      timeRemaining: timeRemaining.toNumber(),
-      participants: participants.map((p: any) => ({
-        walletAddress: p.walletAddress,
-        ticketCount: p.ticketCount.toNumber(),
-        timestamp: p.timestamp.toNumber()
-      })),
-      participantCount: participantCount.toNumber()
+      jackpotAmount: ethers.utils.formatEther(drawInfo.jackpot),
+      ticketPrice: ethers.utils.formatEther(drawInfo.ticketPrice),
+      currentDraw: currentDraw.toNumber(),
+      timeRemaining: timeRemaining,
+      participants: [], // Server API will handle participant data
+      participantCount: ticketsSold.toNumber()
     };
   } catch (error) {
     console.error('Error getting lottery data:', error);
-    
-    // For now, return mock data for development
-    // In production, this would be replaced with proper error handling
-    return {
-      jackpotAmount: "3.457",
-      ticketPrice: "0.01",
-      currentRound: 42,
-      timeRemaining: 42000,
-      participants: [],
-      participantCount: 157
-    };
-  }
-};
-
-// Get round information
-export const getRoundInfo = async (
-  provider: providers.Web3Provider | null,
-  chainId: string,
-  roundNumber: number
-): Promise<LotteryRound | null> => {
-  const contract = getLotteryContract(provider, chainId);
-  if (!contract) return null;
-  
-  try {
-    const roundInfo = await contract.getRoundInfo(roundNumber);
-    
-    return {
-      startTime: roundInfo.startTime.toNumber(),
-      endTime: roundInfo.endTime.toNumber(),
-      poolAmount: ethers.utils.formatEther(roundInfo.poolAmount),
-      winner: roundInfo.winner,
-      prizeAmount: ethers.utils.formatEther(roundInfo.prizeAmount),
-      isFinalized: roundInfo.isFinalized
-    };
-  } catch (error) {
-    console.error(`Error getting round info for round ${roundNumber}:`, error);
     return null;
   }
 };
 
-// Buy lottery tickets
-export const buyLotteryTickets = async (
+// Get information for a specific draw
+export const getDrawInfo = async (
   provider: providers.Web3Provider | null,
   chainId: string,
-  ticketCount: number
+  drawId: number
+): Promise<LotteryDraw | null> => {
+  const contract = getLotteryContract(provider, chainId);
+  if (!contract) return null;
+  
+  try {
+    const drawInfo = await contract.draws(drawId);
+    
+    return {
+      ticketPrice: ethers.utils.formatEther(drawInfo.ticketPrice),
+      jackpot: ethers.utils.formatEther(drawInfo.jackpot),
+      drawBlock: drawInfo.drawBlock.toNumber(),
+      isFutureBlockDraw: drawInfo.isFutureBlockDraw,
+      completed: drawInfo.completed
+    };
+  } catch (error) {
+    console.error(`Error getting draw info for draw ${drawId}:`, error);
+    return null;
+  }
+};
+
+// Generate a quick pick ticket (5 random numbers plus 1 LOTTO number)
+export const generateQuickPick = (): { numbers: number[], lottoNumber: number } => {
+  // Generate 5 unique random numbers between 1-70
+  const numbers: number[] = [];
+  while (numbers.length < 5) {
+    const num = Math.floor(Math.random() * 70) + 1;
+    if (!numbers.includes(num)) {
+      numbers.push(num);
+    }
+  }
+  
+  // Generate 1 random LOTTO number between 1-30
+  const lottoNumber = Math.floor(Math.random() * 30) + 1;
+  
+  // Sort numbers for display
+  numbers.sort((a, b) => a - b);
+  
+  return { numbers, lottoNumber };
+};
+
+// Buy lottery ticket with 5 numbers and 1 LOTTO number
+export const buyLotteryTicket = async (
+  provider: providers.Web3Provider | null,
+  chainId: string,
+  numbers: number[],
+  lottoNumber: number
 ): Promise<{ success: boolean, txHash: string | null }> => {
   const contract = getLotteryContractWithSigner(provider, chainId);
   if (!contract) {
@@ -152,17 +163,44 @@ export const buyLotteryTickets = async (
   }
   
   try {
-    // Get ticket price
-    const ticketPrice = await contract.getTicketPrice();
-    const totalCost = ticketPrice.mul(ticketCount);
+    // Get current draw ID
+    const currentDraw = await contract.drawId();
     
-    // Execute transaction
-    const tx = await contract.buyTickets({
-      value: totalCost,
+    // Check that we have 5 numbers
+    if (numbers.length !== 5) {
+      throw new Error('You must select 5 numbers (1-70)');
+    }
+    
+    // Check that numbers are in range
+    for (let num of numbers) {
+      if (num < 1 || num > 70) {
+        throw new Error('Numbers must be between 1 and 70');
+      }
+    }
+    
+    // Check that LOTTO number is in range
+    if (lottoNumber < 1 || lottoNumber > 30) {
+      throw new Error('LOTTO number must be between 1 and 30');
+    }
+    
+    // Get the ticket price
+    const drawInfo = await contract.draws(currentDraw);
+    const ticketPrice = drawInfo.ticketPrice;
+    
+    // Show toast notification
+    toast({
+      title: "Transaction Pending",
+      description: "Please confirm the transaction in your wallet.",
+      variant: "default"
+    });
+    
+    // Buy ticket
+    const tx = await contract.buyTicket(currentDraw, numbers, lottoNumber, { 
+      value: ticketPrice,
       gasLimit: 500000 // Gas limit estimation
     });
     
-    // Show toast notification
+    // Show processing notification
     toast({
       title: "Transaction Submitted",
       description: "Your ticket purchase is being processed.",
@@ -175,21 +213,23 @@ export const buyLotteryTickets = async (
     // Show success notification
     toast({
       title: "Purchase Successful",
-      description: `Successfully purchased ${ticketCount} tickets!`,
+      description: `Successfully purchased lottery ticket for Draw #${currentDraw}.`,
       variant: "success"
     });
     
     return { success: true, txHash: receipt.transactionHash };
   } catch (error) {
-    console.error('Error buying lottery tickets:', error);
+    console.error('Error buying lottery ticket:', error);
     
-    let errorMessage = "Failed to purchase tickets.";
+    let errorMessage = "Failed to purchase ticket.";
     if (error instanceof Error) {
       // Handle specific errors
       if (error.message.includes('insufficient funds')) {
         errorMessage = "Insufficient funds in your wallet.";
       } else if (error.message.includes('user rejected')) {
         errorMessage = "Transaction rejected.";
+      } else {
+        errorMessage = error.message;
       }
     }
     

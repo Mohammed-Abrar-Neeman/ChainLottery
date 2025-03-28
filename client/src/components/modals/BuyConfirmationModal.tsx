@@ -1,8 +1,9 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { X } from 'lucide-react';
+import { X, TicketIcon } from 'lucide-react';
 import { useLotteryData } from '@/hooks/useLotteryData';
+import { Badge } from '@/components/ui/badge';
 
 interface BuyConfirmationModalProps {
   open: boolean;
@@ -13,6 +14,8 @@ interface BuyConfirmationModalProps {
   totalTicketsPrice: number;
   networkFee: number;
   totalCost: number;
+  selectedNumbers?: number[];
+  selectedLottoNumber?: number | null;
 }
 
 export default function BuyConfirmationModal({
@@ -23,7 +26,9 @@ export default function BuyConfirmationModal({
   ticketPrice,
   totalTicketsPrice,
   networkFee,
-  totalCost
+  totalCost,
+  selectedNumbers = [],
+  selectedLottoNumber = null
 }: BuyConfirmationModalProps) {
   const { formatUSD } = useLotteryData();
 
@@ -43,6 +48,45 @@ export default function BuyConfirmationModal({
         </DialogHeader>
         
         <div className="mb-6 mt-4">
+          {/* Display ticket numbers if provided */}
+          {selectedNumbers.length > 0 && (
+            <div className="bg-gray-100 rounded-lg p-4 mb-4 border border-gray-200">
+              <div className="flex items-center gap-2 mb-3">
+                <TicketIcon className="h-5 w-5 text-primary" />
+                <h3 className="font-semibold">Your Lottery Ticket</h3>
+              </div>
+              
+              <div className="mb-2">
+                <div className="text-sm text-gray-600 mb-1">Main Numbers (5):</div>
+                <div className="flex gap-2 flex-wrap">
+                  {selectedNumbers.sort((a, b) => a - b).map((num) => (
+                    <Badge 
+                      key={num} 
+                      variant="default"
+                      className="bg-primary text-white h-8 w-8 rounded-full flex items-center justify-center font-mono"
+                    >
+                      {num < 10 ? `0${num}` : num}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+              
+              <div>
+                <div className="text-sm text-gray-600 mb-1">LOTTO Number (1):</div>
+                <div className="flex">
+                  {selectedLottoNumber && (
+                    <Badge 
+                      variant="default"
+                      className="bg-accent text-white h-8 w-8 rounded-full flex items-center justify-center font-mono"
+                    >
+                      {selectedLottoNumber < 10 ? `0${selectedLottoNumber}` : selectedLottoNumber}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div className="bg-gray-50 rounded-lg p-4 mb-4">
             <div className="flex justify-between mb-2">
               <span className="text-gray-600">Tickets:</span>
@@ -71,8 +115,8 @@ export default function BuyConfirmationModal({
           
           <div className="text-sm text-gray-600 mb-6">
             <p>
-              By confirming this transaction, you are purchasing lottery tickets for the current round. 
-              Your transaction will be processed on the Ethereum network and cannot be reversed.
+              By confirming this transaction, you are purchasing a lottery ticket with your selected numbers
+              for the current draw. Your transaction will be processed on the Ethereum network and cannot be reversed.
             </p>
           </div>
         </div>
