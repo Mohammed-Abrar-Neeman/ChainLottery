@@ -214,7 +214,7 @@ export const buyLotteryTicket = async (
     toast({
       title: "Purchase Successful",
       description: `Successfully purchased lottery ticket for Draw #${currentDraw}.`,
-      variant: "success"
+      variant: "default"
     });
     
     return { success: true, txHash: receipt.hash };
