@@ -300,7 +300,7 @@ export default function Admin() {
       </div>
       
       {!isConnected && (
-        <Alert variant="warning" className="mb-6 bg-yellow-50 border-yellow-200 text-yellow-800">
+        <Alert className="mb-6 bg-yellow-50 border-yellow-200 text-yellow-800">
           <AlertCircle className="h-4 w-4 text-yellow-800" />
           <AlertTitle>Wallet Not Connected</AlertTitle>
           <AlertDescription>
