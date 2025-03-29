@@ -278,9 +278,53 @@ export default function Admin() {
     }
   }, [isConnected, isAdmin, isAdminLoading, toast]);
   
-  // If wallet is not connected at all, redirect to homepage
-  if (!isConnected) {
-    return <Redirect to="/" />;
+  // Redirect if not connected or not admin (after toast is shown)
+  useEffect(() => {
+    if (!isConnected || (!isAdmin && !isAdminLoading)) {
+      // Small delay to allow the toast to be shown before redirect
+      const timer = setTimeout(() => {
+        window.location.href = '/';
+      }, 1500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isConnected, isAdmin, isAdminLoading]);
+  
+  // Show loading if checking admin status
+  if (isAdminLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex justify-center items-center py-8">
+              <RefreshCw className="animate-spin h-8 w-8 text-primary" />
+              <span className="ml-2">Checking admin status...</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  
+  // If wallet is not connected or not admin, show minimal content while we redirect
+  if (!isConnected || !isAdmin) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-3xl font-bold">Admin Panel</h1>
+            <p className="text-gray-500 mt-1">Redirecting...</p>
+          </div>
+        </div>
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Access Denied</AlertTitle>
+          <AlertDescription>
+            You do not have admin privileges. Redirecting to homepage...
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
   }
   
   return (

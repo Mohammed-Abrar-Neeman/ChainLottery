@@ -26,7 +26,7 @@ export default function Header() {
   };
 
   // Custom link component to avoid nesting <a> tags
-  const NavLink = ({ href, label, isMobile = false }: { href: string, label: string, isMobile?: boolean }) => {
+  const NavLink = ({ href, label, isMobile = false }: { href: string, label: string | React.ReactNode, isMobile?: boolean }) => {
     return (
       <Link href={href}>
         {isMobile ? (
@@ -80,12 +80,15 @@ export default function Header() {
           <NavLink href="/tickets" label="My Tickets" />
           <NavLink href="/history" label="History" />
           <NavLink href="/faq" label="FAQ" />
-          <Link href="/admin">
-            <span className={`text-white hover:text-accent transition cursor-pointer flex items-center ${location === '/admin' ? 'text-accent' : ''}`}>
+          <div 
+            onClick={() => window.location.href = '/admin'} 
+            className={`text-white hover:text-accent transition cursor-pointer ${location === '/admin' ? 'text-accent' : ''}`}
+          >
+            <span className="flex items-center">
               <ShieldCheck className="mr-1 h-4 w-4" />
               Admin
             </span>
-          </Link>
+          </div>
         </nav>
         
         {/* Wallet Connection */}
@@ -108,13 +111,11 @@ export default function Header() {
                 </DropdownMenuItem>
                 {isAdmin && (
                   <>
-                    <DropdownMenuItem asChild>
-                      <Link href="/admin">
-                        <span className="w-full cursor-pointer flex items-center">
-                          <ShieldCheck className="mr-2 h-4 w-4" />
-                          Admin Panel
-                        </span>
-                      </Link>
+                    <DropdownMenuItem onClick={() => window.location.href = '/admin'} className="cursor-pointer">
+                      <span className="w-full flex items-center">
+                        <ShieldCheck className="mr-2 h-4 w-4" />
+                        Admin Panel
+                      </span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                   </>
@@ -145,12 +146,15 @@ export default function Header() {
             <NavLink href="/tickets" label="My Tickets" isMobile />
             <NavLink href="/history" label="History" isMobile />
             <NavLink href="/faq" label="FAQ" isMobile />
-            <Link href="/admin">
-              <span className="flex items-center block px-3 py-2 text-white hover:bg-white hover:bg-opacity-10 rounded-md cursor-pointer">
+            <div 
+              onClick={() => window.location.href = '/admin'} 
+              className="block px-3 py-2 text-white hover:bg-white hover:bg-opacity-10 rounded-md cursor-pointer"
+            >
+              <span className="flex items-center">
                 <ShieldCheck className="mr-2 h-4 w-4" />
                 Admin Panel
               </span>
-            </Link>
+            </div>
             
             {/* Mobile wallet connection */}
             {isConnected ? (
