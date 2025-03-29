@@ -278,17 +278,18 @@ export default function Admin() {
     }
   }, [isConnected, isAdmin, isAdminLoading, toast]);
   
-  // Redirect if not connected or not admin (after toast is shown)
+  // Show an alert if not connected or not admin (without redirecting)
   useEffect(() => {
-    if (!isConnected || (!isAdmin && !isAdminLoading)) {
-      // Small delay to allow the toast to be shown before redirect
-      const timer = setTimeout(() => {
-        window.location.href = '/';
-      }, 1500);
-      
-      return () => clearTimeout(timer);
+    // This effect will show a toast when user is not an admin
+    if (isConnected && !isAdmin && !isAdminLoading) {
+      toast({
+        title: "Access Denied",
+        description: "Not connected with an admin wallet. Please connect with the admin wallet to access this page.",
+        variant: "destructive",
+        duration: 5000,
+      });
     }
-  }, [isConnected, isAdmin, isAdminLoading]);
+  }, [isConnected, isAdmin, isAdminLoading, toast]);
   
   // Show loading if checking admin status
   if (isAdminLoading) {
@@ -313,14 +314,14 @@ export default function Admin() {
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-3xl font-bold">Admin Panel</h1>
-            <p className="text-gray-500 mt-1">Redirecting...</p>
+            <p className="text-gray-500 mt-1">Access Restricted</p>
           </div>
         </div>
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Access Denied</AlertTitle>
           <AlertDescription>
-            You do not have admin privileges. Redirecting to homepage...
+            You do not have admin privileges. Please connect with the admin wallet to access this page.
           </AlertDescription>
         </Alert>
       </div>

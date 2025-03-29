@@ -58,7 +58,6 @@ export function useAdmin(): AdminState {
         // In production, these MUST come from the contract directly
         const adminWallets = [
           '0xfea5cf2172a8701e8715069263e95c74eacb4817', // Contract owner address
-          account ? account.toLowerCase() : '' // REMOVE THIS IN PRODUCTION! Only for development testing
         ];
 
         // For development purposes, check admin access even without contract
@@ -123,7 +122,6 @@ export function useAdmin(): AdminState {
             // Create a list of admin wallets for this case - production should use contract ONLY
             const contractAdminWallets = [
               '0xfea5cf2172a8701e8715069263e95c74eacb4817', // Contract owner address
-              account ? account.toLowerCase() : '' // REMOVE THIS IN PRODUCTION! Only for development testing
             ];
             
             // Check if connected wallet is in allowed admin list
@@ -139,7 +137,6 @@ export function useAdmin(): AdminState {
           // Create a list of admin wallets for this case - production should use contract ONLY
           const localAdminWallets = [
             '0xfea5cf2172a8701e8715069263e95c74eacb4817', // Contract owner address
-            account ? account.toLowerCase() : '' // REMOVE THIS IN PRODUCTION! Only for development testing
           ];
           
           // Check if connected wallet is in allowed admin list
@@ -155,7 +152,6 @@ export function useAdmin(): AdminState {
         // Create a list of admin wallets for this case - production should use contract ONLY
         const errorAdminWallets = [
           '0xfea5cf2172a8701e8715069263e95c74eacb4817', // Contract owner address
-          account ? account.toLowerCase() : '' // REMOVE THIS IN PRODUCTION! Only for development testing
         ];
         
         // Check if connected wallet is in allowed admin list
