@@ -23,31 +23,43 @@ export default function Header() {
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
   
-  // Function to handle clicking on the admin link
-  const handleAdminClick = (e: React.MouseEvent) => {
-    console.log("Admin link clicked, isAdmin:", isAdmin);
+  // Function to handle clicking on the admin link - direct approach
+  const handleAdminClick = async (e: React.MouseEvent) => {
+    e.preventDefault(); // Always prevent default navigation
+
+    // Step 1: Check if MetaMask is connected
     if (!isConnected) {
-      e.preventDefault();
       toast({
         title: "Not Connected",
-        description: "You need to connect your wallet first.",
+        description: "Please connect to MetaMask to access admin features.",
         variant: "destructive"
       });
       return;
     }
     
-    if (!isAdmin) {
-      e.preventDefault();
+    // Step 2: Check if current wallet is admin
+    console.log("Checking if wallet is admin...");
+    try {
+      if (!isAdmin) {
+        toast({
+          title: "Access Denied",
+          description: "You don't have admin privileges. Connect with the admin wallet to access this page.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Admin access granted, navigate to admin page
+      console.log("Admin access granted, proceeding to admin page");
+      setLocation("/admin");
+    } catch (error) {
+      console.error("Error checking admin status:", error);
       toast({
-        title: "Access Denied",
-        description: "You don't have admin privileges. Connect with the admin wallet to access this page.",
+        title: "Error",
+        description: "Error checking admin status. Please try again.",
         variant: "destructive"
       });
-      return;
     }
-    
-    // Allow navigation to proceed if wallet is connected and is admin
-    console.log("Admin access granted, proceeding to admin page");
   };
   
   const toggleMobileMenu = () => {
