@@ -37,11 +37,7 @@ export function useAdmin(): AdminState {
   const [twoFactorSecret, setTwoFactorSecret] = useState<string | undefined>();
   const [twoFactorQrCode, setTwoFactorQrCode] = useState<string | undefined>();
   
-  // Function to check if a wallet is an admin
-  const checkIsWalletAdmin = (walletAddress: string | null, adminList: string[]): boolean => {
-    if (!walletAddress) return false;
-    return adminList.includes(walletAddress.toLowerCase());
-  };
+  // Admin verification is now entirely done by checking against the contract owner
 
   // Check if the connected wallet is the admin
   const { isLoading: isAdminLoading, refetch: refetchAdmin } = useQuery({
@@ -53,25 +49,12 @@ export function useAdmin(): AdminState {
           return false;
         }
         
-        // Define this at the top of the function so it's available throughout
-        // List of admin wallet addresses (in lowercase)
-        // In production, these MUST come from the contract directly
-        const adminWallets = [
-          '0xfea5cf2172a8701e8715069263e95c74eacb4817', // Contract owner address
-        ];
-
-        // For development purposes, check admin access even without contract
-        // Note: This is just for testing, in production this should be removed
+        // We should always check against the contract owner rather than using a hardcoded list
+        // If we don't have a provider, we can't check admin status
         if (!provider) {
-          // Check if connected wallet is in allowed admin list
-          const isAdminWallet = checkIsWalletAdmin(account, adminWallets);
-          setIsAdmin(isAdminWallet);
-          
-          if (isAdminWallet) {
-            setTwoFactorState('not-setup');
-          }
-          
-          return isAdminWallet;
+          console.log("No provider available, cannot check admin status");
+          setIsAdmin(false);
+          return false;
         }
 
         try {
@@ -80,14 +63,9 @@ export function useAdmin(): AdminState {
           const contract = getLotteryContract(provider, chainId);
           
           if (!contract) {
-            console.log("Contract not found, defaulting to admin wallet check for development");
-            // Check if connected wallet is in allowed admin list
-            const isAdminWallet = checkIsWalletAdmin(account, adminWallets);
-            setIsAdmin(isAdminWallet);
-            if (isAdminWallet) {
-              setTwoFactorState('not-setup');
-            }
-            return isAdminWallet;
+            console.log("Contract not found, cannot verify admin status");
+            setIsAdmin(false);
+            return false;
           }
           
           try {
@@ -118,49 +96,22 @@ export function useAdmin(): AdminState {
             
             return isCurrentAdmin;
           } catch (contractError) {
-            console.log("Contract method error, defaulting to admin wallet check for development");
-            // Create a list of admin wallets for this case - production should use contract ONLY
-            const contractAdminWallets = [
-              '0xfea5cf2172a8701e8715069263e95c74eacb4817', // Contract owner address
-            ];
-            
-            // Check if connected wallet is in allowed admin list
-            const isAdminWallet = checkIsWalletAdmin(account, contractAdminWallets);
-            setIsAdmin(isAdminWallet);
-            if (isAdminWallet) {
-              setTwoFactorState('not-setup');
-            }
-            return isAdminWallet;
+            console.log("Contract method error: ", contractError);
+            console.log("Could not verify admin status through contract");
+            setIsAdmin(false);
+            return false;
           }
         } catch (providerError) {
-          console.log("Provider network error, defaulting to admin wallet check for development");
-          // Create a list of admin wallets for this case - production should use contract ONLY
-          const localAdminWallets = [
-            '0xfea5cf2172a8701e8715069263e95c74eacb4817', // Contract owner address
-          ];
-          
-          // Check if connected wallet is in allowed admin list
-          const isAdminWallet = checkIsWalletAdmin(account, localAdminWallets);
-          setIsAdmin(isAdminWallet);
-          if (isAdminWallet) {
-            setTwoFactorState('not-setup');
-          }
-          return isAdminWallet;
+          console.log("Provider network error: ", providerError);
+          console.log("Could not verify admin status due to network error");
+          setIsAdmin(false);
+          return false;
         }
       } catch (error) {
-        console.log("General error checking admin status, defaulting to admin wallet check for development");
-        // Create a list of admin wallets for this case - production should use contract ONLY
-        const errorAdminWallets = [
-          '0xfea5cf2172a8701e8715069263e95c74eacb4817', // Contract owner address
-        ];
-        
-        // Check if connected wallet is in allowed admin list
-        const isAdminWallet = checkIsWalletAdmin(account, errorAdminWallets);
-        setIsAdmin(isAdminWallet);
-        if (isAdminWallet) {
-          setTwoFactorState('not-setup');
-        }
-        return isAdminWallet;
+        console.log("General error checking admin status: ", error);
+        console.log("Could not verify admin status due to error");
+        setIsAdmin(false);
+        return false;
       }
     },
     enabled: true, // Always enabled for development
