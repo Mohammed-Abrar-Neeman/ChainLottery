@@ -15,7 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Admin() {
-  const { isConnected } = useWallet();
+  const { isConnected, account } = useWallet();
   const { 
     isAdmin, 
     isAdminLoading, 
@@ -28,6 +28,10 @@ export default function Admin() {
     startNewDraw,
     completeDrawManually
   } = useAdmin();
+  
+  // Store initial wallet account for watchdog
+  const [initialAccount, setInitialAccount] = useState<string | null>(null);
+  const [shouldRedirect, setShouldRedirect] = useState(false);
   
   // Initialize toast
   const { toast } = useToast();
@@ -265,18 +269,35 @@ export default function Admin() {
     setWinningNumbers(newNumbers);
   };
   
-  // Show toast message when not connected with admin wallet
-  // This useEffect will run when the admin status changes
+  // Setup redirects for non-admin access and wallet watchdog
   useEffect(() => {
-    if (isConnected && !isAdmin && !isAdminLoading) {
+    // Set initial account when mounted and connected with an admin wallet
+    if (isConnected && isAdmin && account && !initialAccount) {
+      setInitialAccount(account);
+    }
+
+    // Redirect case 1: If not admin or not connected
+    if (!isAdminLoading && (!isConnected || !isAdmin)) {
       toast({
         title: "Access Denied",
         description: "Not connected with an admin wallet. Please connect with the admin wallet to access this page.",
         variant: "destructive",
         duration: 5000,
       });
+      setShouldRedirect(true);
     }
-  }, [isConnected, isAdmin, isAdminLoading, toast]);
+    
+    // Redirect case 2: Wallet changed - watchdog functionality
+    if (initialAccount && account && initialAccount !== account) {
+      toast({
+        title: "Wallet Changed",
+        description: "Your wallet has changed. Redirecting to home page.",
+        variant: "default",
+        duration: 5000,
+      });
+      setShouldRedirect(true);
+    }
+  }, [isConnected, isAdmin, isAdminLoading, account, initialAccount, toast]);
   
   // Show an alert if not connected or not admin (without redirecting)
   // REMOVING DUPLICATE EFFECT - This was causing double toast messages
@@ -300,7 +321,13 @@ export default function Admin() {
   // Add debug logging to understand the current state
   console.log("Admin component render state:", { isConnected, isAdmin, isAdminLoading });
   
-  // If wallet is not connected or not admin, show minimal content while we redirect
+  // Implement the redirect to home page
+  if (shouldRedirect) {
+    return <Redirect to="/" />;
+  }
+  
+  // If wallet is not connected or not admin, show minimal content 
+  // (this should rarely be seen as the redirect will take over)
   if (!isConnected || !isAdmin) {
     return (
       <div className="container mx-auto px-4 py-8">

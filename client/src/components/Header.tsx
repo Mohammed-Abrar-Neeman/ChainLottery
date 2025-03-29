@@ -3,6 +3,7 @@ import { Link, useLocation } from 'wouter';
 import { useWallet } from '@/hooks/useWallet';
 import { useAdmin } from '@/hooks/useAdmin';
 import { formatAddress } from '@/lib/web3';
+import { useToast } from '@/hooks/use-toast';
 import WalletModal from './modals/WalletModal';
 import { Button } from '@/components/ui/button';
 import { 
@@ -19,7 +20,20 @@ export default function Header() {
   const [showWalletModal, setShowWalletModal] = useState(false);
   const { isConnected, account, disconnect } = useWallet();
   const { isAdmin } = useAdmin();
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
+  const { toast } = useToast();
+  
+  // Function to handle clicking on the admin link
+  const handleAdminClick = (e: React.MouseEvent) => {
+    if (!isAdmin) {
+      e.preventDefault();
+      toast({
+        title: "Access Denied",
+        description: "You don't have admin privileges. Connect with the admin wallet to access this page.",
+        variant: "destructive"
+      });
+    }
+  };
   
   const toggleMobileMenu = () => {
     setIsOpen(!isOpen);
@@ -80,7 +94,7 @@ export default function Header() {
           <NavLink href="/tickets" label="My Tickets" />
           <NavLink href="/history" label="History" />
           <NavLink href="/faq" label="FAQ" />
-          <Link href="/admin">
+          <Link href="/admin" onClick={handleAdminClick}>
             <div 
               className={`text-white hover:text-accent transition cursor-pointer ${location === '/admin' ? 'text-accent' : ''}`}
             >
@@ -113,7 +127,7 @@ export default function Header() {
                 {isAdmin && (
                   <>
                     <DropdownMenuItem asChild>
-                      <Link href="/admin">
+                      <Link href="/admin" onClick={handleAdminClick}>
                         <span className="w-full flex items-center">
                           <ShieldCheck className="mr-2 h-4 w-4" />
                           Admin Panel
@@ -149,7 +163,7 @@ export default function Header() {
             <NavLink href="/tickets" label="My Tickets" isMobile />
             <NavLink href="/history" label="History" isMobile />
             <NavLink href="/faq" label="FAQ" isMobile />
-            <Link href="/admin">
+            <Link href="/admin" onClick={handleAdminClick}>
               <div 
                 className="block px-3 py-2 text-white hover:bg-white hover:bg-opacity-10 rounded-md cursor-pointer"
               >
