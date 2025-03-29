@@ -1,4 +1,4 @@
-import { ethers, Contract, providers } from 'ethers';
+import { ethers } from 'ethers';
 import { lotteryABI } from '@shared/lotteryABI';
 import { getLotteryAddress } from '@shared/contracts';
 import { toast } from '@/hooks/use-toast';
@@ -36,9 +36,9 @@ export interface LotteryDraw {
 
 // Get lottery contract instance
 export const getLotteryContract = (
-  provider: providers.Web3Provider | null,
+  provider: ethers.BrowserProvider | null,
   chainId: string
-): Contract | null => {
+): ethers.Contract | null => {
   if (!provider) return null;
   
   try {
@@ -51,14 +51,14 @@ export const getLotteryContract = (
 };
 
 // Get lottery contract with signer (for transactions)
-export const getLotteryContractWithSigner = (
-  provider: providers.Web3Provider | null,
+export const getLotteryContractWithSigner = async (
+  provider: ethers.BrowserProvider | null,
   chainId: string
-): Contract | null => {
+): Promise<ethers.Contract | null> => {
   if (!provider) return null;
   
   try {
-    const signer = provider.getSigner();
+    const signer = await provider.getSigner();
     const contractAddress = getLotteryAddress(chainId);
     return new ethers.Contract(contractAddress, lotteryABI, signer);
   } catch (error) {
@@ -69,7 +69,7 @@ export const getLotteryContractWithSigner = (
 
 // Get current lottery data
 export const getLotteryData = async (
-  provider: providers.Web3Provider | null,
+  provider: ethers.BrowserProvider | null,
   chainId: string
 ): Promise<LotteryData | null> => {
   const contract = getLotteryContract(provider, chainId);
@@ -87,17 +87,17 @@ export const getLotteryData = async (
     
     // Calculate time remaining (using block time estimation)
     const currentBlock = await provider.getBlockNumber();
-    const blocksRemaining = Math.max(0, drawInfo.drawBlock.toNumber() - currentBlock);
+    const blocksRemaining = Math.max(0, Number(drawInfo.drawBlock) - currentBlock);
     const timeRemaining = blocksRemaining * 12; // Approx 12 seconds per block
     
     // For our interface we still need the same data shape
     return {
-      jackpotAmount: ethers.utils.formatEther(drawInfo.jackpot),
-      ticketPrice: ethers.utils.formatEther(drawInfo.ticketPrice),
-      currentDraw: currentDraw.toNumber(),
+      jackpotAmount: ethers.formatEther(drawInfo.jackpot),
+      ticketPrice: ethers.formatEther(drawInfo.ticketPrice),
+      currentDraw: Number(currentDraw),
       timeRemaining: timeRemaining,
       participants: [], // Server API will handle participant data
-      participantCount: ticketsSold.toNumber()
+      participantCount: Number(ticketsSold)
     };
   } catch (error) {
     console.error('Error getting lottery data:', error);
@@ -107,7 +107,7 @@ export const getLotteryData = async (
 
 // Get information for a specific draw
 export const getDrawInfo = async (
-  provider: providers.Web3Provider | null,
+  provider: ethers.BrowserProvider | null,
   chainId: string,
   drawId: number
 ): Promise<LotteryDraw | null> => {
@@ -118,9 +118,9 @@ export const getDrawInfo = async (
     const drawInfo = await contract.draws(drawId);
     
     return {
-      ticketPrice: ethers.utils.formatEther(drawInfo.ticketPrice),
-      jackpot: ethers.utils.formatEther(drawInfo.jackpot),
-      drawBlock: drawInfo.drawBlock.toNumber(),
+      ticketPrice: ethers.formatEther(drawInfo.ticketPrice),
+      jackpot: ethers.formatEther(drawInfo.jackpot),
+      drawBlock: Number(drawInfo.drawBlock),
       isFutureBlockDraw: drawInfo.isFutureBlockDraw,
       completed: drawInfo.completed
     };
@@ -152,12 +152,12 @@ export const generateQuickPick = (): { numbers: number[], lottoNumber: number } 
 
 // Buy lottery ticket with 5 numbers and 1 LOTTO number
 export const buyLotteryTicket = async (
-  provider: providers.Web3Provider | null,
+  provider: ethers.BrowserProvider | null,
   chainId: string,
   numbers: number[],
   lottoNumber: number
 ): Promise<{ success: boolean, txHash: string | null }> => {
-  const contract = getLotteryContractWithSigner(provider, chainId);
+  const contract = await getLotteryContractWithSigner(provider, chainId);
   if (!contract) {
     return { success: false, txHash: null };
   }
@@ -217,7 +217,7 @@ export const buyLotteryTicket = async (
       variant: "success"
     });
     
-    return { success: true, txHash: receipt.transactionHash };
+    return { success: true, txHash: receipt.hash };
   } catch (error) {
     console.error('Error buying lottery ticket:', error);
     

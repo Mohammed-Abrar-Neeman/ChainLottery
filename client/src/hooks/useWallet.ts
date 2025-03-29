@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { providers } from 'ethers';
+import { ethers } from 'ethers';
 import { connectWallet, getEthereum, getAccounts, createProvider, ProviderType, switchNetwork as switchWeb3Network } from '@/lib/web3';
 
 interface UseWalletReturn {
@@ -7,14 +7,14 @@ interface UseWalletReturn {
   isConnecting: boolean;
   account: string | null;
   chainId: string | null;
-  provider: providers.Web3Provider | null;
+  provider: ethers.BrowserProvider | null;
   connect: (providerType: ProviderType) => Promise<boolean>;
   disconnect: () => void;
   switchNetwork: (chainId: string) => Promise<boolean>;
 }
 
 export function useWallet(): UseWalletReturn {
-  const [provider, setProvider] = useState<providers.Web3Provider | null>(null);
+  const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null);
   const [account, setAccount] = useState<string | null>(null);
   const [chainId, setChainId] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);

@@ -1,9 +1,9 @@
-import { ethers, providers } from 'ethers';
+import { ethers } from 'ethers';
 import { toast } from '@/hooks/use-toast';
 
 // Types
 export interface Web3Provider {
-  provider: providers.Web3Provider | null;
+  provider: ethers.BrowserProvider | null;
   signer: ethers.Signer | null;
   chainId: string | null;
   accounts: string[];
@@ -24,16 +24,17 @@ export const getEthereum = () => {
 };
 
 // Create ethers provider from ethereum object
-export const createProvider = (ethereum: any): providers.Web3Provider | null => {
+export const createProvider = (ethereum: any): ethers.BrowserProvider | null => {
   if (!ethereum) return null;
-  return new ethers.providers.Web3Provider(ethereum, 'any');
+  return new ethers.BrowserProvider(ethereum, 'any');
 };
 
 // Get connected accounts
-export const getAccounts = async (provider: providers.Web3Provider | null): Promise<string[]> => {
+export const getAccounts = async (provider: ethers.BrowserProvider | null): Promise<string[]> => {
   if (!provider) return [];
   try {
-    return await provider.listAccounts();
+    const accounts = await provider.listAccounts();
+    return accounts.map(account => account.address);
   } catch (error) {
     console.error('Error getting accounts:', error);
     return [];
@@ -42,7 +43,7 @@ export const getAccounts = async (provider: providers.Web3Provider | null): Prom
 
 // Connect to wallet
 export const connectWallet = async (providerType: ProviderType): Promise<{
-  provider: providers.Web3Provider | null;
+  provider: ethers.BrowserProvider | null;
   accounts: string[];
   chainId: string | null;
 }> => {
@@ -78,11 +79,14 @@ export const connectWallet = async (providerType: ProviderType): Promise<{
     }
     
     // Request accounts
-    const accounts = await provider.send('eth_requestAccounts', []);
+    await ethereum.request({ method: 'eth_requestAccounts' });
+    const accounts = await provider.listAccounts();
+    const accountAddresses = accounts.map(account => account.address);
+    
     const network = await provider.getNetwork();
     const chainId = network.chainId.toString();
     
-    return { provider, accounts, chainId };
+    return { provider, accounts: accountAddresses, chainId };
   } catch (error) {
     console.error('Error connecting to wallet:', error);
     let errorMessage = "Failed to connect to wallet";
@@ -106,14 +110,14 @@ export const connectWallet = async (providerType: ProviderType): Promise<{
 
 // Get ETH balance
 export const getBalance = async (
-  provider: providers.Web3Provider | null,
+  provider: ethers.BrowserProvider | null,
   address: string
 ): Promise<string> => {
   if (!provider || !address) return '0';
   
   try {
     const balance = await provider.getBalance(address);
-    return ethers.utils.formatEther(balance);
+    return ethers.formatEther(balance);
   } catch (error) {
     console.error('Error getting balance:', error);
     return '0';
@@ -129,7 +133,7 @@ export const formatAddress = (address: string): string => {
 // Convert wei to ether string with format
 export const formatEther = (wei: string | number): string => {
   try {
-    return parseFloat(ethers.utils.formatEther(wei.toString())).toFixed(4);
+    return parseFloat(ethers.formatEther(wei.toString())).toFixed(4);
   } catch (error) {
     console.error('Error formatting ether:', error);
     return '0';
@@ -139,7 +143,7 @@ export const formatEther = (wei: string | number): string => {
 // Convert ether to wei
 export const parseEther = (ether: string): string => {
   try {
-    return ethers.utils.parseEther(ether).toString();
+    return ethers.parseEther(ether).toString();
   } catch (error) {
     console.error('Error parsing ether:', error);
     return '0';
@@ -148,7 +152,7 @@ export const parseEther = (ether: string): string => {
 
 // Switch to a specific network chain
 export const switchNetwork = async (
-  provider: providers.Web3Provider | null,
+  provider: ethers.BrowserProvider | null,
   chainId: string
 ): Promise<boolean> => {
   if (!provider) return false;
@@ -156,14 +160,20 @@ export const switchNetwork = async (
   const hexChainId = `0x${parseInt(chainId).toString(16)}`;
   
   try {
-    await provider.send('wallet_switchEthereumChain', [{ chainId: hexChainId }]);
-    return true;
+    if (window.ethereum && window.ethereum.request) {
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: hexChainId }]
+      });
+      return true;
+    }
+    return false;
   } catch (error: any) {
     // If the chain hasn't been added to MetaMask
     if (error.code === 4902) {
       try {
         // Add the chain
-        await addNetwork(provider, chainId);
+        await addNetwork(chainId);
         return true;
       } catch (addError) {
         console.error('Error adding network:', addError);
@@ -187,10 +197,7 @@ export const switchNetwork = async (
 };
 
 // Add a network to the wallet
-const addNetwork = async (
-  provider: providers.Web3Provider,
-  chainId: string
-): Promise<void> => {
+const addNetwork = async (chainId: string): Promise<void> => {
   // Network parameters for common chains
   const networks: Record<string, any> = {
     '1': {
@@ -221,5 +228,12 @@ const addNetwork = async (
     throw new Error(`Network parameters not found for chain ID: ${chainId}`);
   }
   
-  await provider.send('wallet_addEthereumChain', [params]);
+  if (window.ethereum && window.ethereum.request) {
+    await window.ethereum.request({
+      method: 'wallet_addEthereumChain',
+      params: [params]
+    });
+  } else {
+    throw new Error('Ethereum provider not available');
+  }
 };
