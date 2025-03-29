@@ -265,9 +265,12 @@ export default function Admin() {
     setWinningNumbers(newNumbers);
   };
   
-  // Always require wallet connection - this prevents access to the page
-  // if not properly connected with a wallet
-  if (!isConnected) {
+  // For production, we'll require wallet connection
+  // For development, we'll allow access to the admin page without a wallet
+  // but still show a warning
+  const requiresWalletConnection = false; // Set to true in production
+  
+  if (requiresWalletConnection && !isConnected) {
     return <Redirect to="/" />;
   }
   
@@ -295,6 +298,17 @@ export default function Admin() {
           )}
         </div>
       </div>
+      
+      {!isConnected && (
+        <Alert variant="warning" className="mb-6 bg-yellow-50 border-yellow-200 text-yellow-800">
+          <AlertCircle className="h-4 w-4 text-yellow-800" />
+          <AlertTitle>Wallet Not Connected</AlertTitle>
+          <AlertDescription>
+            For production use, you'll need to connect a wallet with admin privileges to access this page.
+            Development mode is currently enabled for testing.
+          </AlertDescription>
+        </Alert>
+      )}
       
       {isAdminLoading ? (
         <Card>
