@@ -86,7 +86,10 @@ export const getLotteryData = async (
     const ticketsSold = await contract.getTotalTicketsSold(currentDraw);
     
     // Calculate time remaining (using block time estimation)
-    const currentBlock = await provider.getBlockNumber();
+    let currentBlock = 0;
+    if (provider) {
+      currentBlock = await provider.getBlockNumber();
+    }
     const blocksRemaining = Math.max(0, Number(drawInfo.drawBlock) - currentBlock);
     const timeRemaining = blocksRemaining * 12; // Approx 12 seconds per block
     
