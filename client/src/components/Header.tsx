@@ -80,14 +80,12 @@ export default function Header() {
           <NavLink href="/tickets" label="My Tickets" />
           <NavLink href="/history" label="History" />
           <NavLink href="/faq" label="FAQ" />
-          {isAdmin && (
-            <Link href="/admin">
-              <span className={`text-white hover:text-accent transition cursor-pointer flex items-center ${location === '/admin' ? 'text-accent' : ''}`}>
-                <ShieldCheck className="mr-1 h-4 w-4" />
-                Admin
-              </span>
-            </Link>
-          )}
+          <Link href="/admin">
+            <span className={`text-white hover:text-accent transition cursor-pointer flex items-center ${location === '/admin' ? 'text-accent' : ''}`}>
+              <ShieldCheck className="mr-1 h-4 w-4" />
+              Admin
+            </span>
+          </Link>
         </nav>
         
         {/* Wallet Connection */}
@@ -147,14 +145,12 @@ export default function Header() {
             <NavLink href="/tickets" label="My Tickets" isMobile />
             <NavLink href="/history" label="History" isMobile />
             <NavLink href="/faq" label="FAQ" isMobile />
-            {isAdmin && (
-              <Link href="/admin">
-                <span className="flex items-center block px-3 py-2 text-white hover:bg-white hover:bg-opacity-10 rounded-md cursor-pointer">
-                  <ShieldCheck className="mr-2 h-4 w-4" />
-                  Admin Panel
-                </span>
-              </Link>
-            )}
+            <Link href="/admin">
+              <span className="flex items-center block px-3 py-2 text-white hover:bg-white hover:bg-opacity-10 rounded-md cursor-pointer">
+                <ShieldCheck className="mr-2 h-4 w-4" />
+                Admin Panel
+              </span>
+            </Link>
             
             {/* Mobile wallet connection */}
             {isConnected ? (

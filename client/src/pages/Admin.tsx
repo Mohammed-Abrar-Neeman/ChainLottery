@@ -115,10 +115,10 @@ export default function Admin() {
     setWinningNumbers(newNumbers);
   };
   
-  // If not connected, redirect to home
-  if (!isConnected) {
-    return <Redirect to="/" />;
-  }
+  // For development, we're allowing access without wallet connection
+  // if (!isConnected) {
+  //   return <Redirect to="/" />;
+  // }
   
   return (
     <div className="container mx-auto px-4 py-8">
