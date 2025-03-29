@@ -270,60 +270,65 @@ export default function Admin() {
   };
   
   // Simple wallet watchdog - store initial admin wallet and redirect on wallet change
+  // Added delay to ensure admin status is properly synced
   useEffect(() => {
-    console.log("Admin page loaded - checking wallet status");
+    console.log("Admin page loaded - checking wallet status", {isConnected, isAdmin, account});
     
-    // Step 1: If we're still loading admin status, wait for it
-    if (isAdminLoading) {
-      console.log("Admin status still loading, waiting...");
-      return;
-    }
+    // Add a small delay to ensure wallet state is synchronized
+    const timer = setTimeout(() => {
+      // Step 1: If still loading admin status, wait for it
+      if (isAdminLoading) {
+        console.log("Admin status still loading, waiting...");
+        return;
+      }
+      
+      // Step 2: Check if wallet is connected at all 
+      if (!isConnected) {
+        console.log("Wallet not connected, redirecting to home");
+        toast({
+          title: "Wallet Not Connected",
+          description: "Please connect your wallet to access admin features.",
+          variant: "destructive",
+          duration: 3000
+        });
+        setShouldRedirect(true);
+        return;
+      }
+      
+      // Step 3: Check if wallet is admin
+      if (!isAdmin) {
+        console.log("Not admin wallet, redirecting to home");
+        toast({
+          title: "Access Denied",
+          description: "This wallet doesn't have admin privileges. Please connect with the admin wallet.",
+          variant: "destructive",
+          duration: 3000
+        });
+        setShouldRedirect(true);
+        return;
+      }
+      
+      // Step 4: Store initial admin wallet for watchdog if not already done
+      if (!initialAdminAccount && account) {
+        console.log("Setting initial admin wallet:", account);
+        setInitialAdminAccount(account);
+      }
+      
+      // Step 5: Watchdog - Check if wallet was changed after initial admin access
+      if (initialAdminAccount && account && initialAdminAccount.toLowerCase() !== account.toLowerCase()) {
+        console.log("Wallet changed from admin wallet, redirecting to home");
+        toast({
+          title: "Wallet Changed",
+          description: "Your wallet has changed from the admin wallet. Redirecting to home page.",
+          variant: "default",
+          duration: 3000
+        });
+        setShouldRedirect(true);
+        return;
+      }
+    }, 300); // Small delay to ensure proper wallet state synchronization
     
-    // Step 2: Check if wallet is connected at all
-    if (!isConnected) {
-      console.log("Wallet not connected, redirecting to home");
-      toast({
-        title: "Wallet Not Connected",
-        description: "Please connect your wallet to access admin features.",
-        variant: "destructive",
-        duration: 3000
-      });
-      setShouldRedirect(true);
-      return;
-    }
-    
-    // Step 3: Check if wallet is admin
-    if (!isAdmin) {
-      console.log("Not admin wallet, redirecting to home");
-      toast({
-        title: "Access Denied",
-        description: "This wallet doesn't have admin privileges. Please connect with the admin wallet.",
-        variant: "destructive",
-        duration: 3000
-      });
-      setShouldRedirect(true);
-      return;
-    }
-    
-    // Step 4: Store initial admin wallet for watchdog if not already done
-    if (!initialAdminAccount && account) {
-      console.log("Setting initial admin wallet:", account);
-      setInitialAdminAccount(account);
-    }
-    
-    // Step 5: Watchdog - Check if wallet was changed after initial admin access
-    if (initialAdminAccount && account && initialAdminAccount.toLowerCase() !== account.toLowerCase()) {
-      console.log("Wallet changed from admin wallet, redirecting to home");
-      toast({
-        title: "Wallet Changed",
-        description: "Your wallet has changed from the admin wallet. Redirecting to home page.",
-        variant: "default",
-        duration: 3000
-      });
-      setShouldRedirect(true);
-      return;
-    }
-    
+    return () => clearTimeout(timer);
   }, [isConnected, isAdmin, isAdminLoading, account, initialAdminAccount, toast]);
   
   // Show an alert if not connected or not admin (without redirecting)

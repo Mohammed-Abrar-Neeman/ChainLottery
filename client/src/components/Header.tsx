@@ -3,6 +3,7 @@ import { Link, useLocation } from 'wouter';
 import { useWallet } from '@/hooks/useWallet';
 import { useAdmin } from '@/hooks/useAdmin';
 import { formatAddress } from '@/lib/web3';
+import { getLotteryContract } from '@/lib/lotteryContract';
 import { useToast } from '@/hooks/use-toast';
 import WalletModal from './modals/WalletModal';
 import { Button } from '@/components/ui/button';
@@ -18,33 +19,63 @@ import { Wallet, Menu, X, ShieldCheck } from 'lucide-react';
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
-  const { isConnected, account, disconnect } = useWallet();
+  const { isConnected, account, disconnect, provider } = useWallet();
   const { isAdmin } = useAdmin();
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
   
-  // Function to handle clicking on the admin link - direct approach
+  // Function to handle clicking on the admin link - simplest direct check
   const handleAdminClick = async (e: React.MouseEvent) => {
     e.preventDefault(); // Always prevent default navigation
-
-    // Step 1: Check if MetaMask is connected
+    
+    // DIRECT CHECK 1: Is wallet connected?
     if (!isConnected) {
       toast({
-        title: "Not Connected",
-        description: "Please connect to MetaMask to access admin features.",
-        variant: "destructive"
+        title: "Wallet Not Connected",
+        description: "Please connect your wallet to access admin features.",
+        variant: "destructive",
+        duration: 3000
       });
       return;
     }
     
-    // Step 2: Check if current wallet is admin
-    console.log("Checking if wallet is admin...");
+    // DIRECT CHECK 2: Is it the admin wallet?
     try {
-      if (!isAdmin) {
+      if (!provider || !account) {
+        toast({
+          title: "Wallet Error",
+          description: "Error accessing wallet. Please try again.",
+          variant: "destructive",
+          duration: 3000
+        });
+        return;
+      }
+      
+      // Get network and contract information
+      const network = await provider.getNetwork();
+      const chainId = network.chainId.toString();
+      const contract = getLotteryContract(provider, chainId);
+      
+      if (!contract) {
+        toast({
+          title: "Contract Error",
+          description: "Could not access lottery contract. Please ensure you're on the correct network.",
+          variant: "destructive",
+          duration: 3000
+        });
+        return;
+      }
+      
+      // Get admin address directly from contract
+      const adminAddress = await contract.admin();
+      const isCurrentAdmin = adminAddress.toLowerCase() === account.toLowerCase();
+      
+      if (!isCurrentAdmin) {
         toast({
           title: "Access Denied",
-          description: "You don't have admin privileges. Connect with the admin wallet to access this page.",
-          variant: "destructive"
+          description: "You don't have admin privileges. Please connect with the admin wallet.",
+          variant: "destructive",
+          duration: 3000
         });
         return;
       }
@@ -53,11 +84,12 @@ export default function Header() {
       console.log("Admin access granted, proceeding to admin page");
       setLocation("/admin");
     } catch (error) {
-      console.error("Error checking admin status:", error);
+      console.error("Error verifying admin access:", error);
       toast({
         title: "Error",
         description: "Error checking admin status. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
+        duration: 3000
       });
     }
   };
