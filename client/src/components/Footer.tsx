@@ -76,7 +76,7 @@ export default function Footer() {
               <div className="flex justify-between items-center mb-2">
                 <span className="text-sm text-gray-400">Contract Address:</span>
                 <a 
-                  href="https://sepolia.etherscan.io/address/0x83434534743bDCcf9Ad139160041fe7818B83b5e"
+                  href="https://etherscan.io/address/0x7C9e73d4C71dae564d41F78d56439bB4ba87592B"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-accent hover:text-white transition"
@@ -85,7 +85,7 @@ export default function Footer() {
                 </a>
               </div>
               <div className="font-mono text-sm break-all">
-                0x83434534743bDCcf9Ad139160041fe7818B83b5e
+                0x7C9e73d4C71dae564d41F78d56439bB4ba87592B
               </div>
             </div>
             <div className="flex space-x-2">
