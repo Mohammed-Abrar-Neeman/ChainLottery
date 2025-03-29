@@ -80,15 +80,16 @@ export default function Header() {
           <NavLink href="/tickets" label="My Tickets" />
           <NavLink href="/history" label="History" />
           <NavLink href="/faq" label="FAQ" />
-          <div 
-            onClick={() => window.location.href = '/admin'} 
-            className={`text-white hover:text-accent transition cursor-pointer ${location === '/admin' ? 'text-accent' : ''}`}
-          >
-            <span className="flex items-center">
-              <ShieldCheck className="mr-1 h-4 w-4" />
-              Admin
-            </span>
-          </div>
+          <Link href="/admin">
+            <div 
+              className={`text-white hover:text-accent transition cursor-pointer ${location === '/admin' ? 'text-accent' : ''}`}
+            >
+              <span className="flex items-center">
+                <ShieldCheck className="mr-1 h-4 w-4" />
+                Admin
+              </span>
+            </div>
+          </Link>
         </nav>
         
         {/* Wallet Connection */}
@@ -111,11 +112,13 @@ export default function Header() {
                 </DropdownMenuItem>
                 {isAdmin && (
                   <>
-                    <DropdownMenuItem onClick={() => window.location.href = '/admin'} className="cursor-pointer">
-                      <span className="w-full flex items-center">
-                        <ShieldCheck className="mr-2 h-4 w-4" />
-                        Admin Panel
-                      </span>
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin">
+                        <span className="w-full flex items-center">
+                          <ShieldCheck className="mr-2 h-4 w-4" />
+                          Admin Panel
+                        </span>
+                      </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                   </>
@@ -146,15 +149,16 @@ export default function Header() {
             <NavLink href="/tickets" label="My Tickets" isMobile />
             <NavLink href="/history" label="History" isMobile />
             <NavLink href="/faq" label="FAQ" isMobile />
-            <div 
-              onClick={() => window.location.href = '/admin'} 
-              className="block px-3 py-2 text-white hover:bg-white hover:bg-opacity-10 rounded-md cursor-pointer"
-            >
-              <span className="flex items-center">
-                <ShieldCheck className="mr-2 h-4 w-4" />
-                Admin Panel
-              </span>
-            </div>
+            <Link href="/admin">
+              <div 
+                className="block px-3 py-2 text-white hover:bg-white hover:bg-opacity-10 rounded-md cursor-pointer"
+              >
+                <span className="flex items-center">
+                  <ShieldCheck className="mr-2 h-4 w-4" />
+                  Admin Panel
+                </span>
+              </div>
+            </Link>
             
             {/* Mobile wallet connection */}
             {isConnected ? (

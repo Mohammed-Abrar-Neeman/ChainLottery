@@ -279,17 +279,7 @@ export default function Admin() {
   }, [isConnected, isAdmin, isAdminLoading, toast]);
   
   // Show an alert if not connected or not admin (without redirecting)
-  useEffect(() => {
-    // This effect will show a toast when user is not an admin
-    if (isConnected && !isAdmin && !isAdminLoading) {
-      toast({
-        title: "Access Denied",
-        description: "Not connected with an admin wallet. Please connect with the admin wallet to access this page.",
-        variant: "destructive",
-        duration: 5000,
-      });
-    }
-  }, [isConnected, isAdmin, isAdminLoading, toast]);
+  // REMOVING DUPLICATE EFFECT - This was causing double toast messages
   
   // Show loading if checking admin status
   if (isAdminLoading) {
@@ -306,6 +296,9 @@ export default function Admin() {
       </div>
     );
   }
+  
+  // Add debug logging to understand the current state
+  console.log("Admin component render state:", { isConnected, isAdmin, isAdminLoading });
   
   // If wallet is not connected or not admin, show minimal content while we redirect
   if (!isConnected || !isAdmin) {
