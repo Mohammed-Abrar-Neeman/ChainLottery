@@ -326,10 +326,28 @@ export default function Admin() {
         setShouldRedirect(true);
         return;
       }
+      
+      // Step 6: Force 2FA verification if not already verified
+      if (twoFactorState !== 'verified') {
+        console.log("2FA not verified, showing security tab");
+        // If 2FA not set up yet, make sure we show the security tab
+        if (twoFactorState === 'not-setup') {
+          setActiveTab('security');
+        } else if (twoFactorState === 'setup') {
+          // If 2FA is set up but not verified, show security tab for verification
+          setActiveTab('security');
+          toast({
+            title: "Verification Required",
+            description: "Please complete two-factor authentication to access admin functionality.",
+            variant: "default",
+            duration: 3000
+          });
+        }
+      }
     }, 300); // Small delay to ensure proper wallet state synchronization
     
     return () => clearTimeout(timer);
-  }, [isConnected, isAdmin, isAdminLoading, account, initialAdminAccount, toast]);
+  }, [isConnected, isAdmin, isAdminLoading, account, initialAdminAccount, twoFactorState, toast]);
   
   // Show an alert if not connected or not admin (without redirecting)
   // REMOVING DUPLICATE EFFECT - This was causing double toast messages
@@ -576,7 +594,17 @@ export default function Admin() {
           </TabsContent>
           
           <TabsContent value="draws">
-            <Card>
+            {twoFactorState !== 'verified' ? (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Authentication Required</AlertTitle>
+                <AlertDescription>
+                  You must complete two-factor authentication before accessing this feature.
+                  Please go to the Security tab to set up and verify your authenticator.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <Card>
               <CardHeader>
                 <CardTitle>Start New Lottery Draw</CardTitle>
                 <CardDescription>
@@ -628,10 +656,21 @@ export default function Admin() {
                 </Button>
               </CardFooter>
             </Card>
+            )}
           </TabsContent>
           
           <TabsContent value="complete">
-            <Card>
+            {twoFactorState !== 'verified' ? (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Authentication Required</AlertTitle>
+                <AlertDescription>
+                  You must complete two-factor authentication before accessing this feature.
+                  Please go to the Security tab to set up and verify your authenticator.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <Card>
               <CardHeader>
                 <CardTitle>Complete Draw Manually</CardTitle>
                 <CardDescription>
@@ -696,6 +735,7 @@ export default function Admin() {
                 </Button>
               </CardFooter>
             </Card>
+            )}
           </TabsContent>
         </Tabs>
       )}
