@@ -6,7 +6,41 @@ import { insertLotteryTicketSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup the API routes
+  // Admin middleware
+  const isAdmin = (req: any, res: any, next: any) => {
+    const adminKey = process.env.ADMIN_KEY;
+    const providedKey = req.headers['x-admin-key'];
+    
+    if (!adminKey || providedKey !== adminKey) {
+      return res.status(403).json({ message: 'Unauthorized' });
+    }
+    next();
+  };
+
   const apiRouter = app.route('/api');
+  
+  // Admin routes
+  app.post('/api/admin/lottery/finalize/:roundId', isAdmin, async (req, res) => {
+    try {
+      const roundId = parseInt(req.params.roundId);
+      const round = await storage.getLotteryRound(roundId);
+      
+      if (!round) {
+        return res.status(404).json({ message: 'Round not found' });
+      }
+      
+      if (round.isFinalized) {
+        return res.status(400).json({ message: 'Round already finalized' });
+      }
+      
+      // TODO: Implement contract interaction for draw finalization
+      
+      return res.json({ message: 'Round finalized successfully' });
+    } catch (error) {
+      console.error('Error finalizing round:', error);
+      return res.status(500).json({ message: 'Failed to finalize round' });
+    }
+  });
   
   // Get current lottery round info
   app.get('/api/lottery/current', async (req, res) => {
