@@ -69,7 +69,8 @@ export function useAdmin(): AdminState {
           }
           
           try {
-            const adminAddress = await contract.owner();
+            // Use admin property instead of owner() function
+            const adminAddress = await contract.admin();
             
             // Case-insensitive comparison of Ethereum addresses
             const isCurrentAdmin = adminAddress.toLowerCase() === account.toLowerCase();
