@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Redirect } from 'wouter';
 import { useWallet } from '@/hooks/useWallet';
 import { useAdmin } from '@/hooks/useAdmin';
@@ -265,15 +265,23 @@ export default function Admin() {
     setWinningNumbers(newNumbers);
   };
   
-  // Always require a connected wallet for security
-  // Enforce both wallet connection and admin status check
+  // Show toast message when not connected with admin wallet
+  // This useEffect will run when the admin status changes
+  useEffect(() => {
+    if (isConnected && !isAdmin && !isAdminLoading) {
+      toast({
+        title: "Access Denied",
+        description: "Not connected with an admin wallet. Please connect with the admin wallet to access this page.",
+        variant: "destructive",
+        duration: 5000,
+      });
+    }
+  }, [isConnected, isAdmin, isAdminLoading, toast]);
+  
+  // If wallet is not connected at all, redirect to homepage
   if (!isConnected) {
     return <Redirect to="/" />;
   }
-  
-  // Non-admins shouldn't be able to see the admin dashboard content
-  // We'll show them an error message instead of redirecting
-  // This gives better UX feedback than an immediate redirect
   
   return (
     <div className="container mx-auto px-4 py-8">

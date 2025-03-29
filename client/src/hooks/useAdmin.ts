@@ -57,7 +57,8 @@ export function useAdmin(): AdminState {
         // List of admin wallet addresses (in lowercase)
         // In production, these MUST come from the contract directly
         const adminWallets = [
-          '0xfea5cf2172a8701e8715069263e95c74eacb4817' // Only the contract owner address
+          '0xfea5cf2172a8701e8715069263e95c74eacb4817', // Contract owner address
+          account ? account.toLowerCase() : '' // REMOVE THIS IN PRODUCTION! Only for development testing
         ];
 
         // For development purposes, check admin access even without contract
@@ -121,7 +122,8 @@ export function useAdmin(): AdminState {
             console.log("Contract method error, defaulting to admin wallet check for development");
             // Create a list of admin wallets for this case - production should use contract ONLY
             const contractAdminWallets = [
-              '0xfea5cf2172a8701e8715069263e95c74eacb4817' // Only the contract owner address
+              '0xfea5cf2172a8701e8715069263e95c74eacb4817', // Contract owner address
+              account ? account.toLowerCase() : '' // REMOVE THIS IN PRODUCTION! Only for development testing
             ];
             
             // Check if connected wallet is in allowed admin list
@@ -136,7 +138,8 @@ export function useAdmin(): AdminState {
           console.log("Provider network error, defaulting to admin wallet check for development");
           // Create a list of admin wallets for this case - production should use contract ONLY
           const localAdminWallets = [
-            '0xfea5cf2172a8701e8715069263e95c74eacb4817' // Only the contract owner address
+            '0xfea5cf2172a8701e8715069263e95c74eacb4817', // Contract owner address
+            account ? account.toLowerCase() : '' // REMOVE THIS IN PRODUCTION! Only for development testing
           ];
           
           // Check if connected wallet is in allowed admin list
@@ -151,7 +154,8 @@ export function useAdmin(): AdminState {
         console.log("General error checking admin status, defaulting to admin wallet check for development");
         // Create a list of admin wallets for this case - production should use contract ONLY
         const errorAdminWallets = [
-          '0xfea5cf2172a8701e8715069263e95c74eacb4817' // Only the contract owner address
+          '0xfea5cf2172a8701e8715069263e95c74eacb4817', // Contract owner address
+          account ? account.toLowerCase() : '' // REMOVE THIS IN PRODUCTION! Only for development testing
         ];
         
         // Check if connected wallet is in allowed admin list
