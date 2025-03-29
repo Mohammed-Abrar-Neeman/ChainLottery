@@ -21,6 +21,7 @@ export interface AdminState {
   startNewDraw: (ticketPrice: string, useFutureBlock: boolean) => Promise<boolean>;
   completeDrawManually: (drawId: number, winningNumbers: number[]) => Promise<boolean>;
   getAdminStatus: () => Promise<void>;
+  clearTwoFactorState: () => void;
 }
 
 // This key is used to store 2FA state in localStorage
@@ -348,6 +349,15 @@ export function useAdmin(): AdminState {
     await refetchAdmin();
   };
 
+  // Function to clear the 2FA state (used when navigating away from Admin page)
+  const clearTwoFactorState = () => {
+    console.log("[Security] Clearing 2FA verification state");
+    // Remove the verification state from localStorage
+    localStorage.removeItem(ADMIN_2FA_KEY);
+    // Update the state
+    setTwoFactorState(twoFactorSecret ? 'setup' : 'not-setup');
+  };
+
   // Update admin status when account changes
   useEffect(() => {
     if (isConnected && account) {
@@ -369,6 +379,7 @@ export function useAdmin(): AdminState {
     verifyTwoFactor,
     startNewDraw,
     completeDrawManually,
-    getAdminStatus
+    getAdminStatus,
+    clearTwoFactorState
   };
 }

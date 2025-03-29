@@ -26,7 +26,8 @@ export default function Admin() {
     setupTwoFactor,
     verifyTwoFactor,
     startNewDraw,
-    completeDrawManually
+    completeDrawManually,
+    clearTwoFactorState
   } = useAdmin();
   
   // Wallet watchdog - simple approach
@@ -346,8 +347,12 @@ export default function Admin() {
       }
     }, 300); // Small delay to ensure proper wallet state synchronization
     
-    return () => clearTimeout(timer);
-  }, [isConnected, isAdmin, isAdminLoading, account, initialAdminAccount, twoFactorState, toast]);
+    return () => {
+      clearTimeout(timer);
+      console.log("[Security] User navigated away from admin page, clearing 2FA state");
+      clearTwoFactorState();
+    };
+  }, [isConnected, isAdmin, isAdminLoading, account, initialAdminAccount, twoFactorState, toast, clearTwoFactorState]);
   
   // Show an alert if not connected or not admin (without redirecting)
   // REMOVING DUPLICATE EFFECT - This was causing double toast messages
