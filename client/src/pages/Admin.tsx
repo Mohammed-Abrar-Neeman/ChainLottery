@@ -265,14 +265,15 @@ export default function Admin() {
     setWinningNumbers(newNumbers);
   };
   
-  // For production, we'll require wallet connection
-  // For development, we'll allow access to the admin page without a wallet
-  // but still show a warning
-  const requiresWalletConnection = false; // Set to true in production
-  
-  if (requiresWalletConnection && !isConnected) {
+  // Always require a connected wallet for security
+  // Enforce both wallet connection and admin status check
+  if (!isConnected) {
     return <Redirect to="/" />;
   }
+  
+  // Non-admins shouldn't be able to see the admin dashboard content
+  // We'll show them an error message instead of redirecting
+  // This gives better UX feedback than an immediate redirect
   
   return (
     <div className="container mx-auto px-4 py-8">

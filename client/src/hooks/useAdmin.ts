@@ -55,10 +55,9 @@ export function useAdmin(): AdminState {
         
         // Define this at the top of the function so it's available throughout
         // List of admin wallet addresses (in lowercase)
-        // In production, these would come from the contract directly
+        // In production, these MUST come from the contract directly
         const adminWallets = [
-          '0xfea5cf2172a8701e8715069263e95c74eacb4817', // Contract address
-          account ? account.toLowerCase() : '' // Only for development - remove in production!
+          '0xfea5cf2172a8701e8715069263e95c74eacb4817' // Only the contract owner address
         ];
 
         // For development purposes, check admin access even without contract
@@ -120,10 +119,9 @@ export function useAdmin(): AdminState {
             return isCurrentAdmin;
           } catch (contractError) {
             console.log("Contract method error, defaulting to admin wallet check for development");
-            // Create a new list of admin wallets for this case
+            // Create a list of admin wallets for this case - production should use contract ONLY
             const contractAdminWallets = [
-              '0xfea5cf2172a8701e8715069263e95c74eacb4817', // Contract address
-              account ? account.toLowerCase() : '' // Only for development - remove in production!
+              '0xfea5cf2172a8701e8715069263e95c74eacb4817' // Only the contract owner address
             ];
             
             // Check if connected wallet is in allowed admin list
@@ -136,10 +134,9 @@ export function useAdmin(): AdminState {
           }
         } catch (providerError) {
           console.log("Provider network error, defaulting to admin wallet check for development");
-          // Create a new list of admin wallets for this case
+          // Create a list of admin wallets for this case - production should use contract ONLY
           const localAdminWallets = [
-            '0xfea5cf2172a8701e8715069263e95c74eacb4817', // Contract address
-            account ? account.toLowerCase() : '' // Only for development - remove in production!
+            '0xfea5cf2172a8701e8715069263e95c74eacb4817' // Only the contract owner address
           ];
           
           // Check if connected wallet is in allowed admin list
@@ -152,10 +149,9 @@ export function useAdmin(): AdminState {
         }
       } catch (error) {
         console.log("General error checking admin status, defaulting to admin wallet check for development");
-        // Create a new list of admin wallets for this case
+        // Create a list of admin wallets for this case - production should use contract ONLY
         const errorAdminWallets = [
-          '0xfea5cf2172a8701e8715069263e95c74eacb4817', // Contract address
-          account ? account.toLowerCase() : '' // Only for development - remove in production!
+          '0xfea5cf2172a8701e8715069263e95c74eacb4817' // Only the contract owner address
         ];
         
         // Check if connected wallet is in allowed admin list
