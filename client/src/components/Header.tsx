@@ -25,6 +25,17 @@ export default function Header() {
   
   // Function to handle clicking on the admin link
   const handleAdminClick = (e: React.MouseEvent) => {
+    console.log("Admin link clicked, isAdmin:", isAdmin);
+    if (!isConnected) {
+      e.preventDefault();
+      toast({
+        title: "Not Connected",
+        description: "You need to connect your wallet first.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     if (!isAdmin) {
       e.preventDefault();
       toast({
@@ -32,7 +43,11 @@ export default function Header() {
         description: "You don't have admin privileges. Connect with the admin wallet to access this page.",
         variant: "destructive"
       });
+      return;
     }
+    
+    // Allow navigation to proceed if wallet is connected and is admin
+    console.log("Admin access granted, proceeding to admin page");
   };
   
   const toggleMobileMenu = () => {

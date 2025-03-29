@@ -32,6 +32,7 @@ export default function Admin() {
   // Store initial wallet account for watchdog
   const [initialAccount, setInitialAccount] = useState<string | null>(null);
   const [shouldRedirect, setShouldRedirect] = useState(false);
+  const [walletChanged, setWalletChanged] = useState(false);
   
   // Initialize toast
   const { toast } = useToast();
@@ -269,33 +270,47 @@ export default function Admin() {
     setWinningNumbers(newNumbers);
   };
   
-  // Setup redirects for non-admin access and wallet watchdog
+  // Simplified admin verification - store admin wallet only on first render
   useEffect(() => {
-    // Set initial account when mounted and connected with an admin wallet
+    // Only track wallet for watchdog if it's an admin wallet and we haven't stored one yet
     if (isConnected && isAdmin && account && !initialAccount) {
+      console.log("Storing initial admin wallet:", account);
       setInitialAccount(account);
     }
+  }, [isConnected, isAdmin, account, initialAccount]);
 
-    // Redirect case 1: If not admin or not connected
-    if (!isAdminLoading && (!isConnected || !isAdmin)) {
+  // Handle redirects - separate from the admin verification 
+  useEffect(() => {
+    // Skip all checks while still loading admin status
+    if (isAdminLoading) {
+      return;
+    }
+
+    // CASE 1: Not connected or not admin - redirect to home
+    if (!isConnected || !isAdmin) {
+      console.log("Access denied - not admin or not connected");
       toast({
         title: "Access Denied",
-        description: "Not connected with an admin wallet. Please connect with the admin wallet to access this page.",
+        description: "You don't have admin privileges. Connect with the admin wallet to access this page.",
         variant: "destructive",
-        duration: 5000,
+        duration: 3000,
       });
       setShouldRedirect(true);
+      return;
     }
-    
-    // Redirect case 2: Wallet changed - watchdog functionality
-    if (initialAccount && account && initialAccount !== account) {
+
+    // CASE 2: Wallet changed from initial admin wallet - redirect to home
+    if (initialAccount && account && initialAccount.toLowerCase() !== account.toLowerCase()) {
+      console.log("Wallet changed from", initialAccount, "to", account);
+      setWalletChanged(true);
       toast({
         title: "Wallet Changed",
         description: "Your wallet has changed. Redirecting to home page.",
         variant: "default",
-        duration: 5000,
+        duration: 3000,
       });
       setShouldRedirect(true);
+      return;
     }
   }, [isConnected, isAdmin, isAdminLoading, account, initialAccount, toast]);
   
