@@ -37,6 +37,9 @@ export default function Admin() {
   // Initialize toast
   const { toast } = useToast();
   
+  // Track if we've already shown the 2FA verification toast
+  const [hasShownVerificationToast, setHasShownVerificationToast] = useState(false);
+  
   const [activeTab, setActiveTab] = useState('overview');
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [verifying2FA, setVerifying2FA] = useState(false);
@@ -337,13 +340,21 @@ export default function Admin() {
         } else if (twoFactorState === 'setup') {
           // If 2FA is set up but not verified, show security tab for verification
           setActiveTab('security');
-          toast({
-            title: "Verification Required",
-            description: "Please complete two-factor authentication to access admin functionality.",
-            variant: "default",
-            duration: 3000
-          });
+          
+          // Only show toast once
+          if (!hasShownVerificationToast) {
+            toast({
+              title: "Verification Required",
+              description: "Please complete two-factor authentication to access admin functionality.",
+              variant: "default",
+              duration: 3000
+            });
+            setHasShownVerificationToast(true);
+          }
         }
+      } else {
+        // If we're verified, update our toast tracking as well
+        setHasShownVerificationToast(true);
       }
     }, 300); // Small delay to ensure proper wallet state synchronization
     
@@ -357,7 +368,7 @@ export default function Admin() {
         clearTwoFactorState();
       }
     };
-  }, [isConnected, isAdmin, isAdminLoading, account, initialAdminAccount, twoFactorState, toast, clearTwoFactorState]);
+  }, [isConnected, isAdmin, isAdminLoading, account, initialAdminAccount, twoFactorState, toast, clearTwoFactorState, hasShownVerificationToast]);
   
   // Show an alert if not connected or not admin (without redirecting)
   // REMOVING DUPLICATE EFFECT - This was causing double toast messages
