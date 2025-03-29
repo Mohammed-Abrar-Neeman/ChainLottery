@@ -1,0 +1,29 @@
+Admin component render state: {isConnected: true, isAdmin: true, isAdminLoading: false}
+ 2FA not verified, showing security tab
+ Admin component render state: {isConnected: true, isAdmin: true, isAdminLoading: false}
+ [Security] User navigated away from admin page, clearing 2FA state
+ [Security] Clearing 2FA verification state
+ Admin page loaded - checking wallet status {isConnected: true, isAdmin: true, account: '0x03C4bcC1599627e0f766069Ae70E40C62b5d6f1e'}
+ Admin component render state: {isConnected: true, isAdmin: true, isAdminLoading: false}
+ 2FA not verified, showing security tab
+ Admin component render state: {isConnected: true, isAdmin: true, isAdminLoading: false}
+ [Security] User navigated away from admin page, clearing 2FA state
+ [Security] Clearing 2FA verification state
+ Admin page loaded - checking wallet status {isConnected: true, isAdmin: true, account: '0x03C4bcC1599627e0f766069Ae70E40C62b5d6f1e'}
+ Admin component render state: {isConnected: true, isAdmin: true, isAdminLoading: false}
+ Admin component render state: {isConnected: true, isAdmin: true, isAdminLoading: false}
+ [Security] User navigated away from admin page, clearing 2FA state
+ [Security] Clearing 2FA verification state
+ Admin page loaded - checking wallet status {isConnected: true, isAdmin: true, account: '0x03C4bcC1599627e0f766069Ae70E40C62b5d6f1e'}
+ Admin component render state: {isConnected: true, isAdmin: true, isAdminLoading: false}
+ 2FA not verified, showing security tab
+ Admin component render state: {isConnected: true, isAdmin: true, isAdminLoading: false}
+ [Security] User navigated away from admin page, clearing 2FA state
+ [Security] Clearing 2FA verification state
+ Admin page loaded - checking wallet status {isConnected: true, isAdmin: true, account: '0x03C4bcC1599627e0f766069Ae70E40C62b5d6f1e'}
+ Admin component render state: {isConnected: true, isAdmin: true, isAdminLoading: false}
+ Admin component render state: {isConnected: true, isAdmin: true, isAdminLoading: false}
+ [Security] User navigated away from admin page, clearing 2FA state
+ [Security] Clearing 2FA verification state
+ Admin page loaded - checking wallet status {isConnected: true, isAdmin: true, account: '0x03C4bcC1599627e0f766069Ae70E40C62b5d6f1e'}
+ Admin component render state: {isConnected: true, isAdmin: true, isAdminLoading: false}

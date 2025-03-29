@@ -34,7 +34,16 @@ export function useAdmin(): AdminState {
   
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminError, setAdminError] = useState<Error | null>(null);
-  const [twoFactorState, setTwoFactorState] = useState<TwoFactorState>('not-setup');
+  const [twoFactorState, setTwoFactorState] = useState<TwoFactorState>(() => {
+    // Initialize from localStorage if available
+    const savedVerification = localStorage.getItem(ADMIN_2FA_KEY);
+    // If we have a saved verification, and it's 'true', then we consider the 2FA as verified
+    if (savedVerification === 'true') {
+      console.log('[INIT] Loading verified 2FA state from localStorage');
+      return 'verified';
+    }
+    return 'not-setup';
+  });
   const [twoFactorSecret, setTwoFactorSecret] = useState<string | undefined>();
   const [twoFactorQrCode, setTwoFactorQrCode] = useState<string | undefined>();
   
@@ -229,6 +238,11 @@ export function useAdmin(): AdminState {
         
         // Update state
         setTwoFactorState('verified');
+        
+        // Log the current 2FA state for debugging
+        console.log("[DEV MODE] 2FA state set to 'verified', current state:", 'verified');
+        console.log("[DEV MODE] localStorage 2FA verification:", localStorage.getItem(ADMIN_2FA_KEY));
+        
         return true;
       }
       
@@ -351,11 +365,20 @@ export function useAdmin(): AdminState {
 
   // Function to clear the 2FA state (used when navigating away from Admin page)
   const clearTwoFactorState = () => {
-    console.log("[Security] Clearing 2FA verification state");
-    // Remove the verification state from localStorage
-    localStorage.removeItem(ADMIN_2FA_KEY);
-    // Update the state
-    setTwoFactorState(twoFactorSecret ? 'setup' : 'not-setup');
+    // We should check if we're actually navigating away from the admin page
+    // This prevents the state from being cleared during component remounting
+    const isAdminPageActive = window.location.pathname.includes('/admin');
+    
+    // Only clear if we're definitely away from the admin page
+    if (!isAdminPageActive) {
+      console.log("[Security] Clearing 2FA verification state");
+      // Remove the verification state from localStorage
+      localStorage.removeItem(ADMIN_2FA_KEY);
+      // Update the state
+      setTwoFactorState(twoFactorSecret ? 'setup' : 'not-setup');
+    } else {
+      console.log("[Security] Not clearing 2FA state - still on admin page");
+    }
   };
 
   // Update admin status when account changes

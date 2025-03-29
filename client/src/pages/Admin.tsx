@@ -349,8 +349,13 @@ export default function Admin() {
     
     return () => {
       clearTimeout(timer);
-      console.log("[Security] User navigated away from admin page, clearing 2FA state");
-      clearTwoFactorState();
+      // Only clear 2FA state when we're actually navigating away from the Admin page,
+      // not during internal re-renders
+      const isAdminPageActive = window.location.pathname.includes('/admin');
+      if (!isAdminPageActive) {
+        console.log("[Security] User navigated away from admin page, clearing 2FA state");
+        clearTwoFactorState();
+      }
     };
   }, [isConnected, isAdmin, isAdminLoading, account, initialAdminAccount, twoFactorState, toast, clearTwoFactorState]);
   
