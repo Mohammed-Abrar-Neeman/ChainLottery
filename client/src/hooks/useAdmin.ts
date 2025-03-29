@@ -233,11 +233,10 @@ export function useAdmin(): AdminState {
   // Start a new lottery draw
   const startNewDraw = async (ticketPrice: string, useFutureBlock: boolean): Promise<boolean> => {
     try {
-      // For development, don't require 2FA verification
-      // In production, uncomment the below:
-      // if (!isAdmin || twoFactorState !== 'verified') {
-      //   throw new Error("Not authorized");
-      // }
+      // Always verify the admin status and 2FA before proceeding
+      if (!isAdmin || twoFactorState !== 'verified') {
+        throw new Error("Not authorized - Admin status and 2FA verification required");
+      }
 
       // Mock implementation for development
       console.log(`[DEV MODE] Starting new draw with price: ${ticketPrice} ETH, useFutureBlock: ${useFutureBlock}`);
@@ -285,11 +284,10 @@ export function useAdmin(): AdminState {
   // Complete a draw manually by setting winning numbers
   const completeDrawManually = async (drawId: number, winningNumbers: number[]): Promise<boolean> => {
     try {
-      // For development, don't require 2FA verification
-      // In production, uncomment the below:
-      // if (!isAdmin || twoFactorState !== 'verified') {
-      //   throw new Error("Not authorized");
-      // }
+      // Always verify the admin status and 2FA before proceeding
+      if (!isAdmin || twoFactorState !== 'verified') {
+        throw new Error("Not authorized - Admin status and 2FA verification required");
+      }
       
       if (winningNumbers.length !== 6) {
         throw new Error("Must provide exactly 6 winning numbers");

@@ -47,21 +47,50 @@ export default function Admin() {
   const [winningNumbers, setWinningNumbers] = useState(['', '', '', '', '', '']);
   const [completingDraw, setCompletingDraw] = useState(false);
   
-  // Handle 2FA setup
+  // Handle 2FA setup - ensure admin access before proceeding
   const handleSetup2FA = async () => {
     try {
+      // Double check admin status before allowing 2FA setup
+      if (!isAdmin) {
+        toast({
+          title: "Access Denied",
+          description: "You must be an admin to set up 2FA",
+          variant: "destructive",
+          duration: 3000,
+        });
+        return;
+      }
+      
       setSetupLoading(true);
       await setupTwoFactor();
       setSetupLoading(false);
     } catch (error) {
       console.error('Error setting up 2FA:', error);
       setSetupLoading(false);
+      
+      toast({
+        title: "Error",
+        description: "Failed to set up 2FA. Please try again.",
+        variant: "destructive",
+        duration: 3000,
+      });
     }
   };
   
   // Handle 2FA verification
   const handleVerify2FA = async () => {
     try {
+      // Double check admin status before allowing 2FA verification
+      if (!isAdmin) {
+        toast({
+          title: "Access Denied",
+          description: "You must be an admin to verify 2FA",
+          variant: "destructive",
+          duration: 3000,
+        });
+        return;
+      }
+      
       setVerifying2FA(true);
       const result = await verifyTwoFactor(twoFactorCode);
       setVerifying2FA(false);
@@ -103,35 +132,129 @@ export default function Admin() {
   // Handle starting a new draw
   const handleStartNewDraw = async () => {
     try {
+      // Double check admin status and 2FA before proceeding
+      if (!isAdmin || twoFactorState !== 'verified') {
+        toast({
+          title: "Access Denied",
+          description: "You must be an admin with verified 2FA to start a new draw",
+          variant: "destructive",
+          duration: 3000,
+        });
+        return;
+      }
+      
       setStartingNewDraw(true);
       await startNewDraw(ticketPrice, useFutureBlock);
       setStartingNewDraw(false);
+      
+      // Show success toast
+      toast({
+        title: "Draw Started",
+        description: `New lottery draw started with ticket price ${ticketPrice} ETH`,
+        variant: "success",
+        duration: 5000,
+        icon: <CheckCircle className="h-5 w-5 text-green-500" />,
+      });
     } catch (error) {
       console.error('Error starting new draw:', error);
       setStartingNewDraw(false);
+      
+      toast({
+        title: "Error",
+        description: `Failed to start new draw: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: "destructive",
+        duration: 3000,
+      });
     }
   };
   
   // Handle completing a draw manually
   const handleCompleteDraw = async () => {
     try {
+      // Double check admin status and 2FA before proceeding
+      if (!isAdmin || twoFactorState !== 'verified') {
+        toast({
+          title: "Access Denied",
+          description: "You must be an admin with verified 2FA to complete a draw",
+          variant: "destructive",
+          duration: 3000,
+        });
+        return;
+      }
+      
+      // Input validation
+      if (!drawId) {
+        toast({
+          title: "Error",
+          description: "Please enter a valid Draw ID",
+          variant: "destructive",
+          duration: 3000,
+        });
+        return;
+      }
+      
       setCompletingDraw(true);
       
       // Convert string numbers to integers
       const numbers = winningNumbers.map(num => parseInt(num));
       
       // Validate that all numbers are valid
-      if (numbers.some(isNaN)) {
-        alert('All winning numbers must be valid numbers');
+      if (numbers.some(isNaN) || numbers.some(n => n <= 0)) {
+        toast({
+          title: "Error",
+          description: "All winning numbers must be valid positive numbers",
+          variant: "destructive",
+          duration: 3000,
+        });
+        setCompletingDraw(false);
+        return;
+      }
+      
+      // Validate main numbers are between 1-70
+      if (numbers.slice(0, 5).some(n => n < 1 || n > 70)) {
+        toast({
+          title: "Error",
+          description: "Main numbers must be between 1 and 70",
+          variant: "destructive",
+          duration: 3000,
+        });
+        setCompletingDraw(false);
+        return;
+      }
+      
+      // Validate LOTTO number is between 1-30
+      if (numbers[5] < 1 || numbers[5] > 30) {
+        toast({
+          title: "Error",
+          description: "LOTTO number must be between 1 and 30",
+          variant: "destructive",
+          duration: 3000,
+        });
         setCompletingDraw(false);
         return;
       }
       
       await completeDrawManually(parseInt(drawId), numbers);
       setCompletingDraw(false);
+      
+      // Show success toast
+      toast({
+        title: "Draw Completed",
+        description: `Draw #${drawId} completed with numbers: ${numbers.slice(0, 5).join(', ')} + ${numbers[5]}`,
+        variant: "success",
+        duration: 5000,
+        icon: <CheckCircle className="h-5 w-5 text-green-500" />,
+      });
     } catch (error) {
       console.error('Error completing draw:', error);
       setCompletingDraw(false);
+      
+      toast({
+        title: "Error",
+        description: `Failed to complete draw: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: "destructive",
+        duration: 3000,
+      });
     }
   };
   
@@ -142,10 +265,11 @@ export default function Admin() {
     setWinningNumbers(newNumbers);
   };
   
-  // For development, we're allowing access without wallet connection
-  // if (!isConnected) {
-  //   return <Redirect to="/" />;
-  // }
+  // Always require wallet connection - this prevents access to the page
+  // if not properly connected with a wallet
+  if (!isConnected) {
+    return <Redirect to="/" />;
+  }
   
   return (
     <div className="container mx-auto px-4 py-8">
