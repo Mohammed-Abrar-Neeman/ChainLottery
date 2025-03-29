@@ -9,9 +9,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, KeyRound, ChevronRight, Lock, Unlock, RefreshCw } from 'lucide-react';
+import { AlertCircle, KeyRound, ChevronRight, Lock, Unlock, RefreshCw, CheckCircle } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { useToast } from '@/hooks/use-toast';
 
 export default function Admin() {
   const { isConnected } = useWallet();
@@ -27,6 +28,9 @@ export default function Admin() {
     startNewDraw,
     completeDrawManually
   } = useAdmin();
+  
+  // Initialize toast
+  const { toast } = useToast();
   
   const [activeTab, setActiveTab] = useState('overview');
   const [twoFactorCode, setTwoFactorCode] = useState('');
@@ -62,14 +66,37 @@ export default function Admin() {
       const result = await verifyTwoFactor(twoFactorCode);
       setVerifying2FA(false);
       
-      if (!result) {
-        alert('Invalid code. Please try again.');
+      if (result) {
+        // Show success toast with CheckCircle icon
+        toast({
+          title: "Verification successful!",
+          description: "Your two-factor authentication has been verified successfully.",
+          variant: "success",
+          duration: 5000,
+          icon: <CheckCircle className="h-5 w-5 text-green-500" />,
+        });
+        
+        // Navigate to the admin overview
+        setActiveTab('overview');
+      } else {
+        toast({
+          title: "Verification failed",
+          description: "Invalid code. Please try again.",
+          variant: "destructive",
+          duration: 3000,
+        });
         setTwoFactorCode('');
       }
     } catch (error) {
       console.error('Error verifying 2FA:', error);
       setVerifying2FA(false);
-      alert('Error verifying code. Please try again.');
+      
+      toast({
+        title: "Error",
+        description: "Error verifying code. Please try again.",
+        variant: "destructive",
+        duration: 3000,
+      });
     }
   };
   
