@@ -10,7 +10,7 @@ interface ContractAddresses {
 export const contractAddresses: ContractAddresses = {
   // Ethereum Mainnet
   '1': {
-    lottery: '0x7C9e73d4C71dae564d41F78d56439bB4ba87592B'
+    lottery: '0xFEa5cF2172a8701E8715069263e95c74eAcb4817'
   },
   // Sepolia Testnet
   '11155111': {
@@ -18,11 +18,11 @@ export const contractAddresses: ContractAddresses = {
   },
   // Goerli Testnet 
   '5': {
-    lottery: '0x7C9e73d4C71dae564d41F78d56439bB4ba87592B'
+    lottery: '0xFEa5cF2172a8701E8715069263e95c74eAcb4817'
   },
   // Local development
   '1337': {
-    lottery: '0x7C9e73d4C71dae564d41F78d56439bB4ba87592B'
+    lottery: '0xFEa5cF2172a8701E8715069263e95c74eAcb4817'
   }
 };
 

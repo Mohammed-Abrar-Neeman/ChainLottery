@@ -58,9 +58,14 @@ export function useAdmin(): AdminState {
         }
 
         try {
+          console.log("Getting network information");
           const network = await provider.getNetwork();
           const chainId = network.chainId.toString();
+          console.log("Network chain ID:", chainId);
+          
+          console.log("Getting lottery contract for chain ID:", chainId);
           const contract = getLotteryContract(provider, chainId);
+          console.log("Contract instance:", contract ? "Contract found" : "Contract not found");
           
           if (!contract) {
             console.log("Contract not found, cannot verify admin status");
@@ -70,10 +75,14 @@ export function useAdmin(): AdminState {
           
           try {
             // Use admin property instead of owner() function
+            console.log("Attempting to retrieve admin address from contract");
             const adminAddress = await contract.admin();
+            console.log("Admin address from contract:", adminAddress);
+            console.log("Current connected account:", account);
             
             // Case-insensitive comparison of Ethereum addresses
             const isCurrentAdmin = adminAddress.toLowerCase() === account.toLowerCase();
+            console.log("Is current account admin?", isCurrentAdmin);
             setIsAdmin(isCurrentAdmin);
             
             // Check for 2FA status if user is admin
