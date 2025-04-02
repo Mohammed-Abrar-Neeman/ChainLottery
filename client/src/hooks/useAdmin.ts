@@ -18,7 +18,7 @@ export interface AdminState {
   twoFactorQrCode?: string;
   setupTwoFactor: () => Promise<{secret: string, qrCode: string}>;
   verifyTwoFactor: (token: string) => Promise<boolean>;
-  startNewDraw: (ticketPrice: string, useFutureBlock: boolean) => Promise<boolean>;
+  startNewDraw: (ticketPrice: string, initialJackpot: string, drawTime: number, seriesIndex: number, useFutureBlock: boolean) => Promise<boolean>;
   completeDrawManually: (drawId: number, winningNumbers: number[]) => Promise<boolean>;
   getAdminStatus: () => Promise<void>;
   clearTwoFactorState: () => void;
@@ -256,7 +256,7 @@ export function useAdmin(): AdminState {
   };
 
   // Start a new lottery draw
-  const startNewDraw = async (ticketPrice: string, useFutureBlock: boolean): Promise<boolean> => {
+  const startNewDraw = async (ticketPrice: string, initialJackpot: string, drawTime: number, seriesIndex: number, useFutureBlock: boolean): Promise<boolean> => {
     try {
       // Always verify the admin status and 2FA before proceeding
       if (!isAdmin || twoFactorState !== 'verified') {
@@ -264,7 +264,7 @@ export function useAdmin(): AdminState {
       }
 
       // Mock implementation for development
-      console.log(`[DEV MODE] Starting new draw with price: ${ticketPrice} ETH, useFutureBlock: ${useFutureBlock}`);
+      console.log(`[DEV MODE] Starting new draw with price: ${ticketPrice} ETH, initialJackpot: ${initialJackpot}, drawTime: ${drawTime}, seriesIndex: ${seriesIndex}, useFutureBlock: ${useFutureBlock}`);
       
       // In production, this should use the contract
       if (provider) {
@@ -276,9 +276,21 @@ export function useAdmin(): AdminState {
           if (contract) {
             try {
               const priceInWei = parseEther(ticketPrice);
+              const jackpotInWei = parseEther(initialJackpot);
               
-              // Call the smart contract function to start a new draw
-              const tx = await contract.startNewDraw(priceInWei, useFutureBlock);
+              // Call the appropriate smart contract function based on the draw type
+              let tx;
+              if (useFutureBlock) {
+                // Get block number to use for future block draw
+                const currentBlock = await provider.getBlockNumber();
+                const futureBlockNumber = currentBlock + 200; // 200 blocks in the future
+                
+                tx = await contract.startNewFutureBlockDraw(priceInWei, jackpotInWei, futureBlockNumber, seriesIndex);
+              } else {
+                // Use timestamp for regular draw
+                tx = await contract.startNewXDraw(priceInWei, jackpotInWei, drawTime, seriesIndex);
+              }
+              
               await tx.wait();
               
               // Invalidate relevant queries
@@ -288,6 +300,7 @@ export function useAdmin(): AdminState {
               console.log("New draw started successfully");
               return true;
             } catch (error) {
+              console.error("Contract call error:", error);
               console.log("[DEV MODE] Contract call failed, using mock implementation");
             }
           }

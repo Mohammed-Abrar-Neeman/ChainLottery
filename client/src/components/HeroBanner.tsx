@@ -11,9 +11,48 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function HeroBanner() {
-  const { lotteryData, timeRemaining, formatUSD } = useLotteryData();
+  const { 
+    lotteryData, 
+    timeRemaining, 
+    formatUSD,
+    seriesList,
+    isLoadingSeriesList,
+    seriesDraws,
+    isLoadingSeriesDraws,
+    totalDrawsCount,
+    isLoadingTotalDrawsCount,
+    selectedSeriesIndex,
+    selectedDrawId,
+    setSelectedSeriesIndex,
+    setSelectedDrawId,
+    areDrawsAvailable
+  } = useLotteryData();
+  
+  // Enhanced check for draw availability - specifically focused on the selected series
+  const hasAvailableDraws = () => {
+    // First check if draws are available overall
+    if (!areDrawsAvailable()) {
+      return false;
+    }
+    
+    // Then check if the selected series has available draws
+    return (
+      totalDrawsCount !== undefined && 
+      totalDrawsCount > 0 && 
+      seriesDraws && 
+      seriesDraws.length > 0 &&
+      lotteryData
+    );
+  };
   const { isConnected } = useWallet();
   const [showWalletModal, setShowWalletModal] = React.useState(false);
   
@@ -26,6 +65,16 @@ export default function HeroBanner() {
     if (!isConnected) {
       setShowWalletModal(true);
     }
+  };
+  
+  const handleSeriesChange = (value: string) => {
+    setSelectedSeriesIndex(parseInt(value));
+    // Reset draw selection when series changes
+    setSelectedDrawId(undefined);
+  };
+  
+  const handleDrawChange = (value: string) => {
+    setSelectedDrawId(parseInt(value));
   };
   
   return (
@@ -109,39 +158,134 @@ export default function HeroBanner() {
           </div>
           
           <div className="lg:w-1/2 relative">
-            <div className="bg-gradient-to-br from-primary to-accent p-8 lg:p-12 h-full flex flex-col justify-center text-white">
-              <div className="mb-6">
-                <span className="text-sm font-mono uppercase tracking-wider opacity-75">Current Jackpot</span>
-                <div className="flex items-baseline">
-                  <span className="text-4xl lg:text-5xl font-bold font-mono">{lotteryData?.jackpotAmount || '3.457'}</span>
-                  <span className="ml-2 text-xl">ETH</span>
+            <div className="bg-gradient-to-br from-primary to-accent p-8 lg:p-12 h-full flex flex-col justify-between text-white">
+              {/* Series and Draw Selection */}
+              <div className="mb-4 flex space-x-4">
+                <div className="w-1/2">
+                  <label className="text-sm font-mono uppercase tracking-wider opacity-75 mb-1 block">
+                    Series
+                  </label>
+                  <Select
+                    disabled={isLoadingSeriesList || !seriesList || seriesList.length === 0}
+                    value={selectedSeriesIndex?.toString()}
+                    onValueChange={handleSeriesChange}
+                  >
+                    <SelectTrigger className="bg-white bg-opacity-20 border-0 text-white">
+                      <SelectValue placeholder="Select series" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white text-gray-800">
+                      {seriesList?.map((series) => (
+                        <SelectItem key={series.index} value={series.index.toString()}>
+                          {series.name} {series.active ? ' (Active)' : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <span className="text-sm font-mono opacity-75">
-                  ≈ {formatUSD(lotteryData?.jackpotAmount || '3.457')}
-                </span>
+                
+                <div className="w-1/2">
+                  <label className="text-sm font-mono uppercase tracking-wider opacity-75 mb-1 block">
+                    Draw
+                  </label>
+                  <Select
+                    disabled={
+                      isLoadingSeriesDraws || 
+                      isLoadingTotalDrawsCount || 
+                      (totalDrawsCount !== undefined && totalDrawsCount <= 0) ||
+                      !seriesDraws || 
+                      seriesDraws.length === 0
+                    }
+                    value={selectedDrawId?.toString()}
+                    onValueChange={handleDrawChange}
+                  >
+                    <SelectTrigger className="bg-white bg-opacity-20 border-0 text-white">
+                      <SelectValue placeholder={
+                        totalDrawsCount === 0 
+                          ? "No draws available" 
+                          : "Select draw"
+                      } />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white text-gray-800">
+                      {seriesDraws?.filter(draw => draw.drawId !== 0).map((draw) => (
+                        <SelectItem key={draw.drawId} value={draw.drawId.toString()}>
+                          Draw #{draw.drawId} {!draw.completed ? ' (Active)' : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               
-              <div className="mb-6">
-                <span className="text-sm font-mono uppercase tracking-wider opacity-75">Time Remaining</span>
-                <div className="flex space-x-2 mt-1 font-mono">
-                  <div className="bg-white bg-opacity-20 rounded-lg p-2 text-center w-16">
-                    <div className="text-2xl font-bold">{timeRemaining.hours.toString().padStart(2, '0')}</div>
-                    <div className="text-xs uppercase">Hours</div>
+              <div className="flex-1">
+                {!hasAvailableDraws() && (
+                  <div className="bg-white bg-opacity-20 rounded-lg p-4 mb-6">
+                    <p className="text-lg font-semibold mb-1">No Active Draws Available</p>
+                    <p className="text-sm opacity-75">
+                      The admin must start a new lottery draw. Check back soon!
+                    </p>
                   </div>
-                  <div className="bg-white bg-opacity-20 rounded-lg p-2 text-center w-16">
-                    <div className="text-2xl font-bold">{timeRemaining.minutes.toString().padStart(2, '0')}</div>
-                    <div className="text-xs uppercase">Mins</div>
+                )}
+                
+                <div className="mb-6">
+                  <span className="text-sm font-mono uppercase tracking-wider opacity-75">Current Jackpot</span>
+                  <div className="flex items-baseline">
+                    <span className="text-4xl lg:text-5xl font-bold font-mono">
+                      {hasAvailableDraws() ? parseFloat(lotteryData?.jackpotAmount || '0').toFixed(4) : '0.0000'}
+                    </span>
+                    <span className="ml-2 text-xl">ETH</span>
                   </div>
-                  <div className="bg-white bg-opacity-20 rounded-lg p-2 text-center w-16">
-                    <div className="text-2xl font-bold">{timeRemaining.seconds.toString().padStart(2, '0')}</div>
-                    <div className="text-xs uppercase">Secs</div>
+                  <span className="text-sm font-mono opacity-75">
+                    ≈ {formatUSD(hasAvailableDraws() ? lotteryData?.jackpotAmount || '0' : '0')}
+                  </span>
+                </div>
+                
+                <div className="mb-6">
+                  <span className="text-sm font-mono uppercase tracking-wider opacity-75">Time Remaining</span>
+                  {hasAvailableDraws() ? (
+                    <div className="flex space-x-2 mt-1 font-mono">
+                      {timeRemaining.days > 0 && (
+                        <div className="bg-white bg-opacity-20 rounded-lg p-2 text-center w-16">
+                          <div className="text-2xl font-bold">{timeRemaining.days.toString().padStart(2, '0')}</div>
+                          <div className="text-xs uppercase">Days</div>
+                        </div>
+                      )}
+                      <div className="bg-white bg-opacity-20 rounded-lg p-2 text-center w-16">
+                        <div className="text-2xl font-bold">{timeRemaining.hours.toString().padStart(2, '0')}</div>
+                        <div className="text-xs uppercase">Hours</div>
+                      </div>
+                      <div className="bg-white bg-opacity-20 rounded-lg p-2 text-center w-16">
+                        <div className="text-2xl font-bold">{timeRemaining.minutes.toString().padStart(2, '0')}</div>
+                        <div className="text-xs uppercase">Mins</div>
+                      </div>
+                      <div className="bg-white bg-opacity-20 rounded-lg p-2 text-center w-16">
+                        <div className="text-2xl font-bold">{timeRemaining.seconds.toString().padStart(2, '0')}</div>
+                        <div className="text-xs uppercase">Secs</div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex space-x-2 mt-1 font-mono">
+                      <div className="bg-white bg-opacity-20 rounded-lg p-2 text-center w-16">
+                        <div className="text-2xl font-bold">00</div>
+                        <div className="text-xs uppercase">Hours</div>
+                      </div>
+                      <div className="bg-white bg-opacity-20 rounded-lg p-2 text-center w-16">
+                        <div className="text-2xl font-bold">00</div>
+                        <div className="text-xs uppercase">Mins</div>
+                      </div>
+                      <div className="bg-white bg-opacity-20 rounded-lg p-2 text-center w-16">
+                        <div className="text-2xl font-bold">00</div>
+                        <div className="text-xs uppercase">Secs</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <div>
+                  <span className="text-sm font-mono uppercase tracking-wider opacity-75">Participants</span>
+                  <div className="text-2xl font-bold mt-1">
+                    {hasAvailableDraws() ? lotteryData?.participantCount || '0' : '0'}
                   </div>
                 </div>
-              </div>
-              
-              <div>
-                <span className="text-sm font-mono uppercase tracking-wider opacity-75">Participants</span>
-                <div className="text-2xl font-bold mt-1">{lotteryData?.participantCount || 157}</div>
               </div>
             </div>
           </div>

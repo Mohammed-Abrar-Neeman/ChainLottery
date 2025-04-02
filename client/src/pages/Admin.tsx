@@ -47,6 +47,9 @@ export default function Admin() {
   
   // New draw form state
   const [ticketPrice, setTicketPrice] = useState('0.01');
+  const [initialJackpot, setInitialJackpot] = useState('0.1');
+  const [drawTimeHours, setDrawTimeHours] = useState(48); // 48 hours from now
+  const [seriesIndex, setSeriesIndex] = useState(0); // Default to first series
   const [useFutureBlock, setUseFutureBlock] = useState(true);
   const [startingNewDraw, setStartingNewDraw] = useState(false);
   
@@ -151,14 +154,18 @@ export default function Admin() {
         return;
       }
       
+      // Calculate draw time as timestamp (current time + drawTimeHours)
+      const now = Math.floor(Date.now() / 1000); // Current timestamp in seconds
+      const drawTime = now + (drawTimeHours * 60 * 60); // Add hours in seconds
+      
       setStartingNewDraw(true);
-      await startNewDraw(ticketPrice, useFutureBlock);
+      await startNewDraw(ticketPrice, initialJackpot, drawTime, seriesIndex, useFutureBlock);
       setStartingNewDraw(false);
       
       // Show success toast
       toast({
         title: "Draw Started",
-        description: `New lottery draw started with ticket price ${ticketPrice} ETH`,
+        description: `New lottery draw started with ticket price ${ticketPrice} ETH and initial jackpot ${initialJackpot} ETH`,
         variant: "success",
         duration: 5000,
         icon: <CheckCircle className="h-5 w-5 text-green-500" />,
@@ -646,6 +653,51 @@ export default function Admin() {
                     />
                     <p className="text-sm text-gray-500">
                       The price of each lottery ticket in ETH
+                    </p>
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <Label htmlFor="initialJackpot">Initial Jackpot (ETH)</Label>
+                    <Input 
+                      id="initialJackpot" 
+                      type="number" 
+                      step="0.01"
+                      min="0.01"
+                      value={initialJackpot} 
+                      onChange={(e) => setInitialJackpot(e.target.value)}
+                    />
+                    <p className="text-sm text-gray-500">
+                      The initial jackpot amount in ETH
+                    </p>
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <Label htmlFor="drawTimeHours">Draw Time (Hours from now)</Label>
+                    <Input 
+                      id="drawTimeHours" 
+                      type="number" 
+                      step="1"
+                      min="1"
+                      value={drawTimeHours} 
+                      onChange={(e) => setDrawTimeHours(parseInt(e.target.value))}
+                    />
+                    <p className="text-sm text-gray-500">
+                      The time when the draw will take place, specified in hours from now
+                    </p>
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <Label htmlFor="seriesIndex">Series Index</Label>
+                    <Input 
+                      id="seriesIndex" 
+                      type="number" 
+                      step="1"
+                      min="0"
+                      value={seriesIndex} 
+                      onChange={(e) => setSeriesIndex(parseInt(e.target.value))}
+                    />
+                    <p className="text-sm text-gray-500">
+                      The index of the series for this draw (start with 0 if no series exist)
                     </p>
                   </div>
                   

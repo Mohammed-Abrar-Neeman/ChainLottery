@@ -9,6 +9,14 @@ import BuyConfirmationModal from './modals/BuyConfirmationModal';
 import TransactionPendingModal from './modals/TransactionPendingModal';
 import TransactionSuccessModal from './modals/TransactionSuccessModal';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function BuyTickets() {
   // State for selected numbers (5 main numbers + 1 LOTTO number)
@@ -28,11 +36,25 @@ export default function BuyTickets() {
     buyQuickPickTicket,
     buyCustomTicket,
     generateQuickPick, 
-    isBuyingTickets 
+    isBuyingTickets,
+    seriesList,
+    isLoadingSeriesList,
+    seriesDraws,
+    isLoadingSeriesDraws,
+    totalDrawsCount,
+    isLoadingTotalDrawsCount,
+    selectedSeriesIndex,
+    selectedDrawId,
+    setSelectedSeriesIndex,
+    setSelectedDrawId,
+    hasAvailableDraws: isDrawAvailable
   } = useLotteryData();
   const { isConnected } = useWallet();
+  const { toast } = useToast();
   
-  const ticketPrice = parseFloat(lotteryData?.ticketPrice || '0.01');
+  // Using the enhanced check for draw availability from useLotteryData hook
+  
+  const ticketPrice = isDrawAvailable() ? parseFloat(lotteryData?.ticketPrice || '0.01') : 0;
   const networkFee = 0.0025; // Estimated gas fee in ETH
   const totalCost = ticketPrice + networkFee;
   
@@ -68,13 +90,40 @@ export default function BuyTickets() {
     setSelectedLottoNumber(lottoNumber);
   };
   
+  // Handle series change
+  const handleSeriesChange = (value: string) => {
+    setSelectedSeriesIndex(parseInt(value));
+    // Reset draw selection when series changes
+    setSelectedDrawId(undefined);
+  };
+  
+  // Handle draw change
+  const handleDrawChange = (value: string) => {
+    setSelectedDrawId(parseInt(value));
+  };
+  
   // Handle buy click
   const handleBuyClick = () => {
     if (!isConnected) {
       setShowWalletModal(true);
-    } else if (selectedNumbers.length === 5 && selectedLottoNumber !== null) {
-      setShowBuyConfirmModal(true);
+      return;
     }
+    
+    if (selectedNumbers.length !== 5 || selectedLottoNumber === null) {
+      return;
+    }
+    
+    // Check if draws are available
+    if (!isDrawAvailable()) {
+      toast({
+        title: "Cannot Purchase Ticket",
+        description: "No lottery draws are available for the selected series.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setShowBuyConfirmModal(true);
   };
   
   // Handle confirm purchase
@@ -83,10 +132,27 @@ export default function BuyTickets() {
       return;
     }
     
+    // Check if draws are available
+    if (!isDrawAvailable()) {
+      setShowBuyConfirmModal(false);
+      toast({
+        title: "Cannot Purchase Ticket",
+        description: "No lottery draws are available for the selected series.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setShowBuyConfirmModal(false);
     setShowPendingModal(true);
     
-    const result = await buyCustomTicket(selectedNumbers, selectedLottoNumber);
+    // Pass the selected draw ID to the buyCustomTicket function
+    const result = await buyCustomTicket(
+      selectedNumbers, 
+      selectedLottoNumber,
+      selectedSeriesIndex,
+      selectedDrawId
+    );
     
     setShowPendingModal(false);
     
@@ -103,9 +169,23 @@ export default function BuyTickets() {
       return;
     }
     
+    // Check if draws are available
+    if (!isDrawAvailable()) {
+      toast({
+        title: "Cannot Purchase Ticket",
+        description: "No lottery draws are available for the selected series.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setShowPendingModal(true);
     
-    const result = await buyQuickPickTicket();
+    // Pass the selected series and draw to the buyQuickPickTicket function
+    const result = await buyQuickPickTicket(
+      selectedSeriesIndex,
+      selectedDrawId
+    );
     
     setShowPendingModal(false);
     
@@ -198,11 +278,11 @@ export default function BuyTickets() {
             
             {renderLottoNumberGrid()}
             
-            <div className="flex gap-4 mb-6">
+            <div className="mb-6 grid grid-cols-2 gap-4">
               <Button 
                 onClick={handleQuickPick}
                 variant="outline"
-                className="flex-1 flex items-center justify-center"
+                className="w-full flex items-center justify-center"
               >
                 <Shuffle className="mr-2 h-4 w-4" />
                 Quick Pick
@@ -210,44 +290,114 @@ export default function BuyTickets() {
               <Button 
                 onClick={handleQuickPickPurchase}
                 variant="secondary"
-                disabled={isBuyingTickets}
-                className="flex-1 flex items-center justify-center"
+                disabled={!isConnected || isBuyingTickets || !isDrawAvailable()}
+                className="w-full flex items-center justify-center"
               >
                 <TicketIcon className="mr-2 h-4 w-4" />
-                Buy Quick Pick
+                Quick Buy
               </Button>
             </div>
             
             <div className="mb-6">
               <h3 className="text-lg font-semibold mb-2">Summary</h3>
-              <div className="border border-gray-200 rounded-lg p-4 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Your Numbers:</span>
-                  <span className="font-mono">
-                    {selectedNumbers.length > 0 
-                      ? selectedNumbers.sort((a, b) => a - b).map(n => n < 10 ? `0${n}` : n).join(', ') 
-                      : 'None selected'}
-                  </span>
+              <div className="border border-gray-200 rounded-lg p-4 space-y-4">
+                {/* Series and Draw Selection */}
+                <div className="grid grid-cols-2 gap-4 mb-2">
+                  <div>
+                    <label className="text-sm text-gray-600 mb-1 block">
+                      Series
+                    </label>
+                    <Select
+                      disabled={isLoadingSeriesList || !seriesList || seriesList.length === 0}
+                      value={selectedSeriesIndex?.toString()}
+                      onValueChange={handleSeriesChange}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select series" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {seriesList?.map((series) => (
+                          <SelectItem key={series.index} value={series.index.toString()}>
+                            {series.name} {series.active ? ' (Active)' : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm text-gray-600 mb-1 block">
+                      Draw
+                    </label>
+                    <Select
+                      disabled={
+                        isLoadingSeriesDraws || 
+                        isLoadingTotalDrawsCount || 
+                        (totalDrawsCount !== undefined && totalDrawsCount <= 0) ||
+                        !seriesDraws || 
+                        seriesDraws.length === 0
+                      }
+                      value={
+                        (!isDrawAvailable() || totalDrawsCount === 0)
+                          ? ""
+                          : selectedDrawId?.toString()
+                      }
+                      onValueChange={handleDrawChange}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={
+                          (!isDrawAvailable() || totalDrawsCount === 0)
+                            ? "No draws available" 
+                            : "Select draw"
+                        } />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {seriesDraws && seriesDraws.length > 0 && totalDrawsCount !== 0 ? (
+                          seriesDraws.filter(draw => draw.drawId !== 0).map((draw) => (
+                            <SelectItem key={draw.drawId} value={draw.drawId.toString()}>
+                              Draw #{draw.drawId} {!draw.completed ? ' (Active)' : ''}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          // Empty placeholder content when no draws available
+                          <div className="py-2 px-2 text-sm text-gray-500">
+                            No draws available
+                          </div>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Your LOTTO Number:</span>
-                  <span className="font-mono">
-                    {selectedLottoNumber 
-                      ? (selectedLottoNumber < 10 ? `0${selectedLottoNumber}` : selectedLottoNumber) 
-                      : 'None selected'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Ticket Price:</span>
-                  <span className="font-mono">{ticketPrice.toFixed(4)} ETH</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Network Fee (est.):</span>
-                  <span className="font-mono">{networkFee.toFixed(4)} ETH</span>
-                </div>
-                <div className="border-t border-gray-200 pt-2 mt-2 flex justify-between font-semibold">
-                  <span>Total:</span>
-                  <span className="font-mono">{totalCost.toFixed(4)} ETH</span>
+                
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Your Numbers:</span>
+                    <span className="font-mono">
+                      {selectedNumbers.length > 0 
+                        ? selectedNumbers.sort((a, b) => a - b).map(n => n < 10 ? `0${n}` : n).join(', ') 
+                        : 'None selected'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Your LOTTO Number:</span>
+                    <span className="font-mono">
+                      {selectedLottoNumber 
+                        ? (selectedLottoNumber < 10 ? `0${selectedLottoNumber}` : selectedLottoNumber) 
+                        : 'None selected'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Ticket Price:</span>
+                    <span className="font-mono">{ticketPrice.toFixed(4)} ETH</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Network Fee (est.):</span>
+                    <span className="font-mono">{networkFee.toFixed(4)} ETH</span>
+                  </div>
+                  <div className="border-t border-gray-200 pt-2 mt-2 flex justify-between font-semibold">
+                    <span>Total:</span>
+                    <span className="font-mono">{totalCost.toFixed(4)} ETH</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -263,7 +413,12 @@ export default function BuyTickets() {
             ) : (
               <Button
                 onClick={handleBuyClick}
-                disabled={isBuyingTickets || selectedNumbers.length !== 5 || selectedLottoNumber === null}
+                disabled={
+                  isBuyingTickets || 
+                  selectedNumbers.length !== 5 || 
+                  selectedLottoNumber === null ||
+                  !isDrawAvailable()
+                }
                 className="w-full bg-primary hover:bg-opacity-90 text-white font-semibold rounded-full py-4 transition flex items-center justify-center"
               >
                 {isBuyingTickets ? 'Processing...' : 'Buy Ticket'}
