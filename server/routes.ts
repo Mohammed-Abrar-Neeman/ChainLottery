@@ -17,6 +17,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
+  // Create a place to store the currently selected draw for debugging purposes
+  let debugSelectedDrawId: number | undefined;
+
+  // Add a debug endpoint to select a draw (only for development)
+  app.post('/api/debug/select-draw', async (req, res) => {
+    try {
+      const { drawId } = req.body;
+      if (drawId === undefined) {
+        return res.status(400).json({ message: 'Draw ID is required' });
+      }
+      
+      // Store the selected draw ID for later retrieval
+      debugSelectedDrawId = drawId;
+      
+      console.log(`Debug: Changing selected draw to ${drawId}`);
+      return res.json({ message: 'Draw selected', drawId });
+    } catch (error) {
+      console.error('Error in select-draw debug endpoint:', error);
+      return res.status(500).json({ message: 'Error selecting draw' });
+    }
+  });
+  
+  // Add an endpoint to get the currently selected draw for debugging
+  app.get('/api/debug/current-selection', async (req, res) => {
+    try {
+      return res.json({ drawId: debugSelectedDrawId });
+    } catch (error) {
+      console.error('Error in debug current-selection endpoint:', error);
+      return res.status(500).json({ message: 'Error getting current selection' });
+    }
+  });
+
   const apiRouter = app.route('/api');
   
   // Admin routes

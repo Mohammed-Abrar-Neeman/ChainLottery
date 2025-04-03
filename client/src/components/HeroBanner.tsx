@@ -1,16 +1,8 @@
-import React from 'react';
+import React, { Dispatch, SetStateAction } from 'react';
 import { Button } from '@/components/ui/button';
 import { useLotteryData } from '@/hooks/useLotteryData';
 import { useWallet } from '@/hooks/useWallet';
 import WalletModal from './modals/WalletModal';
-import { InfoIcon } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -19,7 +11,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export default function HeroBanner() {
+// Props interface for shared state
+interface HeroBannerProps {
+  sharedSeriesIndex?: number;
+  setSharedSeriesIndex?: Dispatch<SetStateAction<number | undefined>>;
+  sharedDrawId?: number;
+  setSharedDrawId?: Dispatch<SetStateAction<number | undefined>>;
+}
+
+export default function HeroBanner({
+  sharedSeriesIndex,
+  setSharedSeriesIndex,
+  sharedDrawId,
+  setSharedDrawId
+}: HeroBannerProps) {
   const { 
     lotteryData, 
     timeRemaining, 
@@ -34,27 +39,30 @@ export default function HeroBanner() {
     selectedDrawId,
     setSelectedSeriesIndex,
     setSelectedDrawId,
-    areDrawsAvailable
+    hasAvailableDraws: isDrawAvailable
   } = useLotteryData();
-  
-  // Enhanced check for draw availability - specifically focused on the selected series
-  const hasAvailableDraws = () => {
-    // First check if draws are available overall
-    if (!areDrawsAvailable()) {
-      return false;
-    }
-    
-    // Then check if the selected series has available draws
-    return (
-      totalDrawsCount !== undefined && 
-      totalDrawsCount > 0 && 
-      seriesDraws && 
-      seriesDraws.length > 0 &&
-      lotteryData
-    );
-  };
   const { isConnected } = useWallet();
   const [showWalletModal, setShowWalletModal] = React.useState(false);
+  
+  // Sync local state with shared state coming from props
+  React.useEffect(() => {
+    // Only update if shared values are provided and different from local state
+    if (sharedSeriesIndex !== undefined && sharedSeriesIndex !== selectedSeriesIndex) {
+      console.log("HeroBanner - Updating local series index from shared state:", {
+        from: selectedSeriesIndex,
+        to: sharedSeriesIndex
+      });
+      setSelectedSeriesIndex(sharedSeriesIndex);
+    }
+    
+    if (sharedDrawId !== undefined && sharedDrawId !== selectedDrawId) {
+      console.log("HeroBanner - Updating local draw ID from shared state:", {
+        from: selectedDrawId,
+        to: sharedDrawId
+      });
+      setSelectedDrawId(sharedDrawId);
+    }
+  }, [sharedSeriesIndex, sharedDrawId]);
   
   const scrollToBuyTickets = () => {
     const element = document.getElementById('buy-tickets');
@@ -67,14 +75,58 @@ export default function HeroBanner() {
     }
   };
   
+  const scrollToHowItWorks = () => {
+    const element = document.getElementById('how-it-works');
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+  
+  // Modified handlers to update both local state AND shared state
   const handleSeriesChange = (value: string) => {
-    setSelectedSeriesIndex(parseInt(value));
-    // Reset draw selection when series changes
+    const newSeriesIndex = parseInt(value);
+    console.log("HeroBanner - Series change:", { 
+      oldInternal: selectedSeriesIndex, 
+      oldShared: sharedSeriesIndex,
+      newValue: newSeriesIndex 
+    });
+    
+    // First update the local state
+    setSelectedSeriesIndex(newSeriesIndex);
+    
+    // Then update the shared state if it's available
+    if (setSharedSeriesIndex) {
+      setSharedSeriesIndex(newSeriesIndex);
+      console.log("HeroBanner - Updated shared series index to:", newSeriesIndex);
+    }
+    
+    // Reset draw selection when series changes (both local and shared)
     setSelectedDrawId(undefined);
+    if (setSharedDrawId) {
+      setSharedDrawId(undefined);
+    }
   };
   
   const handleDrawChange = (value: string) => {
-    setSelectedDrawId(parseInt(value));
+    const newDrawId = parseInt(value);
+    console.log("HeroBanner - Draw change:", { 
+      oldInternal: selectedDrawId, 
+      oldShared: sharedDrawId,
+      newValue: newDrawId 
+    });
+    
+    // Only update if there's a change
+    if (selectedDrawId !== newDrawId) {
+      // First update the local state
+      setSelectedDrawId(newDrawId);
+      console.log("HeroBanner - Updated internal draw ID to:", newDrawId);
+      
+      // Then update the shared state if it's available
+      if (setSharedDrawId) {
+        setSharedDrawId(newDrawId);
+        console.log("HeroBanner - Updated shared draw ID to:", newDrawId);
+      }
+    }
   };
   
   return (
@@ -99,61 +151,13 @@ export default function HeroBanner() {
                 Buy Tickets
               </Button>
               
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button 
-                    variant="outline"
-                    className="border-2 border-primary text-primary hover:bg-primary hover:text-white font-semibold rounded-full px-8 py-3 transition"
-                  >
-                    How It Works
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                      <InfoIcon className="h-5 w-5 text-primary" />
-                      How CryptoLotto Works
-                    </DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4 mt-4">
-                    <div className="flex gap-3">
-                      <div className="flex-shrink-0 h-8 w-8 rounded-full bg-primary bg-opacity-20 flex items-center justify-center font-semibold">1</div>
-                      <div>
-                        <p>Buy as many tickets as you want (1-100 per transaction)</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-3">
-                      <div className="flex-shrink-0 h-8 w-8 rounded-full bg-primary bg-opacity-20 flex items-center justify-center font-semibold">2</div>
-                      <div>
-                        <p>Wait for the lottery round to end (~24 hours)</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-3">
-                      <div className="flex-shrink-0 h-8 w-8 rounded-full bg-primary bg-opacity-20 flex items-center justify-center font-semibold">3</div>
-                      <div>
-                        <p>If you win, the prize is automatically sent to your wallet</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-3">
-                      <div className="flex-shrink-0 h-8 w-8 rounded-full bg-primary bg-opacity-20 flex items-center justify-center font-semibold">4</div>
-                      <div>
-                        <p>Winner selection is verifiably random using ChainLink VRF</p>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-6 pt-4 border-t border-gray-200">
-                      <h4 className="text-sm font-semibold uppercase mb-2">Prize Distribution</h4>
-                      <div className="flex items-center mb-2">
-                        <div className="w-full bg-gray-200 rounded-full h-4 mr-2">
-                          <div className="bg-accent h-4 rounded-full" style={{ width: '70%' }}></div>
-                        </div>
-                        <span className="text-sm font-mono">70%</span>
-                      </div>
-                      <p className="text-sm text-gray-600">70% to Winner, 20% to Next Lottery, 10% to Treasury</p>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <Button 
+                onClick={scrollToHowItWorks}
+                variant="outline"
+                className="border-2 border-primary text-primary hover:bg-primary hover:text-white font-semibold rounded-full px-8 py-3 transition"
+              >
+                How It Works
+              </Button>
             </div>
           </div>
           
@@ -217,7 +221,7 @@ export default function HeroBanner() {
               </div>
               
               <div className="flex-1">
-                {!hasAvailableDraws() && (
+                {!isDrawAvailable() && (
                   <div className="bg-white bg-opacity-20 rounded-lg p-4 mb-6">
                     <p className="text-lg font-semibold mb-1">No Active Draws Available</p>
                     <p className="text-sm opacity-75">
@@ -230,18 +234,18 @@ export default function HeroBanner() {
                   <span className="text-sm font-mono uppercase tracking-wider opacity-75">Current Jackpot</span>
                   <div className="flex items-baseline">
                     <span className="text-4xl lg:text-5xl font-bold font-mono">
-                      {hasAvailableDraws() ? parseFloat(lotteryData?.jackpotAmount || '0').toFixed(4) : '0.0000'}
+                      {isDrawAvailable() ? parseFloat(lotteryData?.jackpotAmount || '0').toFixed(4) : '0.0000'}
                     </span>
                     <span className="ml-2 text-xl">ETH</span>
                   </div>
                   <span className="text-sm font-mono opacity-75">
-                    ≈ {formatUSD(hasAvailableDraws() ? lotteryData?.jackpotAmount || '0' : '0')}
+                    ≈ {formatUSD(isDrawAvailable() ? lotteryData?.jackpotAmount || '0' : '0')}
                   </span>
                 </div>
                 
                 <div className="mb-6">
                   <span className="text-sm font-mono uppercase tracking-wider opacity-75">Time Remaining</span>
-                  {hasAvailableDraws() ? (
+                  {isDrawAvailable() ? (
                     <div className="flex space-x-2 mt-1 font-mono">
                       {timeRemaining.days > 0 && (
                         <div className="bg-white bg-opacity-20 rounded-lg p-2 text-center w-16">
@@ -283,7 +287,7 @@ export default function HeroBanner() {
                 <div>
                   <span className="text-sm font-mono uppercase tracking-wider opacity-75">Participants</span>
                   <div className="text-2xl font-bold mt-1">
-                    {hasAvailableDraws() ? lotteryData?.participantCount || '0' : '0'}
+                    {isDrawAvailable() ? lotteryData?.participantCount || '0' : '0'}
                   </div>
                 </div>
               </div>

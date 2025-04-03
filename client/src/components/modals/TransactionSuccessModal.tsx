@@ -90,7 +90,9 @@ export default function TransactionSuccessModal({
           </div>
           <div className="flex justify-between mb-2">
             <span className="text-gray-600">Total Paid:</span>
-            <span className="font-mono">{totalCost.toFixed(4)} ETH</span>
+            <span className="font-mono">
+              {totalCost < 0.0001 ? totalCost.toFixed(6) : totalCost.toFixed(4)} ETH
+            </span>
           </div>
           <div className="text-right text-sm text-gray-500 mb-2">
             ≈ {formatUSD(totalCost.toString())}

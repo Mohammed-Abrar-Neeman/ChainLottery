@@ -94,11 +94,15 @@ export default function BuyConfirmationModal({
             </div>
             <div className="flex justify-between mb-2">
               <span className="text-gray-600">Price per ticket:</span>
-              <span className="font-mono">{ticketPrice.toFixed(4)} ETH</span>
+              <span className="font-mono">
+                {ticketPrice < 0.0001 ? ticketPrice.toFixed(6) : ticketPrice.toFixed(4)} ETH
+              </span>
             </div>
             <div className="flex justify-between mb-2">
               <span className="text-gray-600">Total price:</span>
-              <span className="font-mono">{totalTicketsPrice.toFixed(4)} ETH</span>
+              <span className="font-mono">
+                {totalTicketsPrice < 0.0001 ? totalTicketsPrice.toFixed(6) : totalTicketsPrice.toFixed(4)} ETH
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Network fee (est.):</span>
@@ -106,7 +110,9 @@ export default function BuyConfirmationModal({
             </div>
             <div className="border-t border-gray-200 mt-3 pt-3 flex justify-between font-semibold">
               <span>Total:</span>
-              <span className="font-mono">{totalCost.toFixed(4)} ETH</span>
+              <span className="font-mono">
+                {totalCost < 0.0001 ? totalCost.toFixed(6) : totalCost.toFixed(4)} ETH
+              </span>
             </div>
             <div className="text-right text-sm text-gray-500 mt-1">
               ≈ {formatUSD(totalCost.toString())}

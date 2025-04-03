@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Dispatch, SetStateAction } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useLotteryData } from '@/hooks/useLotteryData';
@@ -18,7 +18,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export default function BuyTickets() {
+// Props interface for shared state
+interface BuyTicketsProps {
+  sharedSeriesIndex?: number;
+  setSharedSeriesIndex?: Dispatch<SetStateAction<number | undefined>>;
+  sharedDrawId?: number;
+  setSharedDrawId?: Dispatch<SetStateAction<number | undefined>>;
+}
+
+export default function BuyTickets({
+  sharedSeriesIndex,
+  setSharedSeriesIndex,
+  sharedDrawId,
+  setSharedDrawId
+}: BuyTicketsProps) {
   // State for selected numbers (5 main numbers + 1 LOTTO number)
   const [selectedNumbers, setSelectedNumbers] = useState<number[]>([]);
   const [selectedLottoNumber, setSelectedLottoNumber] = useState<number | null>(null);
@@ -33,7 +46,6 @@ export default function BuyTickets() {
   const { 
     lotteryData, 
     formatUSD, 
-    buyQuickPickTicket,
     buyCustomTicket,
     generateQuickPick, 
     isBuyingTickets,
@@ -47,18 +59,71 @@ export default function BuyTickets() {
     selectedDrawId,
     setSelectedSeriesIndex,
     setSelectedDrawId,
-    hasAvailableDraws: isDrawAvailable
+    hasAvailableDraws: isDrawAvailable,
+    getSelectedDrawTicketPrice
   } = useLotteryData();
   const { isConnected } = useWallet();
   const { toast } = useToast();
   
   // Using the enhanced check for draw availability from useLotteryData hook
   
-  const ticketPrice = isDrawAvailable() ? parseFloat(lotteryData?.ticketPrice || '0.01') : 0;
+  // Create a memoized function to get the current ticket price
+  const getCurrentTicketPrice = React.useCallback(() => {
+    const price = getSelectedDrawTicketPrice();
+    console.log('BuyTickets - Getting current ticket price:', {
+      price,
+      selectedDrawId,
+      sharedDrawId
+    });
+    return price;
+  }, [getSelectedDrawTicketPrice, selectedDrawId, sharedDrawId]);
+  
+  // Get the current ticket price from the selected draw
+  const rawTicketPrice = getCurrentTicketPrice();
+  
+  // Debug output for ticket price
+  console.log('BuyTickets - Ticket Price:', {
+    rawPrice: rawTicketPrice,
+    parsedPrice: isDrawAvailable() ? parseFloat(rawTicketPrice || '0.01') : 0,
+    selectedDrawId,
+    sharedDrawId
+  });
+  
+  // Parse ticket price from the selected draw
+  const ticketPrice = isDrawAvailable() ? parseFloat(rawTicketPrice || '0.01') : 0;
   const networkFee = 0.0025; // Estimated gas fee in ETH
   const totalCost = ticketPrice + networkFee;
   
-  // Generate a quick pick when component mounts
+  // Sync local state with shared state when provided and generate a quick pick
+  useEffect(() => {
+    // If sharedSeriesIndex is provided, update local state
+    if (sharedSeriesIndex !== undefined && sharedSeriesIndex !== selectedSeriesIndex) {
+      console.log("BuyTickets - Updating series index from shared state:", 
+        { old: selectedSeriesIndex, new: sharedSeriesIndex });
+      setSelectedSeriesIndex(sharedSeriesIndex);
+    }
+    
+    // If sharedDrawId is provided, update local state
+    if (sharedDrawId !== undefined && sharedDrawId !== selectedDrawId) {
+      console.log("BuyTickets - Updating draw ID from shared state:", 
+        { old: selectedDrawId, new: sharedDrawId });
+      setSelectedDrawId(sharedDrawId);
+    }
+    
+    // Generate a quick pick when component mounts or shared values change
+    if (!selectedNumbers.length) {
+      handleQuickPick();
+    }
+  }, [sharedSeriesIndex, sharedDrawId]);
+  
+  // Force a re-render when selectedDrawId changes
+  useEffect(() => {
+    // This will trigger when either local or shared state changes the selectedDrawId
+    console.log("BuyTickets - selectedDrawId changed, forcing update:", selectedDrawId);
+    // The component will re-render and get the new ticket price
+  }, [selectedDrawId]);
+
+  // Generate a quick pick only when component first mounts
   useEffect(() => {
     handleQuickPick();
   }, []);
@@ -92,14 +157,38 @@ export default function BuyTickets() {
   
   // Handle series change
   const handleSeriesChange = (value: string) => {
-    setSelectedSeriesIndex(parseInt(value));
+    const seriesIndex = parseInt(value);
+    
+    // Update local state through the hook
+    setSelectedSeriesIndex(seriesIndex);
+    
+    // Update shared state if available
+    if (setSharedSeriesIndex) {
+      setSharedSeriesIndex(seriesIndex);
+    }
+    
     // Reset draw selection when series changes
     setSelectedDrawId(undefined);
+    
+    // Also reset shared draw ID if available
+    if (setSharedDrawId) {
+      setSharedDrawId(undefined);
+    }
   };
   
   // Handle draw change
   const handleDrawChange = (value: string) => {
-    setSelectedDrawId(parseInt(value));
+    const drawId = parseInt(value);
+    
+    // Update local state through the hook
+    setSelectedDrawId(drawId);
+    
+    // Update shared state if available
+    if (setSharedDrawId) {
+      setSharedDrawId(drawId);
+    }
+    
+    // No need to manually update ticketPrice as it's now directly calculated from getSelectedDrawTicketPrice()
   };
   
   // Handle buy click
@@ -162,41 +251,7 @@ export default function BuyTickets() {
     }
   };
   
-  // Handle quick pick purchase
-  const handleQuickPickPurchase = async () => {
-    if (!isConnected) {
-      setShowWalletModal(true);
-      return;
-    }
-    
-    // Check if draws are available
-    if (!isDrawAvailable()) {
-      toast({
-        title: "Cannot Purchase Ticket",
-        description: "No lottery draws are available for the selected series.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    setShowPendingModal(true);
-    
-    // Pass the selected series and draw to the buyQuickPickTicket function
-    const result = await buyQuickPickTicket(
-      selectedSeriesIndex,
-      selectedDrawId
-    );
-    
-    setShowPendingModal(false);
-    
-    if (result.success && result.txHash) {
-      setTransactionHash(result.txHash);
-      setShowSuccessModal(true);
-      
-      // Generate new numbers for next purchase
-      handleQuickPick();
-    }
-  };
+
   
   // Render number selection grid (1-70)
   const renderNumberGrid = () => {
@@ -278,7 +333,7 @@ export default function BuyTickets() {
             
             {renderLottoNumberGrid()}
             
-            <div className="mb-6 grid grid-cols-2 gap-4">
+            <div className="mb-6">
               <Button 
                 onClick={handleQuickPick}
                 variant="outline"
@@ -287,85 +342,19 @@ export default function BuyTickets() {
                 <Shuffle className="mr-2 h-4 w-4" />
                 Quick Pick
               </Button>
-              <Button 
-                onClick={handleQuickPickPurchase}
-                variant="secondary"
-                disabled={!isConnected || isBuyingTickets || !isDrawAvailable()}
-                className="w-full flex items-center justify-center"
-              >
-                <TicketIcon className="mr-2 h-4 w-4" />
-                Quick Buy
-              </Button>
             </div>
             
             <div className="mb-6">
               <h3 className="text-lg font-semibold mb-2">Summary</h3>
               <div className="border border-gray-200 rounded-lg p-4 space-y-4">
-                {/* Series and Draw Selection */}
-                <div className="grid grid-cols-2 gap-4 mb-2">
-                  <div>
-                    <label className="text-sm text-gray-600 mb-1 block">
-                      Series
-                    </label>
-                    <Select
-                      disabled={isLoadingSeriesList || !seriesList || seriesList.length === 0}
-                      value={selectedSeriesIndex?.toString()}
-                      onValueChange={handleSeriesChange}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select series" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {seriesList?.map((series) => (
-                          <SelectItem key={series.index} value={series.index.toString()}>
-                            {series.name} {series.active ? ' (Active)' : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                {/* Draw information - Selected from Hero Banner */}
+                <div className="mb-2 text-center">
+                  <div className="text-sm text-gray-600 mb-1">
+                    {selectedSeriesIndex !== undefined && seriesList?.find(s => s.index === selectedSeriesIndex)?.name} 
+                    {selectedDrawId ? ` - Draw #${selectedDrawId}` : ''}
                   </div>
-                  
-                  <div>
-                    <label className="text-sm text-gray-600 mb-1 block">
-                      Draw
-                    </label>
-                    <Select
-                      disabled={
-                        isLoadingSeriesDraws || 
-                        isLoadingTotalDrawsCount || 
-                        (totalDrawsCount !== undefined && totalDrawsCount <= 0) ||
-                        !seriesDraws || 
-                        seriesDraws.length === 0
-                      }
-                      value={
-                        (!isDrawAvailable() || totalDrawsCount === 0)
-                          ? ""
-                          : selectedDrawId?.toString()
-                      }
-                      onValueChange={handleDrawChange}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder={
-                          (!isDrawAvailable() || totalDrawsCount === 0)
-                            ? "No draws available" 
-                            : "Select draw"
-                        } />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {seriesDraws && seriesDraws.length > 0 && totalDrawsCount !== 0 ? (
-                          seriesDraws.filter(draw => draw.drawId !== 0).map((draw) => (
-                            <SelectItem key={draw.drawId} value={draw.drawId.toString()}>
-                              Draw #{draw.drawId} {!draw.completed ? ' (Active)' : ''}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          // Empty placeholder content when no draws available
-                          <div className="py-2 px-2 text-sm text-gray-500">
-                            No draws available
-                          </div>
-                        )}
-                      </SelectContent>
-                    </Select>
+                  <div className="text-xs text-gray-500">
+                    (Change draw selection in the banner above)
                   </div>
                 </div>
                 
@@ -388,7 +377,9 @@ export default function BuyTickets() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Ticket Price:</span>
-                    <span className="font-mono">{ticketPrice.toFixed(4)} ETH</span>
+                    <span className="font-mono">
+                      {ticketPrice < 0.0001 ? ticketPrice.toFixed(6) : ticketPrice.toFixed(4)} ETH
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Network Fee (est.):</span>
@@ -396,7 +387,9 @@ export default function BuyTickets() {
                   </div>
                   <div className="border-t border-gray-200 pt-2 mt-2 flex justify-between font-semibold">
                     <span>Total:</span>
-                    <span className="font-mono">{totalCost.toFixed(4)} ETH</span>
+                    <span className="font-mono">
+                      {totalCost < 0.0001 ? totalCost.toFixed(6) : totalCost.toFixed(4)} ETH
+                    </span>
                   </div>
                 </div>
               </div>
@@ -426,7 +419,7 @@ export default function BuyTickets() {
             )}
           </div>
           
-          <div className="bg-secondary rounded-2xl p-6 text-white">
+          <div id="how-it-works" className="bg-secondary rounded-2xl p-6 text-white">
             <h3 className="font-semibold text-lg mb-4">How It Works</h3>
             
             <div className="space-y-4">
