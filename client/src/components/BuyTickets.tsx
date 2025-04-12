@@ -6,6 +6,7 @@ import { useWallet } from '@/hooks/useWallet';
 import { Wallet, Shuffle, TicketIcon, RefreshCw } from 'lucide-react';
 import WalletModal from './modals/WalletModal';
 import BuyConfirmationModal from './modals/BuyConfirmationModal';
+import TicketReconfirmationModal from './modals/TicketReconfirmationModal';
 import TransactionPendingModal from './modals/TransactionPendingModal';
 import TransactionSuccessModal from './modals/TransactionSuccessModal';
 import { Badge } from '@/components/ui/badge';
@@ -39,6 +40,7 @@ export default function BuyTickets({
   // UI states
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [showBuyConfirmModal, setShowBuyConfirmModal] = useState(false);
+  const [showReconfirmModal, setShowReconfirmModal] = useState(false);
   const [showPendingModal, setShowPendingModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [transactionHash, setTransactionHash] = useState('');
@@ -215,8 +217,8 @@ export default function BuyTickets({
     setShowBuyConfirmModal(true);
   };
   
-  // Handle confirm purchase
-  const handleConfirmPurchase = async () => {
+  // Handle initial confirmation
+  const handleInitialConfirm = () => {
     if (selectedNumbers.length !== 5 || selectedLottoNumber === null) {
       return;
     }
@@ -232,7 +234,30 @@ export default function BuyTickets({
       return;
     }
     
+    // Close first confirmation modal and open final reconfirmation modal
     setShowBuyConfirmModal(false);
+    setShowReconfirmModal(true);
+  };
+  
+  // Handle final confirmation and purchase
+  const handleConfirmPurchase = async () => {
+    if (selectedNumbers.length !== 5 || selectedLottoNumber === null) {
+      return;
+    }
+    
+    // Check if draws are available
+    if (!isDrawAvailable()) {
+      setShowReconfirmModal(false);
+      toast({
+        title: "Cannot Purchase Ticket",
+        description: "No lottery draws are available for the selected series.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Close reconfirmation modal and show pending transaction
+    setShowReconfirmModal(false);
     setShowPendingModal(true);
     
     // Pass the selected draw ID to the buyCustomTicket function
@@ -257,26 +282,41 @@ export default function BuyTickets({
   const renderNumberGrid = () => {
     const grid = [];
     for (let i = 1; i <= 70; i++) {
+      const isSelected = selectedNumbers.includes(i);
+      const isDisabled = selectedNumbers.length >= 5 && !isSelected;
+      
       grid.push(
         <Button
           key={i}
           type="button"
-          variant={selectedNumbers.includes(i) ? "default" : "outline"}
+          variant={isSelected ? "default" : "outline"}
           onClick={() => toggleNumber(i)}
-          className={`h-10 w-10 p-0 font-mono ${
-            selectedNumbers.includes(i) 
-              ? "bg-primary text-white" 
+          className={`h-10 w-10 p-0 font-mono relative transition-all ${
+            isSelected 
+              ? "bg-primary text-white scale-105 shadow-md" 
               : "bg-gray-100 hover:bg-gray-200"
-          }`}
-          disabled={selectedNumbers.length >= 5 && !selectedNumbers.includes(i)}
+          } ${isDisabled ? "opacity-50" : ""}`}
+          disabled={isDisabled}
         >
           {i < 10 ? `0${i}` : i}
+          {isSelected && (
+            <span className="absolute -top-1 -right-1 h-4 w-4 bg-green-500 rounded-full flex items-center justify-center text-[10px] text-white">
+              ✓
+            </span>
+          )}
         </Button>
       );
     }
     return (
-      <div className="grid grid-cols-10 gap-2 mb-6">
-        {grid}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm text-gray-600 italic">
+            Click a number to select, click again to deselect
+          </span>
+        </div>
+        <div className="grid grid-cols-10 gap-2 mb-6">
+          {grid}
+        </div>
       </div>
     );
   };
@@ -285,25 +325,39 @@ export default function BuyTickets({
   const renderLottoNumberGrid = () => {
     const grid = [];
     for (let i = 1; i <= 30; i++) {
+      const isSelected = selectedLottoNumber === i;
+      
       grid.push(
         <Button
           key={i}
           type="button"
-          variant={selectedLottoNumber === i ? "default" : "outline"}
+          variant={isSelected ? "default" : "outline"}
           onClick={() => toggleLottoNumber(i)}
-          className={`h-10 w-10 p-0 font-mono ${
-            selectedLottoNumber === i 
-              ? "bg-accent text-white" 
+          className={`h-10 w-10 p-0 font-mono relative transition-all ${
+            isSelected 
+              ? "bg-accent text-white scale-105 shadow-md" 
               : "bg-gray-100 hover:bg-gray-200"
           }`}
         >
           {i < 10 ? `0${i}` : i}
+          {isSelected && (
+            <span className="absolute -top-1 -right-1 h-4 w-4 bg-green-500 rounded-full flex items-center justify-center text-[10px] text-white">
+              ✓
+            </span>
+          )}
         </Button>
       );
     }
     return (
-      <div className="grid grid-cols-10 gap-2 mb-6">
-        {grid}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm text-gray-600 italic">
+            Click a number to select, click again to deselect
+          </span>
+        </div>
+        <div className="grid grid-cols-10 gap-2 mb-6">
+          {grid}
+        </div>
       </div>
     );
   };
@@ -478,6 +532,19 @@ export default function BuyTickets({
       <BuyConfirmationModal
         open={showBuyConfirmModal}
         onClose={() => setShowBuyConfirmModal(false)}
+        onConfirm={handleInitialConfirm}
+        ticketCount={1}
+        ticketPrice={ticketPrice}
+        totalTicketsPrice={ticketPrice}
+        networkFee={networkFee}
+        totalCost={totalCost}
+        selectedNumbers={selectedNumbers}
+        selectedLottoNumber={selectedLottoNumber}
+      />
+      
+      <TicketReconfirmationModal
+        open={showReconfirmModal}
+        onClose={() => setShowReconfirmModal(false)}
         onConfirm={handleConfirmPurchase}
         ticketCount={1}
         ticketPrice={ticketPrice}
@@ -486,6 +553,8 @@ export default function BuyTickets({
         totalCost={totalCost}
         selectedNumbers={selectedNumbers}
         selectedLottoNumber={selectedLottoNumber}
+        seriesName={selectedSeriesIndex !== undefined ? seriesList?.find(s => s.index === selectedSeriesIndex)?.name : ""}
+        drawId={selectedDrawId}
       />
       
       <TransactionPendingModal

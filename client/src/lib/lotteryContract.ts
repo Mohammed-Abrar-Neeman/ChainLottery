@@ -1,79 +1,32 @@
 import { ethers } from 'ethers';
-import { lotteryABI } from '@shared/lotteryABI';
-import { getLotteryAddress } from '@shared/contracts';
 import { toast } from '@/hooks/use-toast';
+import { lotteryABI } from '@shared/lotteryABI';
+import { ACTIVE_CHAIN_ID, getLotteryAddress } from '@shared/contracts';
 
-// Interface for lottery contract data
-export interface LotteryData {
-  jackpotAmount: string;
-  ticketPrice: string;
-  currentDraw: number;
-  timeRemaining: number;
-  endTimestamp?: number; // Unix timestamp when draw ends (for client-side countdown)
-  participants: Participant[];
-  participantCount: number;
-  seriesIndex?: number; // Added series index
-}
-
-export interface Participant {
-  walletAddress: string;
-  ticketCount: number;
-  timestamp: number;
-  transactionHash?: string;
-  drawId?: number;
-  seriesIndex?: number;
-}
-
-export interface LotteryTicket {
-  numbers: number[];
-  lottoNumber: number;
-  buyer: string;
-}
-
-export interface LotteryDraw {
-  drawId: number;        // Draw ID within the series
-  seriesIndex: number;   // Series index this draw belongs to
-  ticketPrice: string;
-  jackpot: string;
-  drawBlock: number;
-  isFutureBlockDraw: boolean;
-  completed: boolean;
-  winningNumbers?: number[];
-}
-
-export interface LotterySeries {
-  index: number;
-  active: boolean;
-  drawCount: number;
-  name: string;
-}
-
-export interface Winner {
-  winnerAddress: string;
-  amountWon: string;
-  drawId?: number;
-  seriesIndex?: number;
-  transactionHash?: string;
-  timestamp?: number;
-}
-
-// Get lottery contract instance
+// Contract interface setup
 export const getLotteryContract = (
   provider: ethers.BrowserProvider | null,
   chainId: string
 ): ethers.Contract | null => {
   if (!provider) return null;
   
+  const contractAddress = getLotteryAddress(chainId);
+  console.log(`Using lottery contract address: ${contractAddress} (from getLotteryAddress)`);
+  
+  if (!contractAddress) {
+    console.error(`No contract address found for chain ID ${chainId}`);
+    return null;
+  }
+  
   try {
-    const contractAddress = getLotteryAddress(chainId);
     return new ethers.Contract(contractAddress, lotteryABI, provider);
   } catch (error) {
-    console.error('Error getting lottery contract:', error);
+    console.error("Error creating contract instance:", error);
     return null;
   }
 };
 
-// Get lottery contract with signer (for transactions)
+// Get contract instance with signer for transactions
 export const getLotteryContractWithSigner = async (
   provider: ethers.BrowserProvider | null,
   chainId: string
@@ -82,528 +35,388 @@ export const getLotteryContractWithSigner = async (
   
   try {
     const signer = await provider.getSigner();
-    const contractAddress = getLotteryAddress(chainId);
-    return new ethers.Contract(contractAddress, lotteryABI, signer);
+    const contract = getLotteryContract(provider, chainId);
+    
+    if (!contract) {
+      console.error("Failed to get contract instance");
+      return null;
+    }
+    
+    return contract.connect(signer);
   } catch (error) {
-    console.error('Error getting lottery contract with signer:', error);
+    console.error("Error getting signer or connecting contract:", error);
     return null;
   }
 };
 
-// Get current lottery data
+// Get current lottery data (jackpot, ticket price, time remaining, etc.)
 export const getLotteryData = async (
   provider: ethers.BrowserProvider | null,
   chainId: string,
-  seriesIndex?: number,
-  drawId?: number
-): Promise<LotteryData | null> => {
-  const contract = getLotteryContract(provider, chainId);
-  if (!contract) return null;
-  
-  try {
-    // If no specific drawId is provided, use the current draw or default to 1
-    let targetDrawId = drawId;
-    try {
-      if (targetDrawId === undefined) {
-        targetDrawId = await contract.drawId();
-      }
-    } catch (drawIdError) {
-      console.log('Could not get current draw ID, using default', drawIdError);
-      targetDrawId = 1; // Default to draw ID 1 if we can't get the current
-    }
-    
-    // Get draw info with fallback
-    let drawInfo;
-    try {
-      drawInfo = await contract.draws(targetDrawId);
-      console.log(`Successfully fetched draw info for draw ${targetDrawId}:`, {
-        ticketPrice: ethers.formatEther(drawInfo.ticketPrice),
-        jackpot: ethers.formatEther(drawInfo.jackpot)
-      });
-    } catch (drawInfoError) {
-      console.log(`Could not get draw info for draw ${targetDrawId}, trying direct method`);
-      
-      // Try to get the ticket price directly, which is more important for UI
-      try {
-        // Use the getTicketPrice function as specified
-        const ticketPrice = await contract.getTicketPrice(targetDrawId);
-        console.log(`Direct ticket price fetch for draw ${targetDrawId}: ${ethers.formatEther(ticketPrice)} ETH`);
-        
-        // Try to get other details as well
-        let jackpot = ethers.parseEther('10'); // default
-        let completed = false;
-        
-        try {
-          jackpot = await contract.getDrawJackpot(targetDrawId);
-        } catch (jackpotError) {
-          console.log(`Could not get jackpot for draw ${targetDrawId}, using default`);
-        }
-        
-        try {
-          completed = await contract.isDrawCompleted(targetDrawId);
-        } catch (completedError) {
-          console.log(`Could not get completed status for draw ${targetDrawId}, using default`);
-        }
-        
-        console.log(`Direct fetch successful for draw ${targetDrawId}:`, {
-          ticketPrice: ethers.formatEther(ticketPrice),
-          jackpot: ethers.formatEther(jackpot),
-          completed
-        });
-        
-        // Create draw info from direct fetches
-        drawInfo = {
-          jackpot: jackpot,
-          ticketPrice: ticketPrice,
-          drawBlock: 0,
-          completed: completed,
-          isFutureBlockDraw: false
-        };
-      } catch (directError) {
-        console.log(`Direct fetch also failed for draw ${targetDrawId}, using defaults`, directError);
-        // Create a default draw info with reasonable values
-        drawInfo = {
-          jackpot: ethers.parseEther('10'),
-          ticketPrice: ethers.parseEther('0.01'),
-          drawBlock: 0,
-          completed: false,
-          isFutureBlockDraw: false
-        };
-      }
-    }
-    
-    // Get series index for this draw if not provided
-    let targetSeriesIndex = seriesIndex ?? 0;
-    try {
-      if (seriesIndex === undefined) {
-        const seriesIdx = await contract.getDrawSeries(targetDrawId);
-        targetSeriesIndex = Number(seriesIdx);
-      }
-    } catch (seriesError) {
-      console.log(`Could not get series index for draw ${targetDrawId}, using default`, seriesError);
-      // Default to series 0 if we can't determine
-    }
-    
-    // Get total tickets sold for this draw
-    let ticketsSold = 0;
-    try {
-      const sold = await contract.getTotalTicketsSold(targetDrawId);
-      ticketsSold = Number(sold);
-    } catch (ticketsError) {
-      console.log(`Could not get tickets sold for draw ${targetDrawId}, using default`, ticketsError);
-    }
-    
-    // Calculate time remaining (using getEstimatedEndTime from contract)
-    let timeRemaining = 86400; // Default to 24 hours
-    let endTimestamp;
-    
-    try {
-      // Try to get the estimated end time from the contract
-      const estimatedEndTime = await contract.getEstimatedEndTime(targetDrawId);
-      endTimestamp = Number(estimatedEndTime) * 1000; // Convert to milliseconds
-      const now = Date.now();
-      
-      if (endTimestamp > now) {
-        // Calculate seconds remaining
-        timeRemaining = Math.floor((endTimestamp - now) / 1000);
-      } else {
-        // If the end time is in the past, set a small time remaining
-        timeRemaining = 0;
-      }
-      
-      console.log(`End time for draw ${targetDrawId}: ${new Date(endTimestamp).toISOString()}, time remaining: ${timeRemaining}s`);
-    } catch (timeError) {
-      console.log('Could not get estimated end time, falling back to block calculation', timeError);
-      
-      // Fallback to block-based calculation
-      try {
-        let currentBlock = 0;
-        if (provider) {
-          currentBlock = await provider.getBlockNumber();
-        }
-        const blocksRemaining = Math.max(0, Number(drawInfo.drawBlock) - currentBlock);
-        timeRemaining = blocksRemaining * 12; // Approx 12 seconds per block
-        
-        // Set endTimestamp based on calculated time remaining
-        endTimestamp = Date.now() + (timeRemaining * 1000);
-      } catch (blockError) {
-        console.log('Could not calculate time remaining, using default', blockError);
-        endTimestamp = Date.now() + (timeRemaining * 1000);
-      }
-    }
-    
-    // For our interface we still need the same data shape with added endTimestamp
+  seriesIndex?: number, // Optional series index parameter
+  drawId?: number // Optional draw ID to fetch specific draw
+): Promise<LotteryData> => {
+  if (!provider || !chainId) {
     return {
-      jackpotAmount: ethers.formatEther(drawInfo.jackpot),
-      ticketPrice: ethers.formatEther(drawInfo.ticketPrice),
-      currentDraw: Number(targetDrawId),
-      timeRemaining: timeRemaining,
-      endTimestamp: Math.floor(endTimestamp / 1000), // Store end timestamp (in seconds) for client-side countdown
-      participants: [], // Server API will handle participant data
-      participantCount: ticketsSold,
-      seriesIndex: targetSeriesIndex
-    };
-  } catch (error) {
-    console.error('Error getting lottery data:', error);
-    
-    // Return a default data structure as fallback
-    const defaultTimeRemaining = 86400;
-    return {
-      jackpotAmount: '10',
-      ticketPrice: '0.01',
-      currentDraw: drawId ?? 1,
-      timeRemaining: defaultTimeRemaining,
-      endTimestamp: Math.floor(Date.now() / 1000) + defaultTimeRemaining,
+      jackpotAmount: "0",
+      ticketPrice: "0",
+      currentDraw: 0,
+      timeRemaining: 0,
       participants: [],
       participantCount: 0,
-      seriesIndex: seriesIndex ?? 0
+      seriesIndex: seriesIndex !== undefined ? seriesIndex : 0
+    };
+  }
+  
+  const contract = getLotteryContract(provider, chainId);
+  if (!contract) {
+    return {
+      jackpotAmount: "0",
+      ticketPrice: "0",
+      currentDraw: 0,
+      timeRemaining: 0,
+      participants: [],
+      participantCount: 0,
+      seriesIndex: seriesIndex !== undefined ? seriesIndex : 0
+    };
+  }
+  
+  try {
+    // Get the current draw ID if not specified
+    let currentDraw: number;
+    if (drawId !== undefined) {
+      currentDraw = drawId;
+    } else {
+      try {
+        currentDraw = await contract.drawId();
+        currentDraw = Number(currentDraw);
+      } catch (e) {
+        console.error("Error getting current draw ID:", e);
+        currentDraw = 1; // Default to draw 1 if there's an error
+      }
+    }
+    
+    // Get draw details
+    const draw = await contract.draws(currentDraw);
+    
+    // Get the ticket price
+    let ticketPrice = draw.ticketPrice;
+    
+    // Format ticket price to ETH
+    const ticketPriceInEth = ethers.formatEther(ticketPrice);
+    
+    // Get draw end timestamp
+    let endTimestamp = Number(draw.endTime) * 1000; // Convert to milliseconds
+    
+    // If endTimestamp is in the past, set to 0
+    const now = Date.now();
+    if (endTimestamp < now) {
+      endTimestamp = 0;
+    }
+    
+    // Calculate time remaining in seconds
+    const timeRemaining = Math.max(0, Math.floor((endTimestamp - now) / 1000));
+    
+    // Get jackpot amount
+    const jackpotBN = draw.jackpot;
+    const jackpotAmount = ethers.formatEther(jackpotBN);
+    
+    // Get participant count
+    let participantCount = 0;
+    try {
+      const count = await contract.getDrawParticipantCount(currentDraw);
+      participantCount = Number(count);
+    } catch (e) {
+      console.error("Error getting participant count:", e);
+      // Initialize with empty count
+    }
+    
+    console.log(`useLotteryData - Updating lottery data:`, {
+      lotteryData: {
+        jackpotAmount,
+        ticketPrice: ticketPriceInEth,
+        currentDraw,
+        timeRemaining,
+        endTimestamp,
+        participants: [],
+        participantCount,
+        seriesIndex: 0
+      },
+      ticketPriceFromFunction: ticketPriceInEth,
+      selectedDrawId: drawId,
+      lotteryDataTicketPrice: ticketPriceInEth
+    });
+    
+    return {
+      jackpotAmount,
+      ticketPrice: ticketPriceInEth,
+      currentDraw,
+      timeRemaining,
+      endTimestamp,
+      participants: [],
+      participantCount,
+      seriesIndex: seriesIndex !== undefined ? seriesIndex : 0
+    };
+  } catch (error) {
+    console.error("Error fetching lottery data:", error);
+    
+    return {
+      jackpotAmount: "0",
+      ticketPrice: "0",
+      currentDraw: 0,
+      timeRemaining: 0,
+      participants: [],
+      participantCount: 0,
+      seriesIndex: seriesIndex !== undefined ? seriesIndex : 0
     };
   }
 };
 
-// Get all available series
+// Get all lottery series
 export const getSeriesList = async (
   provider: ethers.BrowserProvider | null,
   chainId: string
 ): Promise<LotterySeries[]> => {
+  if (!provider || !chainId) {
+    return [];
+  }
+  
   const contract = getLotteryContract(provider, chainId);
-  if (!contract) return [];
+  if (!contract) {
+    return [];
+  }
   
   try {
-    // Since we know there are 3 series in the contract, we'll manually fetch info for each
+    // Get series count
+    const seriesCount = await contract.getSeriesCount();
+    const count = Number(seriesCount);
+    
+    if (count === 0) {
+      return []; // No series yet
+    }
+    
+    // Get all series
     const seriesList: LotterySeries[] = [];
     
-    // Hardcoded to fetch 3 series (indices 0, 1, 2)
-    const seriesCount = 3;
-    
-    for (let i = 0; i < seriesCount; i++) {
+    for (let i = 0; i < count; i++) {
       try {
-        // Try to get the draws in this series
-        let drawCount = 1;
-        try {
-          drawCount = await contract.getSeriesDrawCount(i);
-          drawCount = Number(drawCount);
-        } catch (drawCountError) {
-          console.log(`Series ${i} draw count not available, using default`, drawCountError);
-        }
+        const seriesInfo = await contract.getSeries(i);
         
-        // Try to get series name using getSeriesNameByIndex function
-        let seriesName = `Series ${i}`;
-        
-        try {
-          // Use the specific contract function to get series name
-          const name = await contract.getSeriesNameByIndex(i);
-          if (name) {
-            seriesName = name;
-          }
-        } catch (nameError) {
-          console.log(`Could not get name for series ${i}, using default`, nameError);
-        }
-        
-        // Get series info if possible
-        let isActive = true;
-        try {
-          const seriesInfo = await contract.series(i);
-          isActive = seriesInfo?.active ?? true;
-        } catch (activeError) {
-          console.log(`Could not get active status for series ${i}, using default true`, activeError);
-        }
-        
-        seriesList.push({
+        // Extract series details
+        const series: LotterySeries = {
           index: i,
-          active: isActive,
-          drawCount: drawCount,
-          name: seriesName
-        });
-      } catch (seriesError) {
-        console.error(`Error fetching series ${i}:`, seriesError);
-        // Add a default series entry with index preserved
-        seriesList.push({
-          index: i,
-          active: true,
-          drawCount: 1,
-          name: `Series ${i}`
-        });
+          active: seriesInfo.active,
+          drawCount: Number(seriesInfo.drawCount || 0),
+          name: `Series ${i + 1}` // Default name if none provided
+        };
+        
+        seriesList.push(series);
+      } catch (e) {
+        console.error(`Error fetching series ${i}:`, e);
       }
     }
     
-    // Return all series we were able to fetch
     return seriesList;
-    
   } catch (error) {
-    console.error('Error getting series list:', error);
-    // If all else fails, return 3 default series
+    console.error("Error fetching series list:", error);
+    
+    // We're having trouble fetching series data from the blockchain
+    // For development and testing, return at least one series 
+    console.log("Creating default series for development");
     return [
       {
         index: 0,
         active: true,
-        drawCount: 1,
-        name: "Series 0"
-      },
-      {
-        index: 1,
-        active: true,
-        drawCount: 1,
+        drawCount: 2,
         name: "Series 1"
-      },
-      {
-        index: 2,
-        active: true,
-        drawCount: 1,
-        name: "Series 2"
       }
     ];
   }
 };
 
-// Get all draws in a series
+// Get draws for a specific series
 export const getSeriesDraws = async (
   provider: ethers.BrowserProvider | null,
   chainId: string,
   seriesIndex: number
 ): Promise<LotteryDraw[]> => {
+  if (!provider || !chainId) {
+    return [];
+  }
+  
   const contract = getLotteryContract(provider, chainId);
-  if (!contract) return [];
+  if (!contract) {
+    return [];
+  }
   
   try {
-    const draws: LotteryDraw[] = [];
-    
-    // Try to get all draw IDs for this series using getSeriesDrawIdsByIndex
+    // Get draw IDs for this series
     let drawIds: number[] = [];
     try {
       const ids = await contract.getSeriesDrawIdsByIndex(seriesIndex);
-      drawIds = ids.map((id: any) => Number(id));
+      drawIds = ids.map(id => Number(id));
+    } catch (e) {
+      console.error("Error getting draw IDs, trying alternative method:", e);
       
-      // If we didn't get any draw IDs, fall back to the old method
-      if (drawIds.length === 0) {
-        throw new Error('No draw IDs found for series');
-      }
-    } catch (drawIdsError) {
-      console.log(`Could not get draw IDs for series ${seriesIndex}, using fallback method`, drawIdsError);
-      
-      // Fall back to previous method
-      let drawCount = 1;
+      // Try getting draw count if the above fails
       try {
-        const count = await contract.getSeriesDrawCount(seriesIndex);
-        drawCount = Number(count);
-      } catch (drawCountError) {
-        console.log(`Could not get draw count for series ${seriesIndex}, using default`, drawCountError);
-      }
-      
-      // Generate fallback drawIds
-      for (let i = 0; i < drawCount; i++) {
-        try {
-          const id = await contract.getDrawId(seriesIndex, i);
-          drawIds.push(Number(id));
-        } catch (drawIdError) {
-          // If we can't get the draw ID, use a simple computation
-          const computedId = seriesIndex * 100 + i + 1;
-          drawIds.push(computedId);
-          console.log(`Could not get draw ID for series ${seriesIndex} index ${i}, using computed value ${computedId}`, drawIdError);
+        const drawCount = await contract.getSeriesDrawCount(seriesIndex);
+        const count = Number(drawCount);
+        
+        if (count > 0) {
+          // Generate sequential IDs
+          drawIds = Array.from({ length: count }, (_, i) => i + 1);
         }
+      } catch (countError) {
+        console.error("Error getting series draw count:", countError);
+        return [];
       }
     }
     
-    // If we can't get any draw IDs, add one default draw
+    // If there are no draws, return empty array
     if (drawIds.length === 0) {
+      // For initial app development, create at least one draw with default values
       const defaultDraw: LotteryDraw = {
         drawId: 1,
-        seriesIndex,
-        ticketPrice: '0.01',
-        jackpot: '10',
+        seriesIndex: 0,
+        ticketPrice: "0.0001",
+        jackpot: "0.00032",
         drawBlock: 0,
         isFutureBlockDraw: false,
         completed: false
       };
-      draws.push(defaultDraw);
-      return draws;
+      
+      return [defaultDraw];
     }
     
-    // Try to get actual draws using the collected draw IDs
-    for (const drawId of drawIds) {
+    console.log("Series draws:", drawIds);
+    
+    // Fetch draw details for each ID
+    const drawPromises = drawIds.map(async (drawId) => {
       try {
+        const drawInfo = await contract.draws(drawId);
         
-        // Try to get draw info
-        let drawInfo;
-        try {
-          drawInfo = await contract.draws(drawId);
-          console.log(`Successfully fetched draw info for draw ${drawId}:`, {
-            ticketPrice: ethers.formatEther(drawInfo.ticketPrice),
-            jackpot: ethers.formatEther(drawInfo.jackpot)
-          });
-        } catch (drawInfoError) {
-          console.log(`Could not get draw info for draw ${drawId}, trying direct method`);
-          
-          // Try to get the ticket price directly, which is more important for UI
-          try {
-            // Use the correct getTicketPrice function as specified
-            const ticketPrice = await contract.getTicketPrice(drawId);
-            const jackpot = await contract.getDrawJackpot(drawId);
-            const completed = await contract.isDrawCompleted(drawId);
-            
-            console.log(`Direct fetch successful for draw ${drawId}:`, {
-              ticketPrice: ethers.formatEther(ticketPrice),
-              jackpot: ethers.formatEther(jackpot),
-              completed
-            });
-            
-            // Create draw info from direct fetches
-            drawInfo = {
-              jackpot: jackpot,
-              ticketPrice: ticketPrice,
-              drawBlock: 0,
-              completed: completed,
-              isFutureBlockDraw: false
-            };
-          } catch (directError) {
-            console.log(`Direct fetch also failed for draw ${drawId}, using defaults`, directError);
-            // Create default draw info
-            drawInfo = {
-              ticketPrice: ethers.parseEther('0.01'),
-              jackpot: ethers.parseEther('10'),
-              drawBlock: 0,
-              isFutureBlockDraw: false,
-              completed: false
-            };
-          }
-        }
+        // Format ticket price and jackpot to ETH
+        const ticketPrice = ethers.formatEther(drawInfo.ticketPrice);
+        const jackpot = ethers.formatEther(drawInfo.jackpot);
         
-        draws.push({
+        const draw: LotteryDraw = {
           drawId,
           seriesIndex,
-          ticketPrice: ethers.formatEther(drawInfo.ticketPrice),
-          jackpot: ethers.formatEther(drawInfo.jackpot),
-          drawBlock: Number(drawInfo.drawBlock),
-          isFutureBlockDraw: drawInfo.isFutureBlockDraw,
-          completed: drawInfo.completed
-        });
-      } catch (error) {
-        console.error(`Error fetching draw ${drawId} in series ${seriesIndex}:`, error);
-      }
-    }
-    
-    // If we couldn't get any draws despite trying, return a default
-    if (draws.length === 0) {
-      const defaultDraw: LotteryDraw = {
-        drawId: 1,
-        seriesIndex,
-        ticketPrice: '0.01',
-        jackpot: '10',
-        drawBlock: 0,
-        isFutureBlockDraw: false,
-        completed: false
-      };
-      draws.push(defaultDraw);
-    }
-    
-    return draws;
-  } catch (error) {
-    console.error(`Error getting draws for series ${seriesIndex}:`, error);
-    // Return a default draw if everything fails
-    return [{
-      drawId: 1,
-      seriesIndex,
-      ticketPrice: '0.01',
-      jackpot: '10',
-      drawBlock: 0,
-      isFutureBlockDraw: false,
-      completed: false
-    }];
-  }
-};
-
-// Get information for a specific draw
-export const getDrawInfo = async (
-  provider: ethers.BrowserProvider | null,
-  chainId: string,
-  drawId: number
-): Promise<LotteryDraw | null> => {
-  const contract = getLotteryContract(provider, chainId);
-  if (!contract) return null;
-  
-  try {
-    // Try to get draw info
-    let drawInfo;
-    try {
-      drawInfo = await contract.draws(drawId);
-      console.log(`Successfully fetched draw info for draw ${drawId}:`, {
-        ticketPrice: ethers.formatEther(drawInfo.ticketPrice),
-        jackpot: ethers.formatEther(drawInfo.jackpot)
-      });
-    } catch (drawInfoError) {
-      console.log(`Could not get draw info for draw ${drawId}, trying direct method`);
-      
-      // Try to get the ticket price directly, which is more important for UI
-      try {
-        // Use the correct getTicketPrice function as specified
-        const ticketPrice = await contract.getTicketPrice(drawId);
-        const jackpot = await contract.getDrawJackpot(drawId);
-        const completed = await contract.isDrawCompleted(drawId);
-        
-        console.log(`Direct fetch successful for draw ${drawId}:`, {
-          ticketPrice: ethers.formatEther(ticketPrice),
-          jackpot: ethers.formatEther(jackpot),
-          completed
-        });
-        
-        // Create draw info from direct fetches
-        drawInfo = {
-          jackpot: jackpot,
-          ticketPrice: ticketPrice,
-          drawBlock: 0,
-          completed: completed,
-          isFutureBlockDraw: false
+          ticketPrice,
+          jackpot,
+          drawBlock: Number(drawInfo.drawBlock || 0),
+          isFutureBlockDraw: !!drawInfo.isFutureBlockDraw,
+          completed: !!drawInfo.completed,
+          winningNumbers: drawInfo.completed ? drawInfo.winningNumbers.map(n => Number(n)) : undefined
         };
-      } catch (directError) {
-        console.log(`Direct fetch also failed for draw ${drawId}, using defaults`, directError);
-        // Create default draw info
-        drawInfo = {
-          ticketPrice: ethers.parseEther('0.01'),
-          jackpot: ethers.parseEther('10'),
+        
+        return draw;
+      } catch (e) {
+        console.error(`Error fetching draw ${drawId}:`, e);
+        
+        // Return a default draw object if fetch fails
+        const defaultDraw: LotteryDraw = {
+          drawId,
+          seriesIndex,
+          ticketPrice: "0.0002",
+          jackpot: "0.0",
           drawBlock: 0,
           isFutureBlockDraw: false,
           completed: false
         };
+        
+        return defaultDraw;
       }
-    }
+    });
     
-    // Try to get series index
-    let seriesIndex = 0;
-    try {
-      const idx = await contract.getDrawSeries(drawId);
-      seriesIndex = Number(idx);
-    } catch (seriesError) {
-      console.log(`Could not get series index for draw ${drawId}, using default`, seriesError);
-    }
-    
-    return {
-      drawId,
-      seriesIndex,
-      ticketPrice: ethers.formatEther(drawInfo.ticketPrice),
-      jackpot: ethers.formatEther(drawInfo.jackpot),
-      drawBlock: Number(drawInfo.drawBlock),
-      isFutureBlockDraw: drawInfo.isFutureBlockDraw,
-      completed: drawInfo.completed
-    };
+    const draws = await Promise.all(drawPromises);
+    return draws;
   } catch (error) {
-    console.error(`Error getting draw info for draw ${drawId}:`, error);
+    console.error("Error fetching series draws:", error);
     
-    // Return default draw info if all else fails
+    // For development and testing, return at least two draws
+    console.log("Creating default draws for development");
+    return [
+      {
+        drawId: 1,
+        seriesIndex: seriesIndex,
+        ticketPrice: "0.0001",
+        jackpot: "0.002",
+        drawBlock: 0,
+        isFutureBlockDraw: false,
+        completed: true,
+        winningNumbers: [5, 12, 23, 45, 65, 18]
+      },
+      {
+        drawId: 2,
+        seriesIndex: seriesIndex,
+        ticketPrice: "0.0001",
+        jackpot: "0.003",
+        drawBlock: 0,
+        isFutureBlockDraw: false,
+        completed: false
+      }
+    ];
+  }
+};
+
+// Get details for a specific draw
+export const getDrawInfo = async (
+  provider: ethers.BrowserProvider | null,
+  chainId: string,
+  drawId: number,
+  seriesIndex?: number
+): Promise<LotteryDraw | null> => {
+  if (!provider || !chainId) {
+    return null;
+  }
+  
+  const contract = getLotteryContract(provider, chainId);
+  if (!contract) {
+    return null;
+  }
+  
+  try {
+    // Get draw details
+    const drawInfo = await contract.draws(drawId);
+    
+    // Format ticket price and jackpot to ETH
+    const ticketPrice = ethers.formatEther(drawInfo.ticketPrice);
+    const jackpot = ethers.formatEther(drawInfo.jackpot);
+    
+    const draw: LotteryDraw = {
+      drawId,
+      seriesIndex: seriesIndex !== undefined ? seriesIndex : 0,
+      ticketPrice,
+      jackpot,
+      drawBlock: Number(drawInfo.drawBlock || 0),
+      isFutureBlockDraw: !!drawInfo.isFutureBlockDraw,
+      completed: !!drawInfo.completed,
+      winningNumbers: drawInfo.completed ? drawInfo.winningNumbers.map(n => Number(n)) : undefined
+    };
+    
+    return draw;
+  } catch (error) {
+    console.error(`Error fetching draw ${drawId}:`, error);
+    
+    // Return a default draw object for development and testing
+    console.log(`Creating default draw #${drawId} for development`);
     return {
       drawId,
-      seriesIndex: 0,
-      ticketPrice: '0.01',
-      jackpot: '10',
+      seriesIndex: seriesIndex !== undefined ? seriesIndex : 0,
+      ticketPrice: "0.0001",
+      jackpot: "0.002",
       drawBlock: 0,
       isFutureBlockDraw: false,
-      completed: false
+      completed: drawId === 1 // First draw is completed, others are active
     };
   }
 };
 
-// Generate a quick pick ticket (5 random numbers plus 1 LOTTO number)
+// Generate random numbers for Quick Pick
 export const generateQuickPick = (): { numbers: number[], lottoNumber: number } => {
-  // Generate 5 unique random numbers between 1-70
+  // Generate 5 unique numbers between 1-70
   const numbers: number[] = [];
   while (numbers.length < 5) {
     const num = Math.floor(Math.random() * 70) + 1;
@@ -612,11 +425,11 @@ export const generateQuickPick = (): { numbers: number[], lottoNumber: number } 
     }
   }
   
-  // Generate 1 random LOTTO number between 1-30
-  const lottoNumber = Math.floor(Math.random() * 30) + 1;
-  
-  // Sort numbers for display
+  // Sort numbers in ascending order
   numbers.sort((a, b) => a - b);
+  
+  // Generate 1 LOTTO number between 1-30
+  const lottoNumber = Math.floor(Math.random() * 30) + 1;
   
   return { numbers, lottoNumber };
 };
@@ -627,12 +440,12 @@ export const getDrawParticipants = async (
   chainId: string,
   drawId: number,
   seriesIndex?: number
-): Promise<Participant[]> => {
+): Promise<{ participants: Participant[], counts: {[key: string]: number} }> => {
   console.log(`Fetching participants for draw ID ${drawId} in series ${seriesIndex || 0}`);
   
   if (!provider || !chainId) {
     console.log("Provider or chainId not available");
-    return [];
+    return { participants: [], counts: {} };
   }
   
   try {
@@ -735,108 +548,17 @@ export const getDrawParticipants = async (
     }
     
     // If we didn't find any participants from the blockchain,
-    // create example data based on the requested draw ID
+    // simply return the empty array - we won't use mock data
     if (participants.length === 0) {
-      console.log(`No blockchain data found for Draw #${drawId}. Creating example data.`);
-      
-      // Create a set of example participants with different drawId values
-      // to simulate different participants in different draws
-      const allExampleParticipants: Participant[] = [
-        // For Draw 1
-        {
-          walletAddress: "0xa1B2c3D4e5F6a7B8c9D0e1F2a3B4c5D6e7F8a9B0",
-          ticketCount: 2,
-          timestamp: Date.now() - 3600000 * 24, // 1 day ago
-          transactionHash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-          drawId: 1,
-          seriesIndex: 0
-        },
-        {
-          walletAddress: "0xB2c3D4e5F6a7B8c9D0e1F2a3B4c5D6e7F8a9B0a1",
-          ticketCount: 5,
-          timestamp: Date.now() - 3600000 * 48, // 2 days ago
-          transactionHash: "0x2345678901abcdef2345678901abcdef2345678901abcdef2345678901abcdef",
-          drawId: 1,
-          seriesIndex: 0
-        },
-        {
-          walletAddress: "0x7834567890123456789012345678901234567890",
-          ticketCount: 3,
-          timestamp: Date.now() - 3600000 * 12, // 12 hours ago
-          transactionHash: "0x0876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba",
-          drawId: 1,
-          seriesIndex: 0
-        },
-        {
-          walletAddress: "0x2834567890123456789012345678901234567890",
-          ticketCount: 1,
-          timestamp: Date.now() - 3600000 * 36, // 36 hours ago
-          transactionHash: "0x1876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba",
-          drawId: 1,
-          seriesIndex: 0
-        },
-        {
-          walletAddress: "0x3834567890123456789012345678901234567890",
-          ticketCount: 2,
-          timestamp: Date.now() - 3600000 * 72, // 3 days ago
-          transactionHash: "0x2876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba",
-          drawId: 1,
-          seriesIndex: 0
-        },
-        {
-          walletAddress: "0x4834567890123456789012345678901234567890",
-          ticketCount: 1,
-          timestamp: Date.now() - 3600000 * 96, // 4 days ago
-          transactionHash: "0x3876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba",
-          drawId: 1,
-          seriesIndex: 0
-        },
-        {
-          walletAddress: "0x5834567890123456789012345678901234567890",
-          ticketCount: 3,
-          timestamp: Date.now() - 3600000 * 120, // 5 days ago
-          transactionHash: "0x4876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba",
-          drawId: 1,
-          seriesIndex: 0
-        },
-        
-        // For Draw 2
-        {
-          walletAddress: "0x1234567890123456789012345678901234567890",
-          ticketCount: 1,
-          timestamp: Date.now() - 3600000, // 1 hour ago
-          transactionHash: "0x5876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba",
-          drawId: 2,
-          seriesIndex: 0
-        },
-        
-        // For Draw 3
-        {
-          walletAddress: "0xc3D4e5F6a7B8c9D0e1F2a3B4c5D6e7F8a9B0a1B2",
-          ticketCount: 3,
-          timestamp: Date.now() - 7200000, // 2 hours ago
-          transactionHash: "0x3456789012abcdef3456789012abcdef3456789012abcdef3456789012abcdef",
-          drawId: 3,
-          seriesIndex: 0
-        }
-      ];
-      
-      // Filter participants for the specified draw
-      const filteredParticipants = allExampleParticipants.filter(
-        participant => 
-          participant.drawId === drawId && 
-          (seriesIndex === undefined || participant.seriesIndex === seriesIndex)
-      );
-      
-      console.log(`Found ${filteredParticipants.length} example participants for draw ${drawId} in series ${seriesIndex || 0}`);
-      return filteredParticipants;
+      console.log(`No blockchain data found for Draw #${drawId}. Returning empty participants list.`);
+      return { participants: [], counts: addressCounts };
     }
     
     console.log(`Returning ${participants.length} participants from blockchain data`);
-    return participants;
+    return { participants, counts: addressCounts };
   } catch (error) {
     console.error("Error fetching draw participants:", error);
-    return [];
+    return { participants: [], counts: {} };
   }
 };
 
@@ -1133,218 +855,187 @@ export const getUserTicketsCount = async (
   provider?: ethers.BrowserProvider | null
 ): Promise<number> => {
   try {
-    // Use default Sepolia chain ID
-    const chainId = "11155111";
-    const contract = await getLotteryContract(provider ?? null, chainId);
-    if (!contract) return 0;
+    // Use default Sepolia chain ID - the getLotteryAddress function handles all contract address logic
+    const chainId = ACTIVE_CHAIN_ID;
+    const contractAddress = getLotteryAddress(chainId);
     
-    // If both series and draw are specified, get tickets for that specific draw
-    if (seriesIndex !== undefined && drawId !== undefined) {
-      try {
-        const count = await contract.getUserTicketsCountForDraw(userAddress, seriesIndex, drawId);
-        return Number(count);
-      } catch (err) {
-        console.error(`Error getting user tickets count for specific draw: ${err}`);
-        return 0;
-      }
+    console.log(`[DEBUG] getUserTicketsCount - STARTING with userAddress: ${userAddress}, drawId: ${drawId}`);
+    console.log(`[DEBUG] getUserTicketsCount - Using provider:`, provider ? "Available" : "Not available");
+    console.log(`[DEBUG] getUserTicketsCount - Using contract address: ${contractAddress}`);
+    
+    const contract = await getLotteryContract(provider ?? null, chainId);
+    if (!contract) {
+      console.error('[DEBUG] getUserTicketsCount - Failed to get contract instance');
+      return 0;
     }
     
-    // Otherwise get total tickets across all draws
-    const count = await contract.getUserTicketsCount(userAddress);
-    return Number(count);
+    console.log(`[DEBUG] getUserTicketsCount - Got contract instance successfully`);
+    
+    // We need a signer because the contract's getUserTicketsCount uses msg.sender
+    const contractWithSigner = await getLotteryContractWithSigner(provider ?? null, chainId);
+    if (!contractWithSigner) {
+      console.error('[DEBUG] getUserTicketsCount - Could not get contract with signer');
+      return 0;
+    }
+    
+    console.log(`[DEBUG] getUserTicketsCount - Got contract with signer successfully`);
+    
+    // Try to get the signer address - for debugging only
+    try {
+      let signerAddress = "unknown";
+      if (provider) {
+        try {
+          const signer = await provider.getSigner();
+          if (signer) {
+            signerAddress = await signer.getAddress();
+          }
+        } catch (e) {
+          console.error("[DEBUG] getUserTicketsCount - Error getting signer:", e);
+        }
+      }
+      console.log(`[DEBUG] getUserTicketsCount - Signer address: ${signerAddress}`);
+      console.log(`[DEBUG] getUserTicketsCount - Signer matches requested address: ${signerAddress === userAddress}`);
+    } catch (signerError) {
+      console.error('[DEBUG] getUserTicketsCount - Could not get signer address:', signerError);
+    }
+    
+    // The contract only accepts drawId, not userAddress or seriesIndex
+    if (drawId !== undefined) {
+      try {
+        console.log(`[DEBUG] getUserTicketsCount - About to call contractWithSigner.getUserTicketsCount(${drawId})`);
+        
+        // Call the contract function with just the drawId
+        const count = await contractWithSigner.getUserTicketsCount(drawId);
+        const numCount = Number(count);
+        
+        console.log(`[DEBUG] getUserTicketsCount - Raw count from contract: ${count}`);
+        console.log(`[DEBUG] getUserTicketsCount - Parsed count: ${numCount}`);
+        
+        return numCount;
+      } catch (countError) {
+        console.error(`[DEBUG] getUserTicketsCount - Error calling contract.getUserTicketsCount:`, countError);
+        return 0;
+      }
+    } else {
+      console.log('[DEBUG] getUserTicketsCount - No draw ID provided, returning 0');
+      return 0;
+    }
   } catch (error) {
-    console.error('Error getting user tickets count:', error);
+    console.error('[DEBUG] getUserTicketsCount - Error in getUserTicketsCount:', error);
     return 0;
   }
 };
 
-// Get all ticket indexes for a user
-export const getUserTickets = async (
-  userAddress: string,
-  seriesIndex?: number,
-  drawId?: number,
-  provider?: ethers.BrowserProvider | null
-): Promise<number[]> => {
-  try {
-    // Use default Sepolia chain ID
-    const chainId = "11155111";
-    const contract = await getLotteryContract(provider ?? null, chainId);
-    if (!contract) {
-      console.error("No contract instance available");
-      return [];
-    }
-    
-    console.log("Got lottery contract instance");
-    
-    // Check if the contract has the specific function we need
-    try {
-      // Try to get the tickets count first
-      const ticketCount = await contract.getUserTicketsCount(userAddress);
-      console.log(`User has ${ticketCount} tickets total`);
-      
-      if (ticketCount === 0) {
-        console.log("User has no tickets");
-        return [];
-      }
-      
-      // Get all tickets for the user
-      const allTickets = await contract.getUserTickets(userAddress);
-      console.log("All user tickets:", allTickets);
-      
-      // Filter tickets by seriesIndex and drawId if provided
-      if (seriesIndex !== undefined && drawId !== undefined) {
-        console.log(`Filtering tickets for series ${seriesIndex}, draw ${drawId}`);
-        
-        // Get ticket details for each ticket index to find ones that match our series/draw
-        const ticketPromises = allTickets.map(async (ticketIndex: any) => {
-          try {
-            const ticketDetails = await contract.getUserTicketDetails(userAddress, Number(ticketIndex));
-            if (ticketDetails) {
-              const ticketSeriesIndex = Number(ticketDetails.seriesIndex);
-              const ticketDrawId = Number(ticketDetails.drawId);
-              
-              console.log(`Ticket ${ticketIndex} is for series ${ticketSeriesIndex}, draw ${ticketDrawId}`);
-              
-              // If the ticket matches our requested series and draw, include it
-              if (ticketSeriesIndex === seriesIndex && ticketDrawId === drawId) {
-                return Number(ticketIndex);
-              }
-            }
-            return null;
-          } catch (err) {
-            console.error(`Error getting details for ticket ${ticketIndex}:`, err);
-            return null;
-          }
-        });
-        
-        // Wait for all ticket details to be fetched and filter out nulls
-        const allTicketResults = await Promise.all(ticketPromises);
-        const filteredTickets = allTicketResults.filter(ticket => ticket !== null) as number[];
-        
-        console.log(`Found ${filteredTickets.length} tickets for series ${seriesIndex}, draw ${drawId}:`, filteredTickets);
-        return filteredTickets;
-      }
-      
-      return allTickets.map((ticket: any) => Number(ticket));
-    } catch (contractMethodError) {
-      console.error("Contract method error:", contractMethodError);
-      return [];
-    }
-  } catch (error) {
-    console.error('Error getting user tickets:', error);
-    return [];
-  }
-};
-
-// Get details for a specific user ticket
-export const getUserTicketDetails = async (
-  userAddress: string,
-  ticketIndex: number,
-  provider?: ethers.BrowserProvider | null
-): Promise<UserTicket | null> => {
-  try {
-    // Use default Sepolia chain ID
-    const chainId = "11155111";
-    const contract = await getLotteryContract(provider ?? null, chainId);
-    if (!contract) return null;
-    
-    // Get ticket details
-    const ticketDetails = await contract.getUserTicketDetails(userAddress, ticketIndex);
-    if (!ticketDetails) return null;
-    
-    // Extract ticket data
-    const drawId = Number(ticketDetails.drawId);
-    const seriesIndex = Number(ticketDetails.seriesIndex);
-    const numbers = ticketDetails.numbers.map((n: any) => Number(n));
-    const lottoNumber = Number(ticketDetails.lottoNumber);
-    const timestamp = Number(ticketDetails.timestamp) * 1000; // Convert to ms
-    
-    // Check if ticket is a winner
-    let isWinner = false;
-    let amountWon = "0";
-    
-    try {
-      const winningAmount = await contract.getTicketWinningAmount(seriesIndex, drawId, userAddress, ticketIndex);
-      isWinner = winningAmount > 0;
-      amountWon = ethers.formatEther(winningAmount);
-    } catch (winningError) {
-      console.error(`Error checking if ticket is winner:`, winningError);
-    }
-    
-    // Return formatted ticket info
-    return {
-      drawId,
-      seriesIndex,
-      ticketIndex,
-      numbers,
-      lottoNumber,
-      timestamp,
-      isWinner,
-      amountWon
-    };
-  } catch (error) {
-    console.error('Error getting user ticket details:', error);
-    return null;
-  }
-};
-
-// Get all ticket details for a user (including winning status)
+// Get all user tickets with details
 export const getAllUserTicketDetails = async (
   userAddress: string,
+  provider: ethers.BrowserProvider | null,
+  chainId: string,
   seriesIndex?: number,
-  drawId?: number,
-  provider?: ethers.BrowserProvider | null
+  drawId?: number
 ): Promise<UserTicket[]> => {
-  if (!userAddress) {
-    console.error('No wallet address provided to getAllUserTicketDetails');
+  if (!provider || !chainId || !userAddress) {
     return [];
   }
   
-  if (seriesIndex === undefined) {
-    console.error('No series index provided to getAllUserTicketDetails');
+  const contract = getLotteryContract(provider, chainId);
+  if (!contract) {
     return [];
   }
-  
-  if (drawId === undefined) {
-    console.error('No draw ID provided to getAllUserTicketDetails');
-    return [];
-  }
-  
-  if (!provider) {
-    console.error('No provider available for getAllUserTicketDetails');
-    return [];
-  }
-  
-  console.log(`getAllUserTicketDetails called for user ${userAddress} in series ${seriesIndex}, draw ${drawId}`);
   
   try {
-    // First get all ticket indices for the user
-    console.log('Getting ticket indices...');
-    const ticketIndices = await getUserTickets(userAddress, seriesIndex, drawId, provider);
-    console.log(`Found ${ticketIndices.length} ticket indices:`, ticketIndices);
+    // If drawId is specified, get tickets just for that draw
+    // Otherwise get all tickets for the user
     
-    if (ticketIndices.length === 0) {
-      console.log('No tickets found for this user');
-      return [];
+    const tickets: UserTicket[] = [];
+    
+    // Call contract function to get user's tickets
+    // This will depend on your contract's specific implementation
+    try {
+      // Try using the contract's getUserTicketDetails function if available
+      // This is a custom function you'd need to implement in the smart contract
+      const ticketData = await contract.getUserTicketDetails(userAddress, drawId);
+      
+      if (ticketData && Array.isArray(ticketData) && ticketData.length > 0) {
+        for (const ticket of ticketData) {
+          const userTicket: UserTicket = {
+            drawId: Number(ticket.drawId),
+            seriesIndex: Number(ticket.seriesIndex || 0),
+            ticketIndex: Number(ticket.ticketIndex || 0),
+            numbers: ticket.numbers.map((n: any) => Number(n)),
+            lottoNumber: Number(ticket.lottoNumber),
+            timestamp: Number(ticket.timestamp) * 1000, // Convert to milliseconds
+            isWinner: !!ticket.isWinner,
+            amountWon: ethers.formatEther(ticket.amountWon || 0),
+            transactionHash: ticket.transactionHash
+          };
+          
+          tickets.push(userTicket);
+        }
+      }
+    } catch (e) {
+      console.error('Error getting user ticket details:', e);
+      // If the direct method fails, you could implement a fallback using events
+      // or other contract methods
     }
     
-    // Then fetch details for each ticket
-    console.log('Fetching details for each ticket...');
-    const ticketDetailsPromises = ticketIndices.map(ticketIndex => 
-      getUserTicketDetails(userAddress, ticketIndex, provider)
-    );
-    
-    // Wait for all promises to resolve
-    const ticketDetails = await Promise.all(ticketDetailsPromises);
-    console.log('Ticket details fetched:', ticketDetails);
-    
-    // Filter out null values and return valid tickets
-    const validTickets = ticketDetails.filter(ticket => ticket !== null) as UserTicket[];
-    console.log(`Returning ${validTickets.length} valid tickets`);
-    
-    return validTickets;
+    return tickets;
   } catch (error) {
-    console.error('Error getting all user ticket details:', error);
+    console.error('Error fetching user tickets:', error);
     return [];
   }
 };
+
+// Define types for lottery data
+export interface LotteryData {
+  jackpotAmount: string;
+  ticketPrice: string;
+  currentDraw: number;
+  timeRemaining: number;
+  endTimestamp?: number; // Unix timestamp when draw ends (for client-side countdown)
+  participants: Participant[];
+  participantCount: number;
+  seriesIndex?: number; // Added series index
+}
+
+export interface Participant {
+  walletAddress: string;
+  ticketCount: number;
+  timestamp: number;
+  transactionHash?: string;
+  drawId?: number;
+  seriesIndex?: number;
+}
+
+export interface LotteryTicket {
+  numbers: number[];
+  lottoNumber: number;
+  buyer: string;
+}
+
+export interface LotteryDraw {
+  drawId: number;        // Draw ID within the series
+  seriesIndex: number;   // Series index this draw belongs to
+  ticketPrice: string;
+  jackpot: string;
+  drawBlock: number;
+  isFutureBlockDraw: boolean;
+  completed: boolean;
+  winningNumbers?: number[];
+}
+
+export interface LotterySeries {
+  index: number;
+  active: boolean;
+  drawCount: number;
+  name: string;
+}
+
+export interface Winner {
+  winnerAddress: string;
+  amountWon: string;
+  drawId?: number;
+  seriesIndex?: number;
+  transactionHash?: string;
+  timestamp?: number;
+}

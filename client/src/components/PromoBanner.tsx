@@ -118,7 +118,7 @@ export default function PromoBanner() {
       {/* Active banner */}
       <div 
         key={currentBanner.id}
-        className="relative w-full h-56 transition-opacity duration-500"
+        className="relative w-full h-96 md:h-[32rem] transition-opacity duration-500"
       >
         <div
           className={`absolute inset-0 bg-cover bg-center transition-transform duration-700 ease-in-out ${hasImageError ? currentBanner.fallbackColor : ''}`}
@@ -129,26 +129,26 @@ export default function PromoBanner() {
         >
           <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-transparent" />
         </div>
-        <div className="relative z-10 flex flex-col justify-center h-full px-8 md:px-16 max-w-md">
-          <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">
+        <div className="relative z-10 flex flex-col justify-center h-full px-8 md:px-20 max-w-2xl">
+          <h2 className="text-4xl md:text-6xl font-bold text-white mb-4 md:mb-6">
             {currentBanner.title}
           </h2>
-          <p className="text-lg md:text-xl text-white/90">
+          <p className="text-xl md:text-2xl text-white/90 mb-4 md:mb-8 max-w-xl leading-relaxed">
             {currentBanner.description}
           </p>
-          <Button className="mt-4 w-40 bg-primary hover:bg-primary/90">
+          <Button className="mt-4 md:mt-6 w-48 md:w-56 h-14 md:h-16 text-lg md:text-xl bg-primary hover:bg-primary/90 font-semibold">
             Learn More
           </Button>
         </div>
       </div>
 
       {/* Navigation dots */}
-      <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2">
+      <div className="absolute bottom-8 left-0 right-0 flex justify-center gap-3">
         {bannerImages.map((_, index) => (
           <button
             key={index}
-            className={`w-2 h-2 rounded-full transition-all ${
-              currentIndex === index ? 'bg-white w-4' : 'bg-white/50'
+            className={`w-4 h-4 rounded-full transition-all ${
+              currentIndex === index ? 'bg-white w-8' : 'bg-white/60'
             }`}
             onClick={() => handleManualNavigation(index)}
             aria-label={`Go to slide ${index + 1}`}
@@ -160,27 +160,27 @@ export default function PromoBanner() {
       <Button
         variant="outline"
         size="icon"
-        className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black/30 border-none text-white hover:bg-black/50 z-20"
+        className="absolute left-6 top-1/2 transform -translate-y-1/2 bg-black/40 border-none text-white hover:bg-black/60 z-20 h-14 w-14 rounded-full shadow-lg"
         onClick={() => {
           goToPrevSlide();
           handleManualNavigation(currentIndex > 0 ? currentIndex - 1 : bannerImages.length - 1);
         }}
         aria-label="Previous slide"
       >
-        <ArrowLeft className="h-4 w-4" />
+        <ArrowLeft className="h-6 w-6" />
       </Button>
       
       <Button
         variant="outline"
         size="icon"
-        className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black/30 border-none text-white hover:bg-black/50 z-20"
+        className="absolute right-6 top-1/2 transform -translate-y-1/2 bg-black/40 border-none text-white hover:bg-black/60 z-20 h-14 w-14 rounded-full shadow-lg"
         onClick={() => {
           goToNextSlide();
           handleManualNavigation((currentIndex + 1) % bannerImages.length);
         }}
         aria-label="Next slide"
       >
-        <ArrowRight className="h-4 w-4" />
+        <ArrowRight className="h-6 w-6" />
       </Button>
     </div>
   );

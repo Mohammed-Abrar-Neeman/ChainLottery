@@ -8,7 +8,7 @@ import WalletModal from '@/components/modals/WalletModal';
 import { formatAddress, formatEther } from '@/lib/web3';
 import { ExternalLink, Ticket, AlertTriangle, Wallet, ChevronDown, RefreshCw } from 'lucide-react';
 import { useLotteryData } from '@/hooks/useLotteryData';
-import { getAllUserTicketDetails, UserTicket } from '@/lib/lotteryContract';
+import { getAllUserTicketDetails, UserTicket, getLotteryContractWithSigner } from '@/lib/lotteryContract';
 
 // Version of this component file: 2.0.0 - Complete rewrite of ticket refresh functionality
 
@@ -32,6 +32,11 @@ export default function MyTickets() {
   const [isLoadingTickets, setIsLoadingTickets] = useState(false);
   const [ticketsError, setTicketsError] = useState<Error | null>(null);
   
+  // Local state for dropdown values that won't be affected by global state updates
+  // Set default values for testing: Series 0, Draw 1
+  const [localSeriesIndex, setLocalSeriesIndex] = useState<number | undefined>(0);
+  const [localDrawId, setLocalDrawId] = useState<number | undefined>(1);
+  
   // Format the date
   const formatDate = (timestamp: number) => {
     return new Intl.DateTimeFormat('en-US', {
@@ -54,52 +59,74 @@ export default function MyTickets() {
     return seriesDraws.some(draw => draw.seriesIndex === seriesIndex);
   };
   
-  // Initialize series selection when seriesList loads - if not already set
+  // Initialize local series selection when seriesList loads 
   useEffect(() => {
-    if (seriesList && seriesList.length > 0 && selectedSeriesIndex === undefined) {
+    if (seriesList && seriesList.length > 0 && localSeriesIndex === undefined) {
       // Select the first active series by default
       const activeSeries = seriesList.find(series => series.active);
       if (activeSeries) {
-        console.log("Setting lottery data series to active series:", activeSeries.index);
+        console.log("Setting local series to active series:", activeSeries.index);
+        setLocalSeriesIndex(activeSeries.index);
+        // Also update global state for data fetching
         setSelectedSeriesIndex(activeSeries.index);
       } else if (seriesList.length > 0) {
-        console.log("No active series, setting lottery data series to first series:", seriesList[0].index);
+        console.log("No active series, setting local series to first series:", seriesList[0].index);
+        setLocalSeriesIndex(seriesList[0].index);
+        // Also update global state for data fetching
         setSelectedSeriesIndex(seriesList[0].index);
       }
     }
-  }, [seriesList, selectedSeriesIndex, setSelectedSeriesIndex]);
+  }, [seriesList, localSeriesIndex, setSelectedSeriesIndex]);
   
-  // Initialize draw selection when series changes
+  // Initialize local draw selection when series changes or draws are loaded
   useEffect(() => {
-    if (selectedSeriesIndex !== undefined && Array.isArray(seriesDraws) && seriesDraws.length > 0) {
-      console.log("Draw initialization - Series index changed:", selectedSeriesIndex);
-      console.log("Draw initialization - Available draws:", seriesDraws);
+    if (localSeriesIndex !== undefined && Array.isArray(seriesDraws) && seriesDraws.length > 0) {
+      console.log("MyTickets - Local draw initialization for series:", localSeriesIndex);
       
       // Filter draws for the selected series
-      const drawsForSeries = seriesDraws.filter(draw => draw.seriesIndex === selectedSeriesIndex);
-      console.log("Draw initialization - Draws for this series:", drawsForSeries);
+      const drawsForSeries = seriesDraws.filter(draw => draw.seriesIndex === localSeriesIndex);
+      console.log("MyTickets - Draws for this series:", drawsForSeries);
       
-      if (drawsForSeries.length > 0) {
+      if (drawsForSeries.length > 0 && localDrawId === undefined) {
         // Find the most recent active draw by default
         const sortedDraws = [...drawsForSeries].sort((a, b) => b.drawId - a.drawId);
         const selectedDraw = sortedDraws[0];
-        console.log("Draw initialization - Selected draw:", selectedDraw);
-        setSelectedDrawId(selectedDraw.drawId); // Use the global state setter
-      } else {
-        console.log("Draw initialization - No draws found for series", selectedSeriesIndex);
-        setSelectedDrawId(undefined); // Reset draw ID when changing to a series with no draws
+        console.log("MyTickets - Selected local draw:", selectedDraw);
+        
+        // Update both local and global state
+        setLocalDrawId(selectedDraw.drawId);
+        setSelectedDrawId(selectedDraw.drawId);
       }
     }
-  }, [selectedSeriesIndex, seriesDraws, setSelectedDrawId]);
+  }, [localSeriesIndex, seriesDraws, localDrawId, setSelectedDrawId]);
   
   // Load user tickets when all required data is available
   useEffect(() => {
     const fetchUserTickets = async () => {
+      console.log("Ticket fetch effect running with:", {
+        isConnected,
+        account,
+        provider: provider ? "Available" : "Not available",
+        localSeriesIndex,
+        localDrawId,
+        selectedSeriesIndex,
+        selectedDrawId
+      });
+      
+      // Step 1: Check if wallet is connected
       if (!isConnected || !account || !provider) {
+        setUserTickets([]);
+        setTicketsError(null);
         return;
       }
       
-      if (selectedSeriesIndex === undefined || selectedDrawId === undefined) {
+      // Step 2: Use local state values if available, otherwise fall back to global state
+      const drawId = localDrawId || selectedDrawId;
+      const seriesIdx = localSeriesIndex || selectedSeriesIndex;
+      
+      if (seriesIdx === undefined || drawId === undefined) {
+        setUserTickets([]);
+        setTicketsError(null);
         return;
       }
       
@@ -107,18 +134,19 @@ export default function MyTickets() {
         setIsLoadingTickets(true);
         setTicketsError(null);
         
-        console.log(`Fetching tickets for user ${account} in series ${selectedSeriesIndex}, draw ${selectedDrawId}`);
+        console.log(`Fetching tickets for user ${account} in series ${seriesIdx}, draw ${drawId}`);
         
-        // Fetch tickets from blockchain
+        // Step 3: Call the contract to get tickets for the current draw
         const tickets = await getAllUserTicketDetails(
           account,
-          selectedSeriesIndex,
-          selectedDrawId,
+          seriesIdx, 
+          drawId,
           provider
         );
         
         console.log(`Found ${tickets.length} tickets for user ${account}`, tickets);
         
+        // Step 4: Update the UI with the tickets or show empty state
         setUserTickets(tickets);
       } catch (error) {
         console.error("Error fetching user tickets:", error);
@@ -129,17 +157,17 @@ export default function MyTickets() {
     };
     
     fetchUserTickets();
-  }, [account, isConnected, provider, selectedSeriesIndex, selectedDrawId]);
+  }, [account, isConnected, provider, selectedSeriesIndex, selectedDrawId, localDrawId, localSeriesIndex]);
   
   const handleRefreshTickets = async () => {
     console.log("Refresh Tickets clicked");
     
-    // Set loading state
+    // Step 1: Set loading state
     setUserTickets([]);
     setIsLoadingTickets(true);
     setTicketsError(null);
     
-    // Input validation
+    // Step 2: Check if wallet is connected
     if (!isConnected || !account || !provider) {
       console.error("Refresh tickets failed: Wallet not connected properly");
       setTicketsError(new Error("Please make sure your wallet is connected properly"));
@@ -147,14 +175,18 @@ export default function MyTickets() {
       return;
     }
     
-    if (selectedSeriesIndex === undefined) {
+    // Step 3: Use local state values if available, otherwise fall back to global state
+    const drawId = localDrawId || selectedDrawId;
+    const seriesIdx = localSeriesIndex || selectedSeriesIndex;
+    
+    if (seriesIdx === undefined) {
       console.error("Refresh tickets failed: No series selected");
       setTicketsError(new Error("Please select a series first"));
       setIsLoadingTickets(false);
       return;
     }
     
-    if (selectedDrawId === undefined) {
+    if (drawId === undefined) {
       console.error("Refresh tickets failed: No draw selected");
       setTicketsError(new Error("Please select a draw first"));
       setIsLoadingTickets(false);
@@ -163,35 +195,38 @@ export default function MyTickets() {
     
     console.log("Input validation passed, fetching tickets with params:", {
       account,
-      seriesIndex: selectedSeriesIndex,
-      drawId: selectedDrawId,
+      seriesIndex: seriesIdx,
+      drawId: drawId,
       provider: provider ? "Provider available" : "No provider"
     });
     
+    // Step 4: Fetch tickets from blockchain with a timeout to prevent hanging
     try {
-      console.log(`Refreshing tickets for user ${account} in series ${selectedSeriesIndex}, draw ${selectedDrawId}`);
+      console.log(`Refreshing tickets for user ${account} in series ${seriesIdx}, draw ${drawId}`);
       
-      // Fetch tickets from blockchain with a timeout to ensure we don't hang forever
       const timeoutPromise = new Promise<UserTicket[]>((_, reject) => {
         setTimeout(() => reject(new Error("Request timed out after 15 seconds")), 15000);
       });
       
       const fetchPromise = getAllUserTicketDetails(
         account,
-        selectedSeriesIndex,
-        selectedDrawId,
+        seriesIdx,
+        drawId, 
         provider
       );
       
       // Use Promise.race to handle potential timeouts
       const tickets = await Promise.race([fetchPromise, timeoutPromise]);
       
-      console.log(`Found ${tickets.length} tickets`, tickets);
+      console.log(`Found ${tickets.length} tickets for user ${account} in draw ${drawId}`, tickets);
       setUserTickets(tickets);
       
       // If we found no tickets, give the user specific feedback
       if (tickets.length === 0) {
-        setTicketsError(new Error(`No tickets found for Draw #${selectedDrawId} in Series ${selectedSeriesIndex}`));
+        console.log(`No tickets found for Draw #${drawId} in Series ${seriesIdx}`);
+        setTicketsError(new Error(`No tickets found for Draw #${drawId} in Series ${seriesIdx}`));
+      } else {
+        setTicketsError(null);
       }
     } catch (error) {
       console.error("Error fetching user tickets:", error);
@@ -245,18 +280,20 @@ export default function MyTickets() {
             <Label htmlFor="series-select" className="text-sm font-medium mb-2 block">Series</Label>
             <Select
               disabled={isLoadingSeriesList || !seriesList || seriesList.length === 0}
-              value={selectedSeriesIndex?.toString() || ""}
+              value={localSeriesIndex?.toString() || ""}
               onValueChange={(value) => {
                 const numValue = Number(value);
                 console.log("MyTickets - Series change:", { 
-                  oldValue: selectedSeriesIndex, 
+                  oldValue: localSeriesIndex, 
                   newValue: numValue 
                 });
                 
-                // Update the series index
+                // Update both local and global states
+                setLocalSeriesIndex(numValue);
                 setSelectedSeriesIndex(numValue);
                 
-                // Reset draw selection when series changes
+                // Reset draw selections
+                setLocalDrawId(undefined);
                 setSelectedDrawId(undefined);
                 
                 // Clear any tickets when changing series for a clean slate
@@ -281,39 +318,43 @@ export default function MyTickets() {
             <Select
               disabled={
                 isLoadingSeriesDraws || 
-                selectedSeriesIndex === undefined || 
+                localSeriesIndex === undefined || 
                 !seriesDraws || 
                 seriesDraws.length === 0
               }
-              value={selectedDrawId?.toString() || ""}
+              value={localDrawId?.toString() || ""}
               onValueChange={(value) => {
                 const numValue = Number(value);
                 console.log("MyTickets - Draw change:", { 
-                  oldValue: selectedDrawId, 
-                  newValue: numValue 
+                  oldValue: localDrawId, 
+                  newValue: numValue,
+                  localSeriesIndex
                 });
                 
-                // Force update the draw ID with direct state management
+                // Update local state first
+                setLocalDrawId(numValue);
+                
+                // Then update global state for queries
                 setSelectedDrawId(numValue);
                 
                 // Clear any tickets when changing draws for a clean slate
                 setUserTickets([]);
                 
                 // Force input validation to run with the new drawId
-                if (isConnected && account && provider && selectedSeriesIndex !== undefined) {
+                if (isConnected && account && provider && localSeriesIndex !== undefined) {
                   console.log("Auto-triggering ticket refresh for new draw selection:", numValue);
                   // Set a slight delay to ensure state updates first
                   setTimeout(() => {
                     handleRefreshTickets();
-                  }, 500);
+                  }, 200); // Longer delay to ensure state propagation
                 }
               }}
             >
               <SelectTrigger id="draw-select" className="w-full">
                 <SelectValue placeholder={
-                  selectedSeriesIndex === undefined 
+                  localSeriesIndex === undefined 
                     ? "Select a series first" 
-                    : !hasDrawsForSeries(selectedSeriesIndex)
+                    : !hasDrawsForSeries(localSeriesIndex)
                     ? "No draws available" 
                     : "Select draw"
                 } />
@@ -321,16 +362,16 @@ export default function MyTickets() {
               <SelectContent>
                 {(() => {
                   // If no series is selected or we're loading data
-                  if (selectedSeriesIndex === undefined || !seriesDraws) {
+                  if (localSeriesIndex === undefined || !seriesDraws) {
                     return <SelectItem disabled value="-1">Select a series first</SelectItem>;
                   }
                   
                   // Filter draws for the selected series
                   const filteredDraws = seriesDraws.filter(draw => 
-                    draw.seriesIndex === selectedSeriesIndex
+                    draw.seriesIndex === localSeriesIndex
                   );
                   
-                  console.log("MyTickets - filtered draws for series", selectedSeriesIndex, ":", filteredDraws);
+                  console.log("MyTickets - filtered draws for series", localSeriesIndex, ":", filteredDraws);
                   
                   // If no draws found for this series
                   if (filteredDraws.length === 0) {
@@ -392,8 +433,8 @@ export default function MyTickets() {
           <div className="bg-gray-50 rounded-lg p-4">
             <div className="text-sm text-gray-500 mb-1">Active Tickets</div>
             <div className="text-2xl font-bold font-mono">
-              {seriesDraws && selectedDrawId ? 
-                (seriesDraws.find(d => d.drawId === selectedDrawId)?.completed ? 0 : userTickets.length) : 0}
+              {seriesDraws && localDrawId ? 
+                (seriesDraws.find(d => d.drawId === localDrawId)?.completed ? 0 : userTickets.length) : 0}
             </div>
           </div>
           <div className="bg-gray-50 rounded-lg p-4">
@@ -430,8 +471,8 @@ export default function MyTickets() {
           <Ticket className="h-12 w-12 mx-auto text-gray-400 mb-3" />
           <h3 className="text-lg font-medium text-gray-800 mb-1">No Tickets Found</h3>
           <p className="text-gray-600 max-w-md mx-auto mb-6">
-            {selectedSeriesIndex !== undefined && selectedDrawId !== undefined ? 
-              `You haven't purchased any tickets for Draw #${selectedDrawId} in Series ${selectedSeriesIndex}.` : 
+            {localSeriesIndex !== undefined && localDrawId !== undefined ? 
+              `You haven't purchased any tickets for Draw #${localDrawId} in Series ${localSeriesIndex}.` : 
               'Select a series and draw to view your tickets.'}
           </p>
           <Button 

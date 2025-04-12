@@ -7,29 +7,55 @@ interface ContractAddresses {
   [key: string]: NetworkContracts;
 }
 
+// ACTIVE NETWORK CONFIG - Use these constants across the application
+// When you want to update the contract or network, just change these values
+export const ACTIVE_LOTTERY_CONTRACT_ADDRESS = '0x2665ff6459dab4792e163724bf26af246384eeae';
+export const ACTIVE_CHAIN_ID = '11155111'; // Sepolia testnet
+
+// Network options (for reference)
+export const CHAIN_IDS = {
+  MAINNET: '1',
+  SEPOLIA: '11155111',
+  GOERLI: '5',
+  LOCAL: '1337'
+};
+
+// Network-specific contracts (all pointing to the same address for convenience)
 export const contractAddresses: ContractAddresses = {
   // Ethereum Mainnet
-  '1': {
-    lottery: '0x23DB4Dd0fE2961B696bE9c98608A8A0e322F4DaA'
+  [CHAIN_IDS.MAINNET]: {
+    lottery: ACTIVE_LOTTERY_CONTRACT_ADDRESS
   },
   // Sepolia Testnet
-  '11155111': {
-    lottery: '0x23DB4Dd0fE2961B696bE9c98608A8A0e322F4DaA'
+  [CHAIN_IDS.SEPOLIA]: {
+    lottery: ACTIVE_LOTTERY_CONTRACT_ADDRESS
   },
   // Goerli Testnet 
-  '5': {
-    lottery: '0x23DB4Dd0fE2961B696bE9c98608A8A0e322F4DaA'
+  [CHAIN_IDS.GOERLI]: {
+    lottery: ACTIVE_LOTTERY_CONTRACT_ADDRESS
   },
   // Local development
-  '1337': {
-    lottery: '0x23DB4Dd0fE2961B696bE9c98608A8A0e322F4DaA'
+  [CHAIN_IDS.LOCAL]: {
+    lottery: ACTIVE_LOTTERY_CONTRACT_ADDRESS
   }
 };
 
-export const getLotteryAddress = (chainId: string): string => {
-  const networkContracts = contractAddresses[chainId];
-  if (!networkContracts) {
-    throw new Error(`No contract addresses found for chain ID: ${chainId}`);
+// Get the currently active chain ID
+export const getActiveChainId = (): string => {
+  return ACTIVE_CHAIN_ID;
+};
+
+// Get the lottery address for a specific chain - always returns the active contract
+export const getLotteryAddress = (chainId: string = ACTIVE_CHAIN_ID): string => {
+  try {
+    const networkContracts = contractAddresses[chainId];
+    if (!networkContracts) {
+      console.warn(`No contract addresses defined for chain ID ${chainId}, falling back to active address`);
+      return ACTIVE_LOTTERY_CONTRACT_ADDRESS;
+    }
+    return networkContracts.lottery;
+  } catch (error) {
+    console.warn(`Error getting lottery address for chain ${chainId}, falling back to active address:`, error);
+    return ACTIVE_LOTTERY_CONTRACT_ADDRESS;
   }
-  return networkContracts.lottery;
 };

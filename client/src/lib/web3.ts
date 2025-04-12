@@ -1,5 +1,6 @@
 import { ethers } from 'ethers';
 import { toast } from '@/hooks/use-toast';
+import { CHAIN_IDS, ACTIVE_CHAIN_ID } from '@shared/contracts';
 
 // Types
 export interface Web3Provider {
@@ -153,7 +154,7 @@ export const parseEther = (ether: string): string => {
 // Switch to a specific network chain
 export const switchNetwork = async (
   provider: ethers.BrowserProvider | null,
-  chainId: string
+  chainId: string = ACTIVE_CHAIN_ID
 ): Promise<boolean> => {
   if (!provider) return false;
   
@@ -200,21 +201,21 @@ export const switchNetwork = async (
 const addNetwork = async (chainId: string): Promise<void> => {
   // Network parameters for common chains
   const networks: Record<string, any> = {
-    '1': {
+    [CHAIN_IDS.MAINNET]: {
       chainId: '0x1',
       chainName: 'Ethereum Mainnet',
       nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
       rpcUrls: ['https://mainnet.infura.io/v3/'],
       blockExplorerUrls: ['https://etherscan.io']
     },
-    '11155111': {
+    [CHAIN_IDS.SEPOLIA]: {
       chainId: '0xaa36a7',
       chainName: 'Sepolia Testnet',
       nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 },
       rpcUrls: ['https://sepolia.infura.io/v3/'],
       blockExplorerUrls: ['https://sepolia.etherscan.io']
     },
-    '5': {
+    [CHAIN_IDS.GOERLI]: {
       chainId: '0x5',
       chainName: 'Goerli Testnet',
       nativeCurrency: { name: 'Goerli Ether', symbol: 'ETH', decimals: 18 },

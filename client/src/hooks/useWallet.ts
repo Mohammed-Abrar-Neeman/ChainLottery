@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { connectWallet, getEthereum, getAccounts, createProvider, ProviderType, switchNetwork as switchWeb3Network } from '@/lib/web3';
+import { ACTIVE_CHAIN_ID } from '@shared/contracts';
 
 interface UseWalletReturn {
   isConnected: boolean;
@@ -34,7 +35,15 @@ export function useWallet(): UseWalletReturn {
         setProvider(newProvider);
         
         const network = await newProvider.getNetwork();
-        setChainId(network.chainId.toString());
+        const currentChainId = network.chainId.toString();
+        setChainId(currentChainId);
+        
+        // Check if we need to switch to the active chain
+        if (currentChainId !== ACTIVE_CHAIN_ID) {
+          console.log(`Wallet connected to chainId ${currentChainId}, our app needs ${ACTIVE_CHAIN_ID}`);
+          // Don't automatically switch - this could confuse users
+          // The UI will show a network switch prompt when needed
+        }
       }
     };
     
@@ -100,6 +109,13 @@ export function useWallet(): UseWalletReturn {
         setProvider(newProvider);
         setAccount(accounts[0]);
         setChainId(newChainId);
+        
+        // Check if the connected chain is the active chain
+        if (newChainId && newChainId !== ACTIVE_CHAIN_ID) {
+          console.log(`Connected to chain ${newChainId}, but active chain is ${ACTIVE_CHAIN_ID}`);
+          // We'll let the UI handle prompting for network switch
+        }
+        
         setIsConnecting(false);
         return true;
       }
@@ -121,7 +137,7 @@ export function useWallet(): UseWalletReturn {
   }, []);
   
   // Switch network
-  const switchNetwork = useCallback(async (newChainId: string): Promise<boolean> => {
+  const switchNetwork = useCallback(async (newChainId: string = ACTIVE_CHAIN_ID): Promise<boolean> => {
     if (!provider) return false;
     
     return await switchWeb3Network(provider, newChainId);
