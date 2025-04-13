@@ -126,17 +126,20 @@ export function useLotteryData() {
   const [calculatedTimeRemaining, setCalculatedTimeRemaining] = useState(
     lotteryData?.timeRemaining 
       ? formatTimeRemaining(lotteryData.timeRemaining)
-      : { days: 0, hours: 11, minutes: 46, seconds: 29 } // Default fallback
+      : { days: 0, hours: 0, minutes: 0, seconds: 0 } // Empty initial state
   );
   
   // Update time remaining every second based on endTimestamp
   useEffect(() => {
     // Initialize time remaining when lottery data is fetched
     if (lotteryData?.endTimestamp) {
+      console.log(`Setting up timer with end timestamp: ${new Date(lotteryData.endTimestamp).toISOString()}`);
+      
       const updateTimeRemaining = () => {
-        const now = Math.floor(Date.now() / 1000);
-        const secondsRemaining = Math.max(0, lotteryData.endTimestamp! - now);
-        setCalculatedTimeRemaining(formatTimeRemaining(secondsRemaining));
+        const now = Date.now();
+        const secondsRemaining = Math.max(0, Math.floor((lotteryData.endTimestamp! - now) / 1000));
+        const formattedTime = formatTimeRemaining(secondsRemaining);
+        setCalculatedTimeRemaining(formattedTime);
       };
       
       // Update immediately
@@ -144,11 +147,19 @@ export function useLotteryData() {
       
       // Then update every second
       const interval = setInterval(updateTimeRemaining, 1000);
+      console.log("Started countdown timer interval");
       
-      return () => clearInterval(interval);
+      return () => {
+        console.log("Clearing countdown timer interval");
+        clearInterval(interval);
+      };
     } else if (lotteryData?.timeRemaining) {
       // If we don't have endTimestamp but we have timeRemaining, use that
+      console.log(`Using static timeRemaining value: ${lotteryData.timeRemaining} seconds`);
       setCalculatedTimeRemaining(formatTimeRemaining(lotteryData.timeRemaining));
+    } else {
+      console.log("No time data available, using empty time");
+      setCalculatedTimeRemaining({ days: 0, hours: 0, minutes: 0, seconds: 0 });
     }
   }, [lotteryData?.endTimestamp, lotteryData?.timeRemaining]);
   
@@ -177,26 +188,31 @@ export function useLotteryData() {
   
   // Query for fetching draw-specific participants directly from blockchain
   const {
-    data: drawParticipants,
+    data: rawDrawParticipantsData,
     isLoading: isLoadingDrawParticipants,
     error: drawParticipantsError,
     refetch: refetchDrawParticipants
   } = useQuery({
     queryKey: ['drawParticipants', chainId, selectedSeriesIndex, selectedDrawId],
     queryFn: async () => {
-      if (!provider || !chainId) return [];
+      if (!provider || !chainId) return { participants: [], counts: {} };
       
       // Use selectedDrawId if available, otherwise use default Draw 1
       const drawIdToUse = selectedDrawId !== undefined ? selectedDrawId : 1;
       console.log(`Fetching participants for draw ID: ${drawIdToUse}`);
       
-      return await getDrawParticipants(provider, chainId, drawIdToUse, selectedSeriesIndex);
+      const result = await getDrawParticipants(provider, chainId, drawIdToUse, selectedSeriesIndex);
+      console.log("Draw participants data from blockchain:", result);
+      return result;
     },
     enabled: !!provider && !!chainId,
     refetchInterval: 60000, // Refetch every minute
     // Don't cache results so we always get fresh data
     staleTime: 0
   });
+  
+  // This is now handled in ParticipantsList.tsx
+  const drawParticipants = [];
   
   // Enhanced refetch function that can accept an override draw ID
   const enhancedRefetchParticipants = useCallback(async (overrideDrawId?: number) => {

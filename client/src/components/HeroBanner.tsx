@@ -234,7 +234,7 @@ export default function HeroBanner({
                   <span className="text-sm font-mono uppercase tracking-wider opacity-75">Current Jackpot</span>
                   <div className="flex items-baseline">
                     <span className="text-4xl lg:text-5xl font-bold font-mono">
-                      {isDrawAvailable() ? parseFloat(lotteryData?.jackpotAmount || '0').toFixed(4) : '0.0000'}
+                      {isDrawAvailable() ? parseFloat(lotteryData?.jackpotAmount || '0').toFixed(5) : '0.00000'}
                     </span>
                     <span className="ml-2 text-xl">ETH</span>
                   </div>
@@ -247,12 +247,10 @@ export default function HeroBanner({
                   <span className="text-sm font-mono uppercase tracking-wider opacity-75">Time Remaining</span>
                   {isDrawAvailable() ? (
                     <div className="flex space-x-2 mt-1 font-mono">
-                      {timeRemaining.days > 0 && (
-                        <div className="bg-white bg-opacity-20 rounded-lg p-2 text-center w-16">
-                          <div className="text-2xl font-bold">{timeRemaining.days.toString().padStart(2, '0')}</div>
-                          <div className="text-xs uppercase">Days</div>
-                        </div>
-                      )}
+                      <div className="bg-white bg-opacity-20 rounded-lg p-2 text-center w-16">
+                        <div className="text-2xl font-bold">{timeRemaining.days.toString().padStart(2, '0')}</div>
+                        <div className="text-xs uppercase">Days</div>
+                      </div>
                       <div className="bg-white bg-opacity-20 rounded-lg p-2 text-center w-16">
                         <div className="text-2xl font-bold">{timeRemaining.hours.toString().padStart(2, '0')}</div>
                         <div className="text-xs uppercase">Hours</div>
@@ -268,6 +266,10 @@ export default function HeroBanner({
                     </div>
                   ) : (
                     <div className="flex space-x-2 mt-1 font-mono">
+                      <div className="bg-white bg-opacity-20 rounded-lg p-2 text-center w-16">
+                        <div className="text-2xl font-bold">00</div>
+                        <div className="text-xs uppercase">Days</div>
+                      </div>
                       <div className="bg-white bg-opacity-20 rounded-lg p-2 text-center w-16">
                         <div className="text-2xl font-bold">00</div>
                         <div className="text-xs uppercase">Hours</div>

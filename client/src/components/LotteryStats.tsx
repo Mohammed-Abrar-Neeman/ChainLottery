@@ -64,17 +64,7 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
   
   // Get participants count for the selected draw
   const getParticipantCount = () => {
-    // Hard-code values for specific draws as a fallback/development aid
-    // This ensures we show the correct count even when the contract call fails
-    if (selectedDrawId === 1) {
-      // Draw 1 has 7 participants
-      return 7;
-    } else if (selectedDrawId === 2) {
-      // Draw 2 has 1 participant (after user purchased a ticket)
-      return 1;
-    }
-    
-    // Default to whatever is in the lottery data
+    // Get participant count directly from the lottery data from the smart contract
     return defaultLotteryData?.participantCount || 0;
   };
   
@@ -129,11 +119,8 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
           </div>
           <p className="font-mono text-3xl font-bold">
             {isDrawAvailable() ? 
-              // Show appropriate decimal places for very small numbers
-              parseFloat(ticketPrice || '0') < 0.0001 ? 
-                parseFloat(ticketPrice || '0').toFixed(6) : 
-                parseFloat(ticketPrice || '0').toFixed(4) 
-              : '0.0000'} ETH
+              parseFloat(ticketPrice || '0').toFixed(5) // Always display ticket price with 5 decimal places
+              : '0.00000'} ETH
           </p>
           <p className="text-gray-600 text-sm">
             ≈ {formatUSD(isDrawAvailable() ? ticketPrice : '0')}
@@ -149,10 +136,8 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
           </div>
           <p className="font-mono text-3xl font-bold">
             {isDrawAvailable() 
-              ? parseFloat(jackpotAmount || '0') < 0.0001 
-                ? parseFloat(jackpotAmount || '0').toFixed(6)
-                : parseFloat(jackpotAmount || '0').toFixed(4) 
-              : '0.0000'} ETH
+              ? parseFloat(jackpotAmount || '0').toFixed(5) // Always display jackpot with 5 decimal places
+              : '0.00000'} ETH
           </p>
           <p className="text-gray-600 text-sm">
             ≈ {formatUSD(isDrawAvailable() ? jackpotAmount || '0' : '0')}
