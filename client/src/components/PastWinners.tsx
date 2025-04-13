@@ -93,8 +93,20 @@ export default function PastWinners({ sharedDrawId }: PastWinnersProps) {
     }
   }, [provider, chainId, sharedDrawId]);
   
+  // Track the previous draw ID to detect changes
+  const [previousDrawId, setPreviousDrawId] = useState<number | undefined>(undefined);
+
   // Load winners for the selected draw using multiple methods
   useEffect(() => {
+    // Reset on draw ID change
+    if (previousDrawId !== undefined && sharedDrawId !== previousDrawId) {
+      console.log(`PastWinners - Draw ID changed from ${previousDrawId} to ${sharedDrawId}, clearing winners`);
+      setWinners([]);
+    }
+    
+    // Update the tracked draw ID
+    setPreviousDrawId(sharedDrawId);
+    
     const fetchWinners = async () => {
       if (!provider || !chainId || !sharedDrawId) {
         // Reset winners if prerequisites aren't met
@@ -106,7 +118,7 @@ export default function PastWinners({ sharedDrawId }: PastWinnersProps) {
       try {
         setIsLoading(true);
         setError(null);
-        console.log(`Fetching winners for draw ID: ${sharedDrawId}`);
+        console.log(`PastWinners - Fetching winners for draw ID: ${sharedDrawId}`);
         
         // 1. Check if draw is completed
         const completed = await checkDrawCompletion();
@@ -121,9 +133,9 @@ export default function PastWinners({ sharedDrawId }: PastWinnersProps) {
         // First try the helper function that uses getWinners
         try {
           fetchedWinners = await getDrawWinners(provider, chainId, sharedDrawId);
-          console.log(`Fetched ${fetchedWinners.length} winners using getWinners for draw ${sharedDrawId}`);
+          console.log(`PastWinners - Fetched ${fetchedWinners.length} winners using getWinners for draw ${sharedDrawId}`);
         } catch (error) {
-          console.error(`Error using getWinners for draw ${sharedDrawId}:`, error);
+          console.error(`PastWinners - Error using getWinners for draw ${sharedDrawId}:`, error);
         }
         
         // If no winners found, try direct mapping access
@@ -132,17 +144,17 @@ export default function PastWinners({ sharedDrawId }: PastWinnersProps) {
             const directWinners = await fetchWinnersFromContract();
             if (directWinners.length > 0) {
               fetchedWinners = directWinners;
-              console.log(`Fetched ${directWinners.length} winners using direct mapping access`);
+              console.log(`PastWinners - Fetched ${directWinners.length} winners using direct mapping access`);
             }
           } catch (error) {
-            console.error(`Error using direct mapping access:`, error);
+            console.error(`PastWinners - Error using direct mapping access:`, error);
           }
         }
         
-        console.log(`Final winner count for draw ${sharedDrawId}: ${fetchedWinners.length}`, fetchedWinners);
+        console.log(`PastWinners - Final winner count for draw ${sharedDrawId}: ${fetchedWinners.length}`, fetchedWinners);
         setWinners(fetchedWinners);
       } catch (err) {
-        console.error('Error fetching winners:', err);
+        console.error('PastWinners - Error fetching winners:', err);
         setError('Failed to load winner data. Please try again later.');
       } finally {
         setIsLoading(false);
@@ -150,7 +162,7 @@ export default function PastWinners({ sharedDrawId }: PastWinnersProps) {
     };
     
     fetchWinners();
-  }, [provider, chainId, sharedDrawId, checkDrawCompletion, fetchTotalWinners, fetchWinnersFromContract]);
+  }, [provider, chainId, sharedDrawId, checkDrawCompletion, fetchTotalWinners, fetchWinnersFromContract, previousDrawId]);
   
   const refreshWinners = () => {
     if (provider && chainId && sharedDrawId) {

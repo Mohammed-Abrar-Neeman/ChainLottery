@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLotteryData } from '@/hooks/useLotteryData';
 import { formatAddress } from '@/lib/web3';
-import { ExternalLink, History as HistoryIcon, Award } from 'lucide-react';
+import { ExternalLink, History as HistoryIcon, Award, Info as InfoIcon } from 'lucide-react';
 import {
   Tabs,
   TabsContent,
@@ -21,71 +21,28 @@ export default function History() {
     }).format(new Date(date));
   };
   
-  // Mock data for development
-  const mockPastRounds = [
-    {
-      id: 1,
-      roundNumber: 41,
-      startTime: new Date(Date.now() - 48 * 60 * 60 * 1000),
-      endTime: new Date(Date.now() - 24 * 60 * 60 * 1000),
-      poolAmount: "2.84",
-      winnerAddress: "0x8F3A547D887D",
-      prizeAmount: "1.988",
-      participantCount: 142,
-      isFinalized: true,
-      transactionHash: "0x7ae7b3b42f"
-    },
-    {
-      id: 2,
-      roundNumber: 40,
-      startTime: new Date(Date.now() - 72 * 60 * 60 * 1000),
-      endTime: new Date(Date.now() - 48 * 60 * 60 * 1000),
-      poolAmount: "3.12",
-      winnerAddress: "0x3A2B7C8D554E",
-      prizeAmount: "2.184",
-      participantCount: 163,
-      isFinalized: true,
-      transactionHash: "0x8bd9c5e2f1"
-    },
-    {
-      id: 3,
-      roundNumber: 39,
-      startTime: new Date(Date.now() - 96 * 60 * 60 * 1000),
-      endTime: new Date(Date.now() - 72 * 60 * 60 * 1000),
-      poolAmount: "2.96",
-      winnerAddress: "0x5C4E7F8D664C",
-      prizeAmount: "2.072",
-      participantCount: 151,
-      isFinalized: true,
-      transactionHash: "0x9fe8d2c1a0"
-    },
-    {
-      id: 4,
-      roundNumber: 38,
-      startTime: new Date(Date.now() - 120 * 60 * 60 * 1000),
-      endTime: new Date(Date.now() - 96 * 60 * 60 * 1000),
-      poolAmount: "2.75",
-      winnerAddress: "0x2A1B3C4D887D",
-      prizeAmount: "1.925",
-      participantCount: 138,
-      isFinalized: true,
-      transactionHash: "0x1a2b3c4d5e"
-    },
-    {
-      id: 5,
-      roundNumber: 37,
-      startTime: new Date(Date.now() - 144 * 60 * 60 * 1000),
-      endTime: new Date(Date.now() - 120 * 60 * 60 * 1000),
-      poolAmount: "3.05",
-      winnerAddress: "0x6E7F8D9C0B1A",
-      prizeAmount: "2.135",
-      participantCount: 156,
-      isFinalized: true,
-      transactionHash: "0xf1e2d3c4b5a"
-    }
-  ];
+  // No more mock data - only showing authentic data from the contract
+  const displayRounds = pastWinners || [];
   
-  const displayRounds = pastWinners || mockPastRounds;
+  // Early return if no data is available
+  if (displayRounds.length === 0) {
+    return (
+      <div className="mt-8">
+        <div className="flex items-center mb-6">
+          <HistoryIcon className="h-6 w-6 text-primary mr-2" />
+          <h1 className="text-2xl font-bold">Lottery History</h1>
+        </div>
+        
+        <div className="glass rounded-2xl shadow-glass p-12 text-center">
+          <InfoIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-xl font-medium text-gray-600">No Historical Data Available</h3>
+          <p className="text-gray-500 mt-2">
+            No past lottery rounds or winners have been found.
+          </p>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="mt-8">

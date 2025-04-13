@@ -603,7 +603,7 @@ export const getDrawParticipants = async (
     }
     
     // If we didn't find any participants from the blockchain events,
-    // but we know from the contract there are participants, create sample data
+    // log this information and return an empty array - NO sample data
     if (participants.length === 0) {
       console.log(`No blockchain event data found for Draw #${drawId}. Checking contract for participant count.`);
       
@@ -614,54 +614,12 @@ export const getDrawParticipants = async (
           // Get total tickets sold for this draw
           const count = await contract.getTotalTicketsSold(drawId);
           const ticketCount = Number(count);
-          console.log(`Contract reports ${ticketCount} total tickets sold for Draw #${drawId}`);
+          console.log(`Contract reports ${ticketCount} tickets sold for draw #${drawId}`);
           
           if (ticketCount > 0) {
-            // Create sample participant data based on tickets sold
-            const sampleWallets = [
-              "0x3f5CE5FBFe3E9af3971dD833D26bA9b5C936f0bE",
-              "0x28C6c06298d514Db089934071355E5743bf21d60",
-              "0xdAC17F958D2ee523a2206206994597C13D831ec7",
-              "0x5754284f345afc66a98fbB0a0Afe71e0F007B949"
-            ];
-            
-            // Create sample transactions
-            const createSampleTx = () => "0x" + Array.from({length: 64}, () => 
-              Math.floor(Math.random() * 16).toString(16)).join('');
-            
-            // Distribute tickets among wallets
-            const walletCount = Math.min(ticketCount, sampleWallets.length);
-            const ticketsPerWallet = Math.max(1, Math.floor(ticketCount / walletCount));
-            let remainingTickets = ticketCount;
-            
-            for (let i = 0; i < walletCount && remainingTickets > 0; i++) {
-              // Calculate how many tickets for this wallet (distribute evenly)
-              const walletsLeft = walletCount - i;
-              const currentWalletTickets = Math.min(
-                remainingTickets, 
-                Math.max(1, Math.ceil(remainingTickets / walletsLeft))
-              );
-              
-              // Random timestamp from the last week
-              const daysAgo = Math.floor(Math.random() * 7) + 1;
-              const hoursAgo = Math.floor(Math.random() * 24);
-              const timestamp = Date.now() - ((daysAgo * 24 + hoursAgo) * 60 * 60 * 1000);
-              
-              participants.push({
-                walletAddress: sampleWallets[i],
-                ticketCount: currentWalletTickets,
-                timestamp,
-                transactionHash: createSampleTx(),
-                drawId,
-                seriesIndex: seriesIndex || 0
-              });
-              
-              // Update counts and remaining tickets
-              addressCounts[sampleWallets[i].toLowerCase()] = currentWalletTickets;
-              remainingTickets -= currentWalletTickets;
-            }
-            
-            console.log(`Created ${participants.length} participants with ${ticketCount} total tickets for Draw #${drawId}`);
+            console.log(`Checking up to ${Math.min(100, ticketCount)} tickets for draw #${drawId}`);
+            // We know tickets exist but we can't get the participant details 
+            // We will display "No Data..." message instead of creating dummy data
           } else {
             console.log(`No tickets sold for Draw #${drawId} according to contract.`);
           }
@@ -670,11 +628,8 @@ export const getDrawParticipants = async (
         console.error(`Error getting participant data from contract for Draw #${drawId}:`, error);
       }
       
-      // If we still don't have participants data, return empty array
-      if (participants.length === 0) {
-        console.log(`No participant data available for Draw #${drawId}.`);
-        return { participants: [], counts: addressCounts };
-      }
+      console.log(`No participant data available for Draw #${drawId}.`);
+      return { participants: [], counts: addressCounts };
     }
     
     // Sort participants by timestamp (newest first)
@@ -998,19 +953,21 @@ export const getDrawWinners = async (
           for (let ticketIndex of ownerTickets) {
             try {
               const ticket = await contract.getTicketDetails(drawId, ticketIndex);
-              if (!ticket || !ticket.numbers) continue;
+              if (!ticket) continue;
               
+              // Get regular 5 numbers from the numbers array
               const numbers: number[] = [];
-              for (let i = 0; i < ticket.numbers.length; i++) {
-                if (i < 5) { // First 5 numbers are the regular numbers
+              if (ticket.numbers) {
+                for (let i = 0; i < ticket.numbers.length; i++) {
                   numbers.push(Number(ticket.numbers[i]));
                 }
               }
               
-              // Get LOTTO number (the 6th number)
+              // Get LOTTO number from its dedicated field
               let lottoNumber: number | null = null;
-              if (ticket.numbers && ticket.numbers.length > 5) {
-                lottoNumber = Number(ticket.numbers[5]);
+              if (ticket.lottoNumber !== undefined) {
+                lottoNumber = Number(ticket.lottoNumber);
+                console.log(`[Winner Ticket] Found lotto number ${lottoNumber} from dedicated field`);
               }
               
               if (numbers.length > 0) {
@@ -1151,17 +1108,41 @@ export const getUserTicketsCount = async (
 // Get all user tickets with details
 export const getAllUserTicketDetails = async (
   userAddress: string,
-  provider: ethers.BrowserProvider | null,
-  chainId: string,
   seriesIndex?: number,
-  drawId?: number
+  drawId?: number,
+  provider?: ethers.BrowserProvider | null,
+  chainId?: string
 ): Promise<UserTicket[]> => {
-  if (!provider || !chainId || !userAddress) {
+  console.log(`[TICKETS] getAllUserTicketDetails called for draw ${drawId} with params:`, {
+    userAddress,
+    seriesIndex,
+    drawId,
+    provider: provider ? "Available" : "Not available", 
+    chainId
+  });
+  
+  if (!provider || !userAddress) {
+    console.log("[TICKETS] Missing provider or userAddress");
     return [];
   }
   
-  const contract = getLotteryContract(provider, chainId);
+  // Validate input parameters
+  if (drawId !== undefined && (isNaN(drawId) || drawId < 1)) {
+    console.error(`[TICKETS] Invalid drawId parameter: ${drawId}`);
+    return [];
+  }
+  
+  if (seriesIndex !== undefined && (isNaN(seriesIndex) || seriesIndex < 0)) {
+    console.error(`[TICKETS] Invalid seriesIndex parameter: ${seriesIndex}`);
+    return [];
+  }
+  
+  // Use default active chain ID if not provided
+  const activeChainId = chainId || '11155111';
+  
+  const contract = getLotteryContract(provider, activeChainId);
   if (!contract) {
+    console.log("getAllUserTicketDetails - Failed to get contract");
     return [];
   }
   
@@ -1174,33 +1155,264 @@ export const getAllUserTicketDetails = async (
     // Call contract function to get user's tickets
     // This will depend on your contract's specific implementation
     try {
-      // Try using the contract's getUserTicketDetails function if available
-      // This is a custom function you'd need to implement in the smart contract
-      const ticketData = await contract.getUserTicketDetails(userAddress, drawId);
+      console.log(`Attempting to get tickets for user ${userAddress} in draw ${drawId}`);
       
-      if (ticketData && Array.isArray(ticketData) && ticketData.length > 0) {
-        for (const ticket of ticketData) {
-          const userTicket: UserTicket = {
-            drawId: Number(ticket.drawId),
-            seriesIndex: Number(ticket.seriesIndex || 0),
-            ticketIndex: Number(ticket.ticketIndex || 0),
-            numbers: ticket.numbers.map((n: any) => Number(n)),
-            lottoNumber: Number(ticket.lottoNumber),
-            timestamp: Number(ticket.timestamp) * 1000, // Convert to milliseconds
-            isWinner: !!ticket.isWinner,
-            amountWon: ethers.formatEther(ticket.amountWon || 0),
-            transactionHash: ticket.transactionHash
-          };
-          
-          tickets.push(userTicket);
+      // Method 1: Try getting ticket indices for user
+      try {
+        console.log(`Trying getUserTickets(${drawId})...`);
+        // This function returns ticket indices owned by the current msg.sender
+        // We need to use a signer
+        let ticketIndices: number[] = [];
+        
+        // First try with connected wallet (if this is being called in a wallet context)
+        if (provider && provider instanceof ethers.BrowserProvider) {
+          try {
+            const contractWithSigner = await getLotteryContractWithSigner(provider, activeChainId);
+            if (contractWithSigner) {
+              console.log("Getting user tickets with signer...");
+              const rawIndices = await contractWithSigner.getUserTickets(drawId);
+              
+              // Convert BigInt array to number array
+              if (rawIndices && Array.isArray(rawIndices)) {
+                ticketIndices = rawIndices.map(index => Number(index));
+                console.log(`Found ${ticketIndices.length} ticket indices for current user in draw ${drawId}:`, ticketIndices);
+              }
+            }
+          } catch (signerError) {
+            console.error("Could not get user tickets with signer:", signerError);
+          }
         }
+        
+        // If we have ticket indices, get details for each one
+        if (ticketIndices.length > 0) {
+          for (const ticketIndex of ticketIndices) {
+            try {
+              console.log(`Getting ticket details for draw ${drawId}, ticket ${ticketIndex}`);
+              const ticketDetails = await contract.getTicketDetails(drawId, ticketIndex);
+              
+              if (ticketDetails) {
+                console.log("Ticket details:", ticketDetails);
+                
+                // Verify this ticket actually belongs to the user
+                if (ticketDetails.buyer && 
+                    ticketDetails.buyer.toLowerCase() === userAddress.toLowerCase()) {
+                  
+                  const regularNumbers: number[] = [];
+                  let lottoNumber = 0;
+                  
+                  // Get the 5 regular numbers from the numbers array
+                  if (ticketDetails.numbers && Array.isArray(ticketDetails.numbers)) {
+                    for (let i = 0; i < ticketDetails.numbers.length; i++) {
+                      regularNumbers.push(Number(ticketDetails.numbers[i]));
+                    }
+                  }
+                  
+                  // Get lottoNumber from its dedicated field
+                  if (ticketDetails.lottoNumber !== undefined) {
+                    lottoNumber = Number(ticketDetails.lottoNumber);
+                    console.log(`Found lotto number ${lottoNumber} for ticket`);
+                  }
+                  
+                  const userTicket: UserTicket = {
+                    drawId: Number(drawId),
+                    seriesIndex: Number(seriesIndex || 0),
+                    ticketIndex: Number(ticketIndex),
+                    numbers: regularNumbers,
+                    lottoNumber: lottoNumber,
+                    timestamp: Date.now(), // Current time as fallback
+                    isWinner: false, // Unknown at this point
+                    amountWon: "0",
+                    transactionHash: undefined
+                  };
+                  
+                  tickets.push(userTicket);
+                }
+              }
+            } catch (ticketError) {
+              console.error(`Error getting details for ticket ${ticketIndex}:`, ticketError);
+            }
+          }
+          
+          if (tickets.length > 0) {
+            console.log(`Successfully retrieved ${tickets.length} tickets`);
+            return tickets;
+          }
+        }
+        
+        // If we couldn't get tickets with the signer, try the next approach
+        console.log("No tickets found with connected wallet, trying alternative method...");
+        
+      } catch (ticketsError) {
+        console.error("Error getting user tickets:", ticketsError);
       }
+      
+      // Method 2: Try getting total tickets sold and scanning them
+      try {
+        console.log("Trying to get total tickets for the draw...");
+        const totalTicketsCount = await contract.getTotalTicketsSold(drawId);
+        const totalCount = Number(totalTicketsCount);
+        
+        if (totalCount > 0) {
+          console.log(`Draw ${drawId} has ${totalCount} total tickets sold`);
+          
+          // Since we don't have a function to map from ticket index to user,
+          // we'll check all tickets from 0 to totalCount-1
+          // This is not efficient, but is a fallback approach
+          for (let i = 0; i < Math.min(totalCount, 50); i++) { // Look at up to 50 tickets
+            try {
+              console.log(`Checking ticket ${i} in draw ${drawId}`);
+              // Try to get details of this ticket
+              const ticketDetails = await contract.getTicketDetails(drawId, i);
+              
+              if (ticketDetails && ticketDetails.buyer && ticketDetails.buyer.toLowerCase() === userAddress.toLowerCase()) {
+                const regularNumbers: number[] = [];
+                let lottoNumber = 0;
+                
+                // Get the 5 regular numbers
+                if (ticketDetails.numbers && Array.isArray(ticketDetails.numbers)) {
+                  for (let j = 0; j < ticketDetails.numbers.length; j++) {
+                    regularNumbers.push(Number(ticketDetails.numbers[j]));
+                  }
+                }
+                
+                // Get lottoNumber
+                if (ticketDetails.lottoNumber !== undefined) {
+                  lottoNumber = Number(ticketDetails.lottoNumber);
+                }
+                
+                const userTicket: UserTicket = {
+                  drawId: Number(drawId),
+                  seriesIndex: Number(seriesIndex || 0),
+                  ticketIndex: i, // Using the loop index as ticket index
+                  numbers: regularNumbers,
+                  lottoNumber: lottoNumber,
+                  timestamp: Date.now(), // Use current timestamp as fallback
+                  isWinner: false, // Unknown at this point
+                  amountWon: "0",
+                  transactionHash: undefined
+                };
+                
+                tickets.push(userTicket);
+              }
+            } catch (ticketError) {
+              console.error(`Error getting ticket at index ${i}:`, ticketError);
+            }
+          }
+          
+          if (tickets.length > 0) {
+            console.log(`Successfully retrieved ${tickets.length} tickets for user ${userAddress}`);
+            return tickets;
+          }
+        } else {
+          console.log(`User has no tickets for draw ${drawId}`);
+        }
+      } catch (countError) {
+        console.error('Error getting user ticket count:', countError);
+      }
+      
+      // Method 3: Fallback to user events
+      console.log("Trying to get tickets from blockchain events...");
+      try {
+        // Try looking at ticket purchase events
+        const lotteryAddress = getLotteryAddress(activeChainId);
+        
+        // Get the current block number
+        const currentBlock = await provider.getBlockNumber();
+        const fromBlock = Math.max(0, currentBlock - 5000); // Look back ~5000 blocks
+        
+        console.log(`Searching for ticket purchase events from block ${fromBlock} to ${currentBlock}`);
+        
+        // Create a filter for ticket purchase events
+        // Instead of topics with padding (which has API inconsistencies),
+        // we'll just filter after getting the logs
+        const filter = {
+          address: lotteryAddress,
+          topics: [
+            ethers.id("TicketPurchased(address,uint256,uint256,uint256)")
+          ],
+          fromBlock,
+          toBlock: currentBlock
+        };
+        
+        const logs = await provider.getLogs(filter);
+        console.log(`Found ${logs.length} ticket purchase events for user ${userAddress}`);
+        
+        for (const log of logs) {
+          try {
+            // Convert hex strings to numbers, ethers v6 doesn't have toNumber utility
+            const drawIdHex = log.topics[2];
+            const ticketIndexHex = log.topics[3];
+            
+            const ticketEvent = {
+              drawId: drawIdHex ? parseInt(drawIdHex, 16) : 0,
+              ticketIndex: ticketIndexHex ? parseInt(ticketIndexHex, 16) : 0,
+              transactionHash: log.transactionHash,
+            };
+            
+            if (drawId === undefined || ticketEvent.drawId === drawId) {
+              // Get ticket details from the contract
+              const ticketDetails = await contract.getTicketDetails(ticketEvent.drawId, ticketEvent.ticketIndex);
+              
+              if (ticketDetails && ticketDetails.buyer && ticketDetails.buyer.toLowerCase() === userAddress.toLowerCase()) {
+                const regularNumbers: number[] = [];
+                let lottoNumber = 0;
+                
+                // Get the 5 regular numbers
+                if (ticketDetails.numbers && Array.isArray(ticketDetails.numbers)) {
+                  for (let j = 0; j < ticketDetails.numbers.length; j++) {
+                    regularNumbers.push(Number(ticketDetails.numbers[j]));
+                  }
+                }
+                
+                // Get lottoNumber
+                if (ticketDetails.lottoNumber !== undefined) {
+                  lottoNumber = Number(ticketDetails.lottoNumber);
+                }
+                
+                const userTicket: UserTicket = {
+                  drawId: ticketEvent.drawId,
+                  seriesIndex: Number(seriesIndex || 0),
+                  ticketIndex: ticketEvent.ticketIndex,
+                  numbers: regularNumbers,
+                  lottoNumber: lottoNumber,
+                  timestamp: Date.now(), // Use current timestamp as fallback
+                  isWinner: false, // Unknown at this point
+                  amountWon: "0",
+                  transactionHash: ticketEvent.transactionHash
+                };
+                
+                tickets.push(userTicket);
+              }
+            }
+          } catch (eventError) {
+            console.error('Error processing ticket event:', eventError);
+          }
+        }
+        
+        if (tickets.length > 0) {
+          console.log(`Successfully retrieved ${tickets.length} tickets from events`);
+          return tickets;
+        }
+      } catch (eventError) {
+        console.error('Error getting tickets from events:', eventError);
+      }
+      
+      // If we got here, we couldn't find any tickets
+      console.log(`[TICKETS] No tickets found for user ${userAddress} in draw ${drawId}`);
     } catch (e) {
-      console.error('Error getting user ticket details:', e);
-      // If the direct method fails, you could implement a fallback using events
-      // or other contract methods
+      console.error('[TICKETS] Error in getAllUserTicketDetails:', e);
     }
     
+    // Only log ticket filtering for debugging but don't actually filter them
+    // as this was causing tickets to disappear from the UI
+    if (drawId !== undefined && tickets.length > 0) {
+      const filteredTicketsCount = tickets.filter(ticket => ticket.drawId !== drawId).length;
+      if (filteredTicketsCount > 0) {
+        console.log(`[TICKETS] Found ${filteredTicketsCount} tickets that don't match drawId ${drawId}, but keeping all tickets for display`);
+      }
+    }
+    
+    // Return all tickets regardless of drawId to ensure we show data
     return tickets;
   } catch (error) {
     console.error('Error fetching user tickets:', error);

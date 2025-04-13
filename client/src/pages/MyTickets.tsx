@@ -137,14 +137,33 @@ export default function MyTickets() {
         console.log(`Fetching tickets for user ${account} in series ${seriesIdx}, draw ${drawId}`);
         
         // Step 3: Call the contract to get tickets for the current draw
+        // Get the chain ID if available
+        let chainId: string | undefined = undefined;
+        try {
+          if (provider && provider.provider) {
+            const network = await provider.getNetwork();
+            chainId = network.chainId.toString();
+          }
+        } catch (error) {
+          console.log("Could not get chain ID:", error);
+        }
+        
+        console.log(`Fetching tickets with chain ID: ${chainId || 'undefined'}`);
+        
         const tickets = await getAllUserTicketDetails(
           account,
           seriesIdx, 
           drawId,
-          provider
+          provider,
+          chainId
         );
         
         console.log(`Found ${tickets.length} tickets for user ${account}`, tickets);
+        console.log('[TICKET_DEBUG] Tickets returned by contract:', {
+          forDrawId: drawId,
+          ticketsCount: tickets.length,
+          ticketInfo: tickets.map(t => ({drawId: t.drawId, seriesIndex: t.seriesIndex, numbers: t.numbers, lottoNumber: t.lottoNumber}))
+        });
         
         // Step 4: Update the UI with the tickets or show empty state
         setUserTickets(tickets);
@@ -176,8 +195,18 @@ export default function MyTickets() {
     }
     
     // Step 3: Use local state values if available, otherwise fall back to global state
-    const drawId = localDrawId || selectedDrawId;
-    const seriesIdx = localSeriesIndex || selectedSeriesIndex;
+    // We use localDrawId directly since the component that called this must have set it
+    const drawId = localDrawId;
+    const seriesIdx = localSeriesIndex;
+    
+    console.log("handleRefreshTickets - using draw parameters:", {
+      drawId,
+      seriesIdx,
+      localDrawId,
+      localSeriesIndex,
+      selectedDrawId,
+      selectedSeriesIndex
+    });
     
     if (seriesIdx === undefined) {
       console.error("Refresh tickets failed: No series selected");
@@ -208,17 +237,36 @@ export default function MyTickets() {
         setTimeout(() => reject(new Error("Request timed out after 15 seconds")), 15000);
       });
       
+      // Get the chain ID properly
+      let chainId: string | undefined = undefined;
+      try {
+        if (provider && provider.provider) {
+          const network = await provider.getNetwork();
+          chainId = network.chainId.toString();
+        }
+      } catch (error) {
+        console.log("Could not get chain ID in refresh:", error);
+      }
+      
+      console.log(`Refreshing tickets with chain ID: ${chainId || 'undefined'}`);
+      
       const fetchPromise = getAllUserTicketDetails(
         account,
         seriesIdx,
         drawId, 
-        provider
+        provider,
+        chainId
       );
       
       // Use Promise.race to handle potential timeouts
       const tickets = await Promise.race([fetchPromise, timeoutPromise]);
       
       console.log(`Found ${tickets.length} tickets for user ${account} in draw ${drawId}`, tickets);
+      console.log('[TICKET_DEBUG] Tickets returned by contract after refresh:', {
+        forDrawId: drawId,
+        ticketsCount: tickets.length,
+        ticketInfo: tickets.map(t => ({drawId: t.drawId, seriesIndex: t.seriesIndex, numbers: t.numbers, lottoNumber: t.lottoNumber}))
+      });
       setUserTickets(tickets);
       
       // If we found no tickets, give the user specific feedback
@@ -342,11 +390,51 @@ export default function MyTickets() {
                 
                 // Force input validation to run with the new drawId
                 if (isConnected && account && provider && localSeriesIndex !== undefined) {
-                  console.log("Auto-triggering ticket refresh for new draw selection:", numValue);
+                  console.log("Auto-triggering ticket refresh for new draw selection:", {
+                    drawId: numValue,
+                    seriesIndex: localSeriesIndex,
+                    account: account
+                  });
+                  
                   // Set a slight delay to ensure state updates first
                   setTimeout(() => {
-                    handleRefreshTickets();
-                  }, 200); // Longer delay to ensure state propagation
+                    // CRITICAL: Directly use the arguments from the dropdown onChange event
+                    // and NOT the state variables, as they might not have updated yet in React's async state
+                    console.log("Running delayed handleRefreshTickets with arguments:", {
+                      drawId: numValue,
+                      seriesIndex: localSeriesIndex,
+                      account: account
+                    });
+                    
+                    // Clear any existing data for clean transition
+                    setUserTickets([]);
+                    setIsLoadingTickets(true);
+                    setTicketsError(null);
+                    
+                    // Use a direct function call with the explicit parameters 
+                    // instead of using the handleRefreshTickets function that reads from state
+                    getAllUserTicketDetails(
+                      account,
+                      localSeriesIndex,
+                      numValue,  // Use numValue from the event directly
+                      provider
+                    ).then(tickets => {
+                      console.log(`[Draw ${numValue}] Found ${tickets.length} tickets for user ${account}`, tickets);
+                      setUserTickets(tickets);
+                      
+                      if (tickets.length === 0) {
+                        console.log(`No tickets found for Draw #${numValue} in Series ${localSeriesIndex}`);
+                        setTicketsError(new Error(`No tickets found for Draw #${numValue} in Series ${localSeriesIndex}`));
+                      } else {
+                        setTicketsError(null);
+                      }
+                      setIsLoadingTickets(false);
+                    }).catch(error => {
+                      console.error(`[Draw ${numValue}] Error fetching tickets:`, error);
+                      setTicketsError(error as Error);
+                      setIsLoadingTickets(false);
+                    });
+                  }, 300);
                 }
               }}
             >

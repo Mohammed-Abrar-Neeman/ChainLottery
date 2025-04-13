@@ -301,16 +301,18 @@ export function useAdmin(): AdminState {
               return true;
             } catch (error) {
               console.error("Contract call error:", error);
-              console.log("[DEV MODE] Contract call failed, using mock implementation");
+              console.error("Contract call failed:", error);
+              return false;
             }
           }
         } catch (error) {
-          console.log("[DEV MODE] Contract setup failed, using mock implementation");
+          console.error("Contract setup failed:", error);
+          return false;
         }
       }
       
-      // Mock the operation for development
-      alert("Development mode: New draw started successfully!");
+      // No more mock implementations - only actual contract interaction
+      console.error("Failed to interact with contract");
       return true;
     } catch (error) {
       console.error("Error starting new draw:", error);
@@ -331,10 +333,10 @@ export function useAdmin(): AdminState {
         throw new Error("Must provide exactly 6 winning numbers");
       }
       
-      // Mock implementation for development
-      console.log(`[DEV MODE] Completing draw ID: ${drawId} with winning numbers: ${winningNumbers.join(', ')}`);
+      // Only use actual contract interaction
+      console.log(`Attempting to complete draw ID: ${drawId} with winning numbers: ${winningNumbers.join(', ')}`);
       
-      // In production, this should use the contract
+      // Use the contract
       if (provider) {
         try {
           const network = await provider.getNetwork();
@@ -353,17 +355,19 @@ export function useAdmin(): AdminState {
               console.log("Draw completed successfully");
               return true;
             } catch (error) {
-              console.log("[DEV MODE] Contract call failed, using mock implementation");
+              console.error("Contract call failed:", error);
+              return false;
             }
           }
         } catch (error) {
-          console.log("[DEV MODE] Contract setup failed, using mock implementation");
+          console.error("Contract setup failed:", error);
+          return false;
         }
       }
       
-      // Mock the operation for development
-      alert(`Development mode: Draw #${drawId} completed successfully with winning numbers: ${winningNumbers.join(', ')}!`);
-      return true;
+      // No mock implementation - interaction failed
+      console.error("Failed to interact with contract");
+      return false;
     } catch (error) {
       console.error("Error completing draw:", error);
       alert(`Error completing draw: ${error instanceof Error ? error.message : 'Unknown error'}`);

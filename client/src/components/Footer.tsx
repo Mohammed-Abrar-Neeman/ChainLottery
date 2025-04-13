@@ -2,8 +2,37 @@ import React from 'react';
 import { Link } from 'wouter';
 import { Twitter, Github, ExternalLink } from 'lucide-react';
 import { FaDiscord, FaTelegram } from 'react-icons/fa';
+import { ACTIVE_LOTTERY_CONTRACT_ADDRESS, ACTIVE_CHAIN_ID, CHAIN_IDS } from '@shared/contracts';
 
 export default function Footer() {
+  // Determine the correct Etherscan URL based on the network
+  const getEtherscanUrl = () => {
+    switch (ACTIVE_CHAIN_ID) {
+      case CHAIN_IDS.MAINNET:
+        return `https://etherscan.io/address/${ACTIVE_LOTTERY_CONTRACT_ADDRESS}`;
+      case CHAIN_IDS.SEPOLIA:
+        return `https://sepolia.etherscan.io/address/${ACTIVE_LOTTERY_CONTRACT_ADDRESS}`;
+      case CHAIN_IDS.GOERLI:
+        return `https://goerli.etherscan.io/address/${ACTIVE_LOTTERY_CONTRACT_ADDRESS}`;
+      default:
+        return `https://sepolia.etherscan.io/address/${ACTIVE_LOTTERY_CONTRACT_ADDRESS}`;
+    }
+  };
+
+  // Get the network name to display
+  const getNetworkName = () => {
+    switch (ACTIVE_CHAIN_ID) {
+      case CHAIN_IDS.MAINNET:
+        return 'Ethereum Mainnet';
+      case CHAIN_IDS.SEPOLIA:
+        return 'Sepolia Testnet';
+      case CHAIN_IDS.GOERLI:
+        return 'Goerli Testnet';
+      default:
+        return 'Testnet';
+    }
+  };
+  
   return (
     <footer className="bg-secondary text-white py-12">
       <div className="container mx-auto px-4">
@@ -74,9 +103,9 @@ export default function Footer() {
             <h3 className="text-lg font-semibold mb-4">Smart Contract</h3>
             <div className="glass-dark rounded-lg p-4 mb-4">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-gray-400">Contract Address:</span>
+                <span className="text-sm text-gray-400">Contract Address ({getNetworkName()}):</span>
                 <a 
-                  href="https://sepolia.etherscan.io/address/0xFEa5cF2172a8701E8715069263e95c74eAcb4817"
+                  href={getEtherscanUrl()}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-accent hover:text-white transition"
@@ -85,7 +114,7 @@ export default function Footer() {
                 </a>
               </div>
               <div className="font-mono text-sm break-all">
-                0xFEa5cF2172a8701E8715069263e95c74eAcb4817
+                {ACTIVE_LOTTERY_CONTRACT_ADDRESS}
               </div>
             </div>
             <div className="flex space-x-2">

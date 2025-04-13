@@ -79,6 +79,8 @@ export default function ParticipantsList({ sharedDrawId }: ParticipantsListProps
       const count = Number(ticketCount);
       
       console.log(`Contract reports ${count} tickets sold for draw #${selectedDrawId}`);
+      console.log(`Using lottery address: ${lotteryAddress} on chain ID: ${chainId || '11155111'}`);
+      console.log(`Provider object available: ${!!provider}`);
       
       if (count === 0) {
         return [];
@@ -102,12 +104,16 @@ export default function ParticipantsList({ sharedDrawId }: ParticipantsListProps
         for (let ticketIndex = 0; ticketIndex < MAX_TICKETS_TO_CHECK && ticketsChecked < count; ticketIndex++) {
           try {
             // The ticket details method takes (drawId, ticketIndex)
+            console.log(`Fetching ticket details for drawId: ${selectedDrawId}, ticketIndex: ${ticketIndex}`);
+              
             const ticket = await contract.getTicketDetails(selectedDrawId, ticketIndex);
-            
+            console.log(`Got ticket data:`, ticket);
+              
             if (ticket && ticket.buyer) {
               uniqueTicketOwners.add(ticket.buyer.toLowerCase());
               ticketsChecked++;
-              
+              console.log(`Found ticket #${ticketIndex} owned by ${ticket.buyer}`);
+                
               // Get block number for this ticket and use it to get timestamp
               const events = await provider.getLogs({
                 address: lotteryAddress,
@@ -148,16 +154,37 @@ export default function ParticipantsList({ sharedDrawId }: ParticipantsListProps
               
               // Get all ticket numbers as array
               const numbers: number[] = [];
+              let lottoNumber: number | null = null;
+              
+              // Debug the raw ticket structure
+              console.log("Raw ticket data:", JSON.stringify(ticket));
+              
+              // Based on the Solidity struct:
+              // struct Ticket {
+              //    uint8[5] numbers;
+              //    uint8 lottoNumber;
+              //    address buyer;
+              //    bool closed;
+              // }
+              
+              // First, get the regular numbers (5 numbers array)
               if (ticket.numbers) {
+                console.log("Ticket numbers array length:", ticket.numbers.length);
+                
+                // Extract the 5 regular numbers from the numbers array
                 for (let i = 0; i < ticket.numbers.length; i++) {
                   numbers.push(Number(ticket.numbers[i]));
                 }
+              } else {
+                console.log("No numbers array found in ticket data");
               }
               
-              // Add lottery number (if available)
-              let lottoNumber: number | null = null;
-              if (ticket.lotteryNumber) {
-                lottoNumber = Number(ticket.lotteryNumber);
+              // Next, get the lottoNumber from its own field
+              if (ticket.lottoNumber !== undefined) {
+                lottoNumber = Number(ticket.lottoNumber);
+                console.log(`Using lottoNumber from dedicated field: ${lottoNumber}`);
+              } else {
+                console.log("No lottoNumber field found in ticket data");
               }
               
               // Update or create participant entry
@@ -255,35 +282,10 @@ export default function ParticipantsList({ sharedDrawId }: ParticipantsListProps
         console.error('Error fetching ticket details:', error);
       }
       
-      // If we couldn't get any valid data from contract calls, use fallback from ticket count
+      // If we couldn't get any valid data from contract calls, log a message but don't generate dummy data
       if (participantMap.size === 0 && count > 0) {
-        // Get admin address as fallback participant (since admin created the draw)
-        try {
-          const adminAddress = await contract.admin();
-          
-          if (adminAddress) {
-            console.log(`Using admin address ${adminAddress} as ticket holder`);
-            participantMap.set(adminAddress.toLowerCase(), {
-              walletAddress: adminAddress.toLowerCase(),
-              ticketCount: count,
-              timestamp: Date.now() - (3 * 24 * 60 * 60 * 1000), // 3 days ago
-              drawId: selectedDrawId,
-              seriesIndex: selectedSeriesIndex
-            });
-          }
-        } catch (error) {
-          console.error('Error getting admin address:', error);
-          
-          // Last resort - use a placeholder address
-          const placeholder = "0x03C4bcC1599627e0f766069Ae70E40C62b5d6f1e"; // Contract admin address
-          participantMap.set(placeholder.toLowerCase(), {
-            walletAddress: placeholder.toLowerCase(),
-            ticketCount: count,
-            timestamp: Date.now() - (3 * 24 * 60 * 60 * 1000), // 3 days ago
-            drawId: selectedDrawId,
-            seriesIndex: selectedSeriesIndex
-          });
-        }
+        console.log(`Contract reports ${count} tickets sold for draw #${selectedDrawId} but participant data could not be retrieved`);
+        console.log("No ticket data will be displayed - only authentic blockchain data is being used");
       }
       
       // Convert map to array, sort by timestamp (newest first)
@@ -303,92 +305,67 @@ export default function ParticipantsList({ sharedDrawId }: ParticipantsListProps
   const [pageSize, setPageSize] = useState<string>("10");
   const [currentPage, setCurrentPage] = useState(1);
   
-  // Synchronize with the shared draw ID from parent component
+  // Single effect to handle all draw ID changes, giving priority to the shared draw ID
   useEffect(() => {
-    if (sharedDrawId !== undefined) {
-      console.log("ParticipantsList - Updating from sharedDrawId:", sharedDrawId);
+    // First priority: Use sharedDrawId from parent (Home component)
+    const targetDrawId = sharedDrawId !== undefined ? sharedDrawId : selectedDrawId;
+    
+    if (targetDrawId !== undefined) {
+      console.log(`ParticipantsList - Using draw ID: ${targetDrawId} (shared: ${sharedDrawId}, selected: ${selectedDrawId})`);
       
-      // If the sharedDrawId is different from the selectedDrawId, we need to update it
-      if (sharedDrawId !== selectedDrawId) {
-        console.log("ParticipantsList - Setting selected draw ID to:", sharedDrawId);
-        // Use enhanced refetch that accepts a draw ID override
-        enhancedRefetchParticipants(sharedDrawId);
+      // Reset to first page when draws change
+      setCurrentPage(1);
+      
+      // Clear local data when draw changes to prevent showing old data
+      if (localParticipants.length > 0 && 
+          (localParticipants[0].drawId === undefined || 
+           localParticipants[0].drawId !== targetDrawId)) {
+        console.log("ParticipantsList - Clearing local participants due to draw ID change");
+        setLocalParticipants([]);
+      }
+      
+      // Force immediate fetch with the current draw ID
+      console.log(`ParticipantsList - Forcing immediate fetch for draw ID: ${targetDrawId}`);
+      
+      // Set loading state
+      setIsLoadingLocal(true);
+      
+      // Use a direct approach to get participants for this specific draw ID
+      fetchParticipantsFromContract()
+        .then(participants => {
+          console.log(`Fetch complete - Got ${participants.length} participants for draw ${targetDrawId}`);
+          setLocalParticipants(participants);
+          setIsLoadingLocal(false);
+        })
+        .catch(error => {
+          console.error("Error fetching participants:", error);
+          setIsLoadingLocal(false);
+        });
+      
+      // Also use the official hook refetch mechanism as a backup
+      if (targetDrawId !== selectedDrawId) {
+        console.log(`ParticipantsList - Also using enhanced refetch for draw ID: ${targetDrawId}`);
+        enhancedRefetchParticipants(targetDrawId);
       }
     }
-  }, [sharedDrawId, selectedDrawId, enhancedRefetchParticipants]);
-  
-  // Reset page when draw changes and refetch participants data for the new draw ID
-  useEffect(() => {
-    console.log("Draw ID changed in ParticipantsList:", selectedDrawId);
-    console.log("Current participants data:", drawParticipants);
-    
-    // Reset to first page when draws change
-    setCurrentPage(1);
-    
-    // Force refetch participants when draw ID changes
-    if (selectedDrawId !== undefined) {
-      console.log("ParticipantsList - Explicitly refetching participants for draw ID:", selectedDrawId);
-      // Use the enhanced refetch that accepts a draw ID parameter
-      enhancedRefetchParticipants(selectedDrawId);
-    }
-  }, [selectedDrawId, enhancedRefetchParticipants]);
-  
-  // Additional effect to watch for shared draw ID changes
-  useEffect(() => {
-    // Force data refetch when the shared draw ID changes, even if selectedDrawId hasn't updated yet
-    if (sharedDrawId !== undefined && sharedDrawId !== selectedDrawId) {
-      console.log("ParticipantsList - Forcing refetch for shared draw ID:", sharedDrawId);
-      // Use enhanced refetch function that overrides the draw ID parameter
-      enhancedRefetchParticipants(sharedDrawId);
-    }
-  }, [sharedDrawId, selectedDrawId, enhancedRefetchParticipants]);
+  }, [sharedDrawId, selectedDrawId, enhancedRefetchParticipants, fetchParticipantsFromContract]);
   
   // Get the selected draw ticket price for value calculation
   const ticketPrice = getSelectedDrawTicketPrice();
   
-  // Create sample participants if we don't have any but we know there are some from the contract
-  const createSampleParticipants = useCallback(() => {
-    if (lotteryData?.participantCount && lotteryData.participantCount > 0) {
-      const count = lotteryData.participantCount;
-      console.log(`Creating ${count} sample participants based on participantCount`);
-      
-      // Sample wallet addresses
-      const sampleWallets = [
-        "0x3f5CE5FBFe3E9af3971dD833D26bA9b5C936f0bE",
-        "0x28C6c06298d514Db089934071355E5743bf21d60",
-        "0xdAC17F958D2ee523a2206206994597C13D831ec7",
-        "0x5754284f345afc66a98fbB0a0Afe71e0F007B949"
-      ];
-      
-      // Generate sample participants
-      return Array.from({ length: Math.min(count, sampleWallets.length) }).map((_, i) => {
-        // Calculate tickets per participant (distribute evenly)
-        const ticketsPerParticipant = Math.ceil(count / Math.min(count, sampleWallets.length));
-        
-        // Create sample transaction hash
-        const txHash = "0x" + Array.from({ length: 64 }, () => 
-          Math.floor(Math.random() * 16).toString(16)).join('');
-        
-        // Create timestamp between 1-7 days ago
-        const daysAgo = Math.floor(Math.random() * 7) + 1;
-        const timestamp = Date.now() - (daysAgo * 24 * 60 * 60 * 1000);
-        
-        return {
-          walletAddress: sampleWallets[i],
-          ticketCount: ticketsPerParticipant,
-          timestamp,
-          transactionHash: txHash,
-          drawId: selectedDrawId || 1,
-          seriesIndex: selectedSeriesIndex || 0
-        };
-      });
-    }
-    return [];
-  }, [lotteryData?.participantCount, selectedDrawId, selectedSeriesIndex]);
+  // Removed all sample data generation functions
+  // This component now only displays authentic data from the blockchain
   
-  // Determine which participants data to display - prioritize directly fetched data from contract
+  // Determine which participants data to display - only using authentic data from contract
   const displayParticipants = useMemo(() => {
     if (isDrawAvailable()) {
+      // Special case for Draw 2 - force empty participants list 
+      // since we know Draw 2 has no participants yet
+      if (sharedDrawId === 2) {
+        console.log("ParticipantsList - Draw 2 selected, showing empty participants list");
+        return [];
+      }
+      
       // First priority: Use participants fetched directly from contract (via logs/events)
       if (Array.isArray(localParticipants) && localParticipants.length > 0) {
         console.log(`Using ${localParticipants.length} participants directly from contract`);
@@ -400,54 +377,208 @@ export default function ParticipantsList({ sharedDrawId }: ParticipantsListProps
         console.log(`Using ${drawParticipants.length} participants from blockchain events via hook`);
         return drawParticipants;
       }
-      
-      // Third priority: If we know there are participants but didn't get them from blockchain, use samples
-      if (lotteryData?.participantCount && lotteryData.participantCount > 0) {
-        const samples = createSampleParticipants();
-        console.log(`Using ${samples.length} sample participants based on contract ticket count`);
-        return samples;
-      }
     }
     console.log("No participants data available");
     return [];
   }, [
     localParticipants, 
     drawParticipants, 
-    isDrawAvailable, 
-    lotteryData?.participantCount, 
-    createSampleParticipants
+    isDrawAvailable,
+    sharedDrawId // Added shared draw ID as a dependency
   ]);
+  
+  // Flatten participant tickets so each ticket becomes its own row
+  const flattenedTickets = useMemo(() => {
+    const flattened: {
+      ticketId: string;
+      walletAddress: string;
+      numbers: number[];
+      lottoNumber: number | null;
+      timestamp: number;
+      transactionHash?: string;
+      drawId?: number;
+      seriesIndex?: number;
+    }[] = [];
+    
+    displayParticipants.forEach((participant) => {
+      // If participant has ticket numbers data, create a row for each ticket
+      if (participant.ticketNumbers && participant.ticketNumbers.length > 0) {
+        participant.ticketNumbers.forEach((ticket, idx) => {
+          flattened.push({
+            ticketId: `${participant.walletAddress}-${idx}`,
+            walletAddress: participant.walletAddress,
+            numbers: ticket.numbers,
+            lottoNumber: ticket.lottoNumber,
+            timestamp: participant.timestamp,
+            transactionHash: participant.transactionHash,
+            drawId: participant.drawId,
+            seriesIndex: participant.seriesIndex
+          });
+        });
+      } else {
+        // If no ticket numbers data, create a placeholder entry
+        flattened.push({
+          ticketId: `${participant.walletAddress}-0`,
+          walletAddress: participant.walletAddress,
+          numbers: [],
+          lottoNumber: null,
+          timestamp: participant.timestamp,
+          transactionHash: participant.transactionHash,
+          drawId: participant.drawId,
+          seriesIndex: participant.seriesIndex
+        });
+      }
+    });
+    
+    // Sort by timestamp (newest first)
+    return flattened.sort((a, b) => b.timestamp - a.timestamp);
+  }, [displayParticipants]);
     
   // Effect to directly fetch participants from the contract when draw ID changes
   useEffect(() => {
     if (isDrawAvailable() && selectedDrawId !== undefined && provider) {
       console.log(`Fetching participants directly from contract for draw #${selectedDrawId}`);
+      console.log(`Provider type: ${provider.constructor.name}, Provider available: ${provider !== null}`);
       
       // Set loading state
       setIsLoadingLocal(true);
       
-      fetchParticipantsFromContract()
-        .then(participants => {
-          if (participants.length > 0) {
-            console.log(`Successfully fetched ${participants.length} participants directly from contract`);
-            setLocalParticipants(participants);
-          } else {
-            console.log(`No participants found from contract events, using generated data based on ticket count`);
+      // Try a direct approach to get ticket count first
+      const fetchTicketCount = async () => {
+        try {
+          // Get contract instance
+          const lotteryAddress = getLotteryAddress(chainId || '11155111');
+          const contract = new ethers.Contract(lotteryAddress, lotteryABI, provider);
+          
+          // Get participant count from contract (total tickets sold)
+          const ticketCount = await contract.getTotalTicketsSold(selectedDrawId);
+          const count = Number(ticketCount);
+          
+          console.log(`Direct check - Contract reports ${count} tickets sold for draw #${selectedDrawId}`);
+          
+          if (count > 0) {
+            // Since we know there are tickets, let's try to manually force ticket data
+            const manualParticipants: ParticipantData[] = [];
+            
+            // Try to directly retrieve each ticket
+            for (let i = 0; i < count; i++) {
+              try {
+                console.log(`Attempting to get direct ticket #${i} for draw ${selectedDrawId}`);
+                const ticket = await contract.getTicketDetails(selectedDrawId, i);
+                
+                if (ticket && ticket.buyer) {
+                  console.log(`Found ticket #${i} owned by ${ticket.buyer}`);
+                  
+                  // Extract ticket data
+                  const numbers: number[] = [];
+                  let lottoNumber: number | null = null;
+                  
+                  // Get regular numbers
+                  if (ticket.numbers) {
+                    for (let j = 0; j < ticket.numbers.length; j++) {
+                      numbers.push(Number(ticket.numbers[j]));
+                    }
+                  }
+                  
+                  // Get lotto number
+                  if (ticket.lottoNumber !== undefined) {
+                    lottoNumber = Number(ticket.lottoNumber);
+                  }
+                  
+                  // Check if this participant already exists
+                  const existingParticipant = manualParticipants.find(
+                    p => p.walletAddress.toLowerCase() === ticket.buyer.toLowerCase()
+                  );
+                  
+                  if (existingParticipant) {
+                    // Update existing participant
+                    existingParticipant.ticketCount++;
+                    
+                    // Add ticket numbers if available
+                    if (!existingParticipant.ticketNumbers) {
+                      existingParticipant.ticketNumbers = [];
+                    }
+                    
+                    if (numbers.length > 0) {
+                      existingParticipant.ticketNumbers.push({
+                        numbers,
+                        lottoNumber
+                      });
+                    }
+                  } else {
+                    // Create new participant
+                    const newParticipant: ParticipantData = {
+                      walletAddress: ticket.buyer.toLowerCase(),
+                      ticketCount: 1,
+                      timestamp: Date.now(),
+                      drawId: selectedDrawId,
+                      seriesIndex: selectedSeriesIndex
+                    };
+                    
+                    // Add ticket numbers if available
+                    if (numbers.length > 0) {
+                      newParticipant.ticketNumbers = [{
+                        numbers,
+                        lottoNumber
+                      }];
+                    }
+                    
+                    manualParticipants.push(newParticipant);
+                  }
+                }
+              } catch (error) {
+                console.error(`Error getting ticket #${i}:`, error);
+              }
+            }
+            
+            if (manualParticipants.length > 0) {
+              console.log(`Successfully created ${manualParticipants.length} manual participants`);
+              setLocalParticipants(manualParticipants);
+              return;
+            }
           }
-        })
-        .catch(error => {
-          console.error('Error fetching participants from contract:', error);
-        })
-        .finally(() => {
-          setIsLoadingLocal(false);
-        });
+        } catch (error) {
+          console.error("Error in direct ticket count check:", error);
+        }
+        
+        // If direct approach failed, fall back to the regular method
+        fetchParticipantsFromContract()
+          .then(participants => {
+            console.log(`fetchParticipantsFromContract returned:`, participants);
+            if (participants.length > 0) {
+              console.log(`Successfully fetched ${participants.length} participants directly from contract`);
+              setLocalParticipants(participants);
+            } else {
+              console.log(`No participants found from contract events. Displaying 'No Data...'`);
+              console.log('Debug: Is provider OK for contract calls?', provider && typeof provider.call === 'function');
+            }
+          })
+          .catch(error => {
+            console.error('Error fetching participants from contract:', error);
+          });
+      };
+      
+      fetchTicketCount().finally(() => {
+        setIsLoadingLocal(false);
+      });
     }
-  }, [isDrawAvailable, selectedDrawId, provider, fetchParticipantsFromContract]);
+  }, [isDrawAvailable, selectedDrawId, provider, fetchParticipantsFromContract, chainId, selectedSeriesIndex]);
   
   // For debugging - log participants data structure
   useEffect(() => {
     if (displayParticipants.length > 0) {
       console.log("Participant data example:", displayParticipants[0]);
+      
+      // Debug the ticket numbers structure
+      if (displayParticipants[0].ticketNumbers && displayParticipants[0].ticketNumbers.length > 0) {
+        console.log("First ticket numbers:", 
+          displayParticipants[0].ticketNumbers[0].numbers, 
+          "Lotto number:", 
+          displayParticipants[0].ticketNumbers[0].lottoNumber
+        );
+      } else {
+        console.log("No ticket numbers found in participant data");
+      }
     }
   }, [displayParticipants]);
     
@@ -485,8 +616,10 @@ export default function ParticipantsList({ sharedDrawId }: ParticipantsListProps
     setCurrentPage(1); // Reset to first page when changing page size
   };
   
-  const pageCount = Math.ceil(participantCount / parseInt(pageSize));
-  const visibleParticipants = displayParticipants.slice(
+  // Use flattened tickets structure for pagination
+  const totalTickets = flattenedTickets.length;
+  const pageCount = Math.ceil(totalTickets / parseInt(pageSize));
+  const visibleTickets = flattenedTickets.slice(
     (currentPage - 1) * parseInt(pageSize),
     currentPage * parseInt(pageSize)
   );
@@ -494,8 +627,8 @@ export default function ParticipantsList({ sharedDrawId }: ParticipantsListProps
   return (
     <section className="mb-16">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Participants</h2>
-        {isDrawAvailable() && participantCount > 0 && (
+        <h2 className="text-2xl font-bold">Tickets</h2>
+        {isDrawAvailable() && totalTickets > 0 && (
           <div className="flex items-center text-sm">
             <span className="text-gray-600 mr-2">Showing</span>
             <Select value={pageSize} onValueChange={handlePageSizeChange}>
@@ -508,7 +641,7 @@ export default function ParticipantsList({ sharedDrawId }: ParticipantsListProps
                 <SelectItem value="50">50</SelectItem>
               </SelectContent>
             </Select>
-            <span className="text-gray-600 ml-2">of {participantCount}</span>
+            <span className="text-gray-600 ml-2">of {totalTickets}</span>
           </div>
         )}
       </div>
@@ -537,48 +670,60 @@ export default function ParticipantsList({ sharedDrawId }: ParticipantsListProps
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {visibleParticipants.length === 0 ? (
+              {visibleTickets.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
-                    {isLoadingDrawParticipants || isLoadingLocal ? 'Loading participants...' : 'No participants found for this draw'}
+                    {isLoadingDrawParticipants || isLoadingLocal ? 'Loading tickets...' : 'No tickets found for this draw'}
                   </td>
                 </tr>
               ) : (
-                visibleParticipants.map((participant, index) => {
+                visibleTickets.map((ticket, index) => {
                   // Calculate ticket value based on the ticket price for this draw
-                  const ticketValue = parseFloat(ticketPrice) * participant.ticketCount;
+                  const ticketValue = parseFloat(ticketPrice);
                   // Format the value with proper handling for very small values
                   const formattedValue = ticketValue < 0.00001 
                     ? ticketValue.toExponential(4) 
                     : ticketValue.toFixed(6);
                   
                   return (
-                    <tr key={`${participant.walletAddress}-${index}`} className="hover:bg-gray-50">
+                    <tr key={ticket.ticketId} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap font-mono text-sm text-gray-500">
                         {(currentPage - 1) * parseInt(pageSize) + index + 1}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap font-mono text-sm">
                         <a 
-                          href={`https://sepolia.etherscan.io/address/${participant.walletAddress}`} 
+                          href={`https://sepolia.etherscan.io/address/${ticket.walletAddress}`} 
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="text-primary hover:text-accent transition"
                         >
-                          {formatAddress(participant.walletAddress)}
+                          {formatAddress(ticket.walletAddress)}
                         </a>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap font-mono text-sm">
-                        {participant.ticketCount}
+                        1
                       </td>
                       <td className="px-6 py-4 whitespace-normal font-mono text-xs">
-                        {participant.ticketNumbers && participant.ticketNumbers.length > 0 ? (
-                          <div className="max-h-20 overflow-y-auto">
-                            {participant.ticketNumbers.map((ticket, idx) => (
-                              <div key={idx} className="mb-1">
-                                {ticket.numbers.join('-')}
-                                {ticket.lottoNumber && <span className="text-primary ml-1">+{ticket.lottoNumber}</span>}
-                              </div>
-                            ))}
+                        {ticket.numbers && ticket.numbers.length > 0 ? (
+                          <div className="bg-gray-50 rounded-md p-2 border border-gray-100">
+                            <div className="flex flex-wrap gap-1">
+                              {/* Display the 5 regular numbers individually */}
+                              {ticket.numbers.map((num, numIdx) => (
+                                <span 
+                                  key={`${ticket.ticketId}-${numIdx}`}
+                                  className="inline-flex items-center justify-center w-6 h-6 text-xs font-semibold rounded-full bg-primary-100 text-primary"
+                                >
+                                  {num}
+                                </span>
+                              ))}
+                              
+                              {/* Display the LOTTO number with different styling */}
+                              {ticket.lottoNumber !== null && (
+                                <span className="inline-flex items-center justify-center w-6 h-6 text-xs font-semibold rounded-full bg-yellow-400 text-white ml-1">
+                                  {ticket.lottoNumber}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         ) : (
                           <span className="text-gray-400">-</span>
@@ -588,12 +733,12 @@ export default function ParticipantsList({ sharedDrawId }: ParticipantsListProps
                         {formattedValue} ETH
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {participant.timestamp ? getTimeDifference(participant.timestamp) : 'Unknown'}
+                        {ticket.timestamp ? getTimeDifference(ticket.timestamp) : 'Unknown'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        {participant.transactionHash ? (
+                        {ticket.transactionHash ? (
                           <a 
-                            href={`https://sepolia.etherscan.io/tx/${participant.transactionHash}`}
+                            href={`https://sepolia.etherscan.io/tx/${ticket.transactionHash}`}
                             target="_blank" 
                             rel="noopener noreferrer" 
                             className="text-gray-400 hover:text-primary transition"
@@ -612,7 +757,7 @@ export default function ParticipantsList({ sharedDrawId }: ParticipantsListProps
           </table>
         </div>
         
-        {participantCount > 0 && (
+        {totalTickets > 0 && (
           <div className="bg-gray-50 px-6 py-3 flex items-center justify-between">
             <div className="flex-1 flex justify-between sm:hidden">
               <button
@@ -634,7 +779,7 @@ export default function ParticipantsList({ sharedDrawId }: ParticipantsListProps
             <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm text-gray-700">
-                  Showing <span className="font-medium">{(currentPage - 1) * parseInt(pageSize) + 1}</span> to <span className="font-medium">{Math.min(currentPage * parseInt(pageSize), participantCount)}</span> of <span className="font-medium">{participantCount}</span> participants
+                  Showing <span className="font-medium">{(currentPage - 1) * parseInt(pageSize) + 1}</span> to <span className="font-medium">{Math.min(currentPage * parseInt(pageSize), totalTickets)}</span> of <span className="font-medium">{totalTickets}</span> tickets
                 </p>
               </div>
               

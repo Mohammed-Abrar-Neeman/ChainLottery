@@ -50,25 +50,9 @@ export default function Home() {
     // Other lottery data props will be re-fetched in child components
   } = useLotteryData();
 
-  // Keep our home state synchronized with the lottery data state
-  useEffect(() => {
-    // Only update if the values are different and not undefined
-    if (selectedSeriesIndex !== undefined && selectedSeriesIndex !== homeSeriesIndex) {
-      console.log("Home - Updating home series index from lottery data:", { 
-        from: homeSeriesIndex, 
-        to: selectedSeriesIndex 
-      });
-      setHomeSeriesIndex(selectedSeriesIndex);
-    }
-    
-    if (selectedDrawId !== undefined && selectedDrawId !== homeDrawId) {
-      console.log("Home - Updating home draw ID from lottery data:", { 
-        from: homeDrawId, 
-        to: selectedDrawId 
-      });
-      setHomeDrawId(selectedDrawId);
-    }
-  }, [selectedSeriesIndex, selectedDrawId]);
+  // IMPORTANT: Only allow ONE direction of synchronization to prevent circular updates
+  // We make Home.tsx the source of truth, and only push changes from Home → useLotteryData
+  // This creates a clear, one-way data flow to prevent flickering
   
   // When our home state changes, update the lottery data state
   useEffect(() => {
@@ -86,10 +70,13 @@ export default function Home() {
         from: selectedDrawId, 
         to: homeDrawId 
       });
+      // Update the draw ID without triggering additional updates
       setLotteryDataDrawId(homeDrawId);
       
-      // Force refetch of participants data when draw ID changes
+      // Important: Force refetch of participants data when draw ID changes
       console.log("Home - Refetching participants data for draw ID:", homeDrawId);
+      
+      // The refetch is now direct with no timeout to ensure immediate data update
       refetchDrawParticipants();
     }
   }, [homeSeriesIndex, homeDrawId, selectedDrawId, selectedSeriesIndex, setLotteryDataSeriesIndex, setLotteryDataDrawId, refetchDrawParticipants]);

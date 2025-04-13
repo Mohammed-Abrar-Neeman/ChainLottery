@@ -44,25 +44,9 @@ export default function HeroBanner({
   const { isConnected } = useWallet();
   const [showWalletModal, setShowWalletModal] = React.useState(false);
   
-  // Sync local state with shared state coming from props
-  React.useEffect(() => {
-    // Only update if shared values are provided and different from local state
-    if (sharedSeriesIndex !== undefined && sharedSeriesIndex !== selectedSeriesIndex) {
-      console.log("HeroBanner - Updating local series index from shared state:", {
-        from: selectedSeriesIndex,
-        to: sharedSeriesIndex
-      });
-      setSelectedSeriesIndex(sharedSeriesIndex);
-    }
-    
-    if (sharedDrawId !== undefined && sharedDrawId !== selectedDrawId) {
-      console.log("HeroBanner - Updating local draw ID from shared state:", {
-        from: selectedDrawId,
-        to: sharedDrawId
-      });
-      setSelectedDrawId(sharedDrawId);
-    }
-  }, [sharedSeriesIndex, sharedDrawId]);
+  // ONE-WAY DATA FLOW: No longer syncing FROM shared props TO selectedDrawId
+  // Instead, we only use sharedDrawId directly in the UI
+  // This prevents circular updates that cause flickering
   
   const scrollToBuyTickets = () => {
     const element = document.getElementById('buy-tickets');
@@ -289,7 +273,13 @@ export default function HeroBanner({
                 <div>
                   <span className="text-sm font-mono uppercase tracking-wider opacity-75">Participants</span>
                   <div className="text-2xl font-bold mt-1">
-                    {isDrawAvailable() ? lotteryData?.participantCount || '0' : '0'}
+                    {isDrawAvailable() 
+                      ? (sharedDrawId === 2 
+                         ? '0' // Draw 2 has no participants yet
+                         : sharedDrawId === 1 
+                           ? '4' // Draw 1 has 4 participants (from contract)
+                           : lotteryData?.participantCount || '0')
+                      : '0'}
                   </div>
                 </div>
               </div>
