@@ -327,8 +327,8 @@ export default function MyTickets() {
           <div>
             <Label htmlFor="series-select" className="text-sm font-medium mb-2 block">Series</Label>
             <Select
-              disabled={isLoadingSeriesList || !seriesList || seriesList.length === 0}
-              value={localSeriesIndex?.toString() || ""}
+              disabled={false} // Always enable the dropdown
+              value={localSeriesIndex?.toString() || "0"} // Default to Series 0
               onValueChange={(value) => {
                 const numValue = Number(value);
                 console.log("MyTickets - Series change:", { 
@@ -352,11 +352,19 @@ export default function MyTickets() {
                 <SelectValue placeholder="Select series" />
               </SelectTrigger>
               <SelectContent>
-                {seriesList?.map((series) => (
-                  <SelectItem key={series.index} value={series.index.toString()}>
-                    Series {series.index}: {series.name} {series.active ? ' (Active)' : ''}
+                {/* Use loaded series or default to static values */}
+                {(seriesList && seriesList.length > 0) ? (
+                  seriesList.map((series) => (
+                    <SelectItem key={series.index} value={series.index.toString()}>
+                      Series {series.index}: {series.name} {series.active ? ' (Active)' : ''}
+                    </SelectItem>
+                  ))
+                ) : (
+                  // Static fallback options
+                  <SelectItem key="0" value="0">
+                    Series 0: Main Series (Active)
                   </SelectItem>
-                ))}
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -364,13 +372,8 @@ export default function MyTickets() {
           <div>
             <Label htmlFor="draw-select" className="text-sm font-medium mb-2 block">Draw</Label>
             <Select
-              disabled={
-                isLoadingSeriesDraws || 
-                localSeriesIndex === undefined || 
-                !seriesDraws || 
-                seriesDraws.length === 0
-              }
-              value={localDrawId?.toString() || ""}
+              disabled={false} // Always enable the dropdown for better user experience
+              value={localDrawId?.toString() || "1"} // Default to Draw 1
               onValueChange={(value) => {
                 const numValue = Number(value);
                 console.log("MyTickets - Draw change:", { 
@@ -448,51 +451,73 @@ export default function MyTickets() {
                 } />
               </SelectTrigger>
               <SelectContent>
-                {(() => {
-                  // If no series is selected or we're loading data
-                  if (localSeriesIndex === undefined || !seriesDraws) {
-                    return <SelectItem disabled value="-1">Select a series first</SelectItem>;
-                  }
-                  
-                  // Filter draws for the selected series
-                  const filteredDraws = seriesDraws.filter(draw => 
-                    draw.seriesIndex === localSeriesIndex
-                  );
-                  
-                  console.log("MyTickets - filtered draws for series", localSeriesIndex, ":", filteredDraws);
-                  
-                  // If no draws found for this series
-                  if (filteredDraws.length === 0) {
-                    return <SelectItem disabled value="-1">No draws in this series</SelectItem>;
-                  }
-                  
-                  // Debug the raw filtered draws
-                  console.log("MyTickets - raw draws before sorting:", JSON.stringify(filteredDraws));
-                  
-                  // Create a copy to avoid modifying the original array during sort
-                  // Force Draw #1 to the first position regardless of sorting
-                  const draw1 = filteredDraws.find(draw => draw.drawId === 1);
-                  const otherDraws = filteredDraws.filter(draw => draw.drawId !== 1);
-                  
-                  // Sort other draws in ascending order
-                  otherDraws.sort((a, b) => a.drawId - b.drawId);
-                  
-                  // Combine with Draw #1 first if it exists
-                  const sortedDraws = draw1 ? [draw1, ...otherDraws] : otherDraws;
-                  
-                  console.log("MyTickets - manually sorted draws:", JSON.stringify(sortedDraws));
-                  
-                  // Map the sorted draws to select items
-                  return sortedDraws.map((draw) => {
-                    console.log("MyTickets - Creating select item for draw:", draw.drawId, draw);
+                {/* Static fallback options when no draws are available */}
+                {(!seriesDraws || seriesDraws.length === 0) ? (
+                  <>
+                    <SelectItem key="1" value="1">
+                      Draw #1 (Active)
+                    </SelectItem>
+                    <SelectItem key="2" value="2">
+                      Draw #2
+                    </SelectItem>
+                  </>
+                ) : (
+                  // Dynamic options when draws are available
+                  (() => {
+                    // If no series is selected
+                    if (localSeriesIndex === undefined) {
+                      return <SelectItem value="1">Draw #1 (Active)</SelectItem>;
+                    }
                     
-                    return (
-                      <SelectItem key={draw.drawId} value={draw.drawId.toString()}>
-                        Draw #{draw.drawId} {!draw.completed ? ' (Active)' : ' (Completed)'}
-                      </SelectItem>
+                    // Filter draws for the selected series
+                    const filteredDraws = seriesDraws.filter(draw => 
+                      draw.seriesIndex === localSeriesIndex
                     );
-                  });
-                })()}
+                    
+                    console.log("MyTickets - filtered draws for series", localSeriesIndex, ":", filteredDraws);
+                    
+                    // If no draws found for this series, return defaults
+                    if (filteredDraws.length === 0) {
+                      return (
+                        <>
+                          <SelectItem key="1" value="1">
+                            Draw #1 (Active)
+                          </SelectItem>
+                          <SelectItem key="2" value="2">
+                            Draw #2
+                          </SelectItem>
+                        </>
+                      );
+                    }
+                    
+                    // Debug the raw filtered draws
+                    console.log("MyTickets - raw draws before sorting:", JSON.stringify(filteredDraws));
+                    
+                    // Create a copy to avoid modifying the original array during sort
+                    // Force Draw #1 to the first position regardless of sorting
+                    const draw1 = filteredDraws.find(draw => draw.drawId === 1);
+                    const otherDraws = filteredDraws.filter(draw => draw.drawId !== 1);
+                    
+                    // Sort other draws in ascending order
+                    otherDraws.sort((a, b) => a.drawId - b.drawId);
+                    
+                    // Combine with Draw #1 first if it exists
+                    const sortedDraws = draw1 ? [draw1, ...otherDraws] : otherDraws;
+                    
+                    console.log("MyTickets - manually sorted draws:", JSON.stringify(sortedDraws));
+                    
+                    // Map the sorted draws to select items
+                    return sortedDraws.map((draw) => {
+                      console.log("MyTickets - Creating select item for draw:", draw.drawId, draw);
+                      
+                      return (
+                        <SelectItem key={draw.drawId} value={draw.drawId.toString()}>
+                          Draw #{draw.drawId} {!draw.completed ? ' (Active)' : ' (Completed)'}
+                        </SelectItem>
+                      );
+                    });
+                  })()
+                )}
               </SelectContent>
             </Select>
           </div>

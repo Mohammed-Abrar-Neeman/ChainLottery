@@ -1,3 +1,4 @@
+
 // Contract addresses for different networks
 interface NetworkContracts {
   lottery: string;
@@ -8,8 +9,7 @@ interface ContractAddresses {
 }
 
 // ACTIVE NETWORK CONFIG - Use these constants across the application
-// When you want to update the contract or network, just change these values
-export const ACTIVE_LOTTERY_CONTRACT_ADDRESS = '0x2665ff6459dab4792e163724bf26af246384eeae';
+export const ACTIVE_LOTTERY_CONTRACT_ADDRESS = '0xc208cdb7e43a9e27ff293fa0ff8c98170bfebd92';
 export const ACTIVE_CHAIN_ID = '11155111'; // Sepolia testnet
 
 // Network options (for reference)
@@ -20,21 +20,17 @@ export const CHAIN_IDS = {
   LOCAL: '1337'
 };
 
-// Network-specific contracts (all pointing to the same address for convenience)
+// Network-specific contracts
 export const contractAddresses: ContractAddresses = {
-  // Ethereum Mainnet
   [CHAIN_IDS.MAINNET]: {
     lottery: ACTIVE_LOTTERY_CONTRACT_ADDRESS
   },
-  // Sepolia Testnet
   [CHAIN_IDS.SEPOLIA]: {
     lottery: ACTIVE_LOTTERY_CONTRACT_ADDRESS
   },
-  // Goerli Testnet 
   [CHAIN_IDS.GOERLI]: {
     lottery: ACTIVE_LOTTERY_CONTRACT_ADDRESS
   },
-  // Local development
   [CHAIN_IDS.LOCAL]: {
     lottery: ACTIVE_LOTTERY_CONTRACT_ADDRESS
   }
@@ -45,7 +41,7 @@ export const getActiveChainId = (): string => {
   return ACTIVE_CHAIN_ID;
 };
 
-// Get the lottery address for a specific chain - always returns the active contract
+// Get the lottery address for a specific chain
 export const getLotteryAddress = (chainId: string = ACTIVE_CHAIN_ID): string => {
   try {
     const networkContracts = contractAddresses[chainId];

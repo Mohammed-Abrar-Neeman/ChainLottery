@@ -151,52 +151,6 @@ export const parseEther = (ether: string): string => {
   }
 };
 
-// Switch to a specific network chain
-export const switchNetwork = async (
-  provider: ethers.BrowserProvider | null,
-  chainId: string = ACTIVE_CHAIN_ID
-): Promise<boolean> => {
-  if (!provider) return false;
-  
-  const hexChainId = `0x${parseInt(chainId).toString(16)}`;
-  
-  try {
-    if (window.ethereum && window.ethereum.request) {
-      await window.ethereum.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: hexChainId }]
-      });
-      return true;
-    }
-    return false;
-  } catch (error: any) {
-    // If the chain hasn't been added to MetaMask
-    if (error.code === 4902) {
-      try {
-        // Add the chain
-        await addNetwork(chainId);
-        return true;
-      } catch (addError) {
-        console.error('Error adding network:', addError);
-        toast({
-          title: "Network Error",
-          description: "Failed to add network. Please add it manually in your wallet.",
-          variant: "destructive"
-        });
-        return false;
-      }
-    } else {
-      console.error('Error switching network:', error);
-      toast({
-        title: "Network Error",
-        description: "Failed to switch network. Please try again.",
-        variant: "destructive"
-      });
-      return false;
-    }
-  }
-};
-
 // Add a network to the wallet
 const addNetwork = async (chainId: string): Promise<void> => {
   // Network parameters for common chains
@@ -236,5 +190,70 @@ const addNetwork = async (chainId: string): Promise<void> => {
     });
   } else {
     throw new Error('Ethereum provider not available');
+  }
+};
+
+// Switch to a specific network chain
+export const switchNetwork = async (
+  provider: ethers.BrowserProvider | null,
+  chainId: string = ACTIVE_CHAIN_ID
+): Promise<boolean> => {
+  if (!provider) return false;
+  
+  try {
+    // Get current network
+    const network = await provider.getNetwork();
+    const currentChainId = network.chainId.toString();
+    
+    // If already on correct network, return true
+    if (currentChainId === chainId) {
+      return true;
+    }
+    
+    const hexChainId = `0x${parseInt(chainId).toString(16)}`;
+  
+    try {
+      if (window.ethereum && window.ethereum.request) {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: hexChainId }]
+        });
+        return true;
+      }
+      return false;
+    } catch (error: any) {
+      // If the chain hasn't been added to MetaMask
+      if (error.code === 4902) {
+        try {
+          // Add the chain
+          await addNetwork(chainId);
+          return true;
+        } catch (addError) {
+          console.error('Error adding network:', addError);
+          toast({
+            title: "Network Error",
+            description: "Failed to add network. Please add it manually in your wallet.",
+            variant: "destructive"
+          });
+          return false;
+        }
+      } else {
+        console.error('Error switching network:', error);
+        toast({
+          title: "Network Error",
+          description: "Failed to switch network. Please try again.",
+          variant: "destructive"
+        });
+        return false;
+      }
+    }
+  } catch (outerError) {
+    console.error('Unexpected error during network switch:', outerError);
+    toast({
+      title: "Network Error",
+      description: "An unexpected error occurred. Please try again.",
+      variant: "destructive"
+    });
+    return false;
   }
 };
