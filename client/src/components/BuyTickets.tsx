@@ -62,7 +62,8 @@ export default function BuyTickets({
     setSelectedSeriesIndex,
     setSelectedDrawId,
     hasAvailableDraws: isDrawAvailable,
-    getSelectedDrawTicketPrice
+    getSelectedDrawTicketPrice,
+    timeRemaining
   } = useLotteryData();
   const { isConnected } = useWallet();
   const { toast } = useToast();
@@ -193,6 +194,15 @@ export default function BuyTickets({
     // No need to manually update ticketPrice as it's now directly calculated from getSelectedDrawTicketPrice()
   };
   
+  // Check if time remaining is zero
+  const isTimeRemainingZero = () => {
+    return timeRemaining && 
+           timeRemaining.days === 0 && 
+           timeRemaining.hours === 0 && 
+           timeRemaining.minutes === 0 && 
+           timeRemaining.seconds === 0;
+  };
+
   // Handle buy click
   const handleBuyClick = () => {
     if (!isConnected) {
@@ -209,6 +219,16 @@ export default function BuyTickets({
       toast({
         title: "Cannot Purchase Ticket",
         description: "No lottery draws are available for the selected series.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Check if time remaining is zero
+    if (isTimeRemainingZero()) {
+      toast({
+        title: "Draw Closed",
+        description: "The time for this draw has expired. Please select a different draw.",
         variant: "destructive"
       });
       return;
@@ -234,6 +254,17 @@ export default function BuyTickets({
       return;
     }
     
+    // Check if time remaining is zero
+    if (isTimeRemainingZero()) {
+      setShowBuyConfirmModal(false);
+      toast({
+        title: "Draw Closed",
+        description: "The time for this draw has expired. Please select a different draw.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     // Close first confirmation modal and open final reconfirmation modal
     setShowBuyConfirmModal(false);
     setShowReconfirmModal(true);
@@ -251,6 +282,17 @@ export default function BuyTickets({
       toast({
         title: "Cannot Purchase Ticket",
         description: "No lottery draws are available for the selected series.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Check if time remaining is zero
+    if (isTimeRemainingZero()) {
+      setShowReconfirmModal(false);
+      toast({
+        title: "Draw Closed",
+        description: "The time for this draw has expired. Please select a different draw.",
         variant: "destructive"
       });
       return;
@@ -464,7 +506,12 @@ export default function BuyTickets({
                   isBuyingTickets || 
                   selectedNumbers.length !== 5 || 
                   selectedLottoNumber === null ||
-                  !isDrawAvailable()
+                  !isDrawAvailable() ||
+                  // Disable when time remaining is zero (all time components are 0)
+                  (timeRemaining && timeRemaining.days === 0 && 
+                   timeRemaining.hours === 0 && 
+                   timeRemaining.minutes === 0 && 
+                   timeRemaining.seconds === 0)
                 }
                 className="w-full bg-primary hover:bg-opacity-90 text-white font-semibold rounded-full py-4 transition flex items-center justify-center"
               >

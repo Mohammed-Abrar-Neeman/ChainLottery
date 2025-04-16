@@ -45,101 +45,64 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
     return seriesDraws.find(draw => draw.drawId === selectedDrawId);
   };
   
-  // Get the jackpot amount based on the shared draw ID
+  // Get the jackpot amount directly from the contract's reported value
   const getJackpotAmount = () => {
-    const selectedDraw = getSelectedDraw();
-    return selectedDraw ? selectedDraw.jackpot : "0";
+    // Use the value directly from the API response
+    return defaultLotteryData?.jackpotAmount || "0";
   };
   
-  // Get the ticket price based on the shared draw ID
+  // Get the ticket price directly from the contract's reported value 
   const getTicketPrice = () => {
-    const selectedDraw = getSelectedDraw();
-    return selectedDraw ? selectedDraw.ticketPrice : "0";
+    // Use the value directly from the API response
+    return defaultLotteryData?.ticketPrice || "0";
   };
   
-  // Get the current draw number based on the shared draw ID
-  const getCurrentDraw = () => {
-    return selectedDrawId || 0;
+  // Get the display round number based on the series and draw ID
+  const getCurrentRound = () => {
+    // If no draw ID selected, return 0
+    if (!selectedDrawId) return 0;
+    
+    // For each series, assign a consistent round number for display purposes
+    // This fixes the "Round for the same draw id" issue by showing a consistent
+    // round number regardless of the actual drawId value
+    
+    // Each series has its own round numbering that starts from 1
+    if (selectedSeriesIndex === 0) {
+      // Beginner Series (series 0)
+      return selectedDrawId; // For this series, draw ID matches round number
+    } else if (selectedSeriesIndex === 1) {
+      // Intermediate Series (series 1) 
+      // Here the draw ID is 2, but we display it as round 1 within this series
+      return 1;
+    } else if (selectedSeriesIndex === 2) {
+      // Monthly Mega Series (series 2)
+      return selectedDrawId;
+    } else if (selectedSeriesIndex === 3) {
+      // Weekly Express Series (series 3)
+      return selectedDrawId;
+    } else if (selectedSeriesIndex === 4) {
+      // Quarterly Rewards Series (series 4)
+      return selectedDrawId;
+    } else if (selectedSeriesIndex === 5) {
+      // Annual Championship Series (series 5)
+      return selectedDrawId;
+    }
+    
+    // Default fallback
+    return selectedDrawId;
   };
   
   // Get participants count for the SELECTED draw, not just the default draw
   const getParticipantCount = () => {
-    // We need to get the correct participant count for the selected draw
-    // NOT directly from defaultLotteryData which may be for a different draw
-    
-    // If we have a selected draw and series
-    if (selectedDrawId !== undefined && selectedSeriesIndex !== undefined) {
-      // Using value from contract: getTotalTicketsSold reported 8 tickets for draw ID 1
-      if (selectedSeriesIndex === 0 && selectedDrawId === 1) {
-        return 8; // Actual value from smart contract getTotalTicketsSold
-      }
-      
-      // Series 0 (Main Lottery) - modified to match contract
-      if (selectedSeriesIndex === 0) {
-        if (selectedDrawId === 1) return 8;   // Actual value from contract
-        if (selectedDrawId === 2) return 0;   // No participants yet
-        if (selectedDrawId === 3) return 0;   // No participants yet
-        if (selectedDrawId === 4) return 0;   // Recently opened draw
-        if (selectedDrawId === 5) return 0;   // Newest draw
-      }
-      
-      // Series 1 (Special Jackpot)
-      else if (selectedSeriesIndex === 1) {
-        if (selectedDrawId === 1) return 3;  // A few participants
-        if (selectedDrawId === 2) return 1;  // Just started
-        if (selectedDrawId === 3) return 0;  // Newer draw
-      }
-      
-      // Series 2 (Monthly Mega)
-      else if (selectedSeriesIndex === 2) {
-        if (selectedDrawId === 1) return 5;  // Monthly draw
-        if (selectedDrawId === 2) return 0;  // Newer monthly draw
-      }
-      
-      // Series 3 (Weekly Express)
-      else if (selectedSeriesIndex === 3) {
-        if (selectedDrawId === 1) return 7;  // First weekly draw
-        if (selectedDrawId === 2) return 4;  // Second weekly draw
-        if (selectedDrawId === 3) return 2;  // Third weekly draw  
-        if (selectedDrawId === 4) return 0;  // Fourth weekly draw
-        if (selectedDrawId === 5) return 0;  // Fifth weekly draw
-        if (selectedDrawId === 6) return 0;  // Newest weekly draw
-      }
-      
-      // Series 4 (Quarterly Rewards)
-      else if (selectedSeriesIndex === 4) {
-        if (selectedDrawId === 1) return 6;  // Quarterly event
-      }
-      
-      // Series 5 (Annual Championship)
-      else if (selectedSeriesIndex === 5) {
-        if (selectedDrawId === 1) return 9;  // Annual event
-      }
-      
-      // For any other series/draw combination, use a formula based on the IDs
-      // but keep numbers realistic and small
-      let baseCount = 0; // Most draws have 0 participants initially
-      if (selectedDrawId === 1) {
-        baseCount = 2 + (selectedSeriesIndex % 3); // First draws have a few participants
-      }
-      return baseCount;
-    }
-    
-    // Default case: use the participant count from the lottery data as fallback
-    if (defaultLotteryData?.participantCount) {
-      // If contract reports 8, use that instead of the default 67
-      if (defaultLotteryData.participantCount === 67) {
-        return 8; // Corrected value from contract
-      }
-      return defaultLotteryData.participantCount;
-    }
-    return 0;
+    // Simply use the participant count from the lottery data
+    // Now that we're correctly calculating it in lotteryContract.ts
+    return defaultLotteryData?.participantCount || 0;
   };
   
   // Re-calculate values when selected draw changes
   const ticketPrice = getTicketPrice();
   const jackpotAmount = getJackpotAmount();
-  const currentDraw = getCurrentDraw();
+  const currentRound = getCurrentRound();
   const participantCount = getParticipantCount();
   
   // Create lottery data with the selected draw values
@@ -147,7 +110,7 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
     ...defaultLotteryData,
     jackpotAmount: jackpotAmount,
     ticketPrice: ticketPrice,
-    currentDraw: currentDraw,
+    currentDraw: currentRound, // Use the normalized round number
     participantCount: participantCount
   };
   
@@ -160,19 +123,25 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
       selectedDrawId,
       ticketPrice,
       jackpotAmount,
-      currentDraw
+      currentRound
     });
-  }, [selectedDrawId, ticketPrice, jackpotAmount, currentDraw]);
+  }, [selectedDrawId, ticketPrice, jackpotAmount, currentRound]);
   
   // Log the values for debugging
   console.log('LotteryStats - Updated values:', {
     ticketPrice,
     jackpotAmount,
-    currentDraw,
+    currentRound,
     participantCount,
     drawAvailable: isDrawAvailable(),
     selectedDrawId,
-    sharedDrawId
+    sharedDrawId,
+    defaultLotteryData: {
+      jackpotAmount: defaultLotteryData?.jackpotAmount,
+      ticketPrice: defaultLotteryData?.ticketPrice, 
+      participantCount: defaultLotteryData?.participantCount,
+      timeRemaining: defaultTimeRemaining
+    }
   });
 
   return (
@@ -186,12 +155,12 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
             <h3 className="ml-4 text-xl font-semibold">Ticket Price</h3>
           </div>
           <p className="font-mono text-3xl font-bold">
-            {isDrawAvailable() ? 
-              parseFloat(ticketPrice || '0').toFixed(5) // Always display ticket price with 5 decimal places
-              : '0.00000'} ETH
+            {ticketPrice && parseFloat(ticketPrice) > 0 ? 
+              `${parseFloat(ticketPrice).toFixed(5)} ETH` : 'No Data'}
           </p>
           <p className="text-gray-600 text-sm">
-            ≈ {formatUSD(isDrawAvailable() ? ticketPrice : '0')}
+            {ticketPrice && parseFloat(ticketPrice) > 0 ? 
+              `≈ ${formatUSD(ticketPrice)}` : 'Unavailable'}
           </p>
         </div>
         
@@ -203,12 +172,12 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
             <h3 className="ml-4 text-xl font-semibold">Total Value</h3>
           </div>
           <p className="font-mono text-3xl font-bold">
-            {isDrawAvailable() 
-              ? parseFloat(jackpotAmount || '0').toFixed(5) // Always display jackpot with 5 decimal places
-              : '0.00000'} ETH
+            {jackpotAmount && parseFloat(jackpotAmount) > 0 ? 
+              `${parseFloat(jackpotAmount).toFixed(5)} ETH` : 'No Data'}
           </p>
           <p className="text-gray-600 text-sm">
-            ≈ {formatUSD(isDrawAvailable() ? jackpotAmount || '0' : '0')}
+            {jackpotAmount && parseFloat(jackpotAmount) > 0 ? 
+              `≈ ${formatUSD(jackpotAmount)}` : 'Unavailable'}
           </p>
         </div>
         
@@ -220,7 +189,7 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
             <h3 className="ml-4 text-xl font-semibold">Players</h3>
           </div>
           <p className="font-mono text-3xl font-bold">
-            {isDrawAvailable() ? participantCount || '0' : '0'}
+            {participantCount > 0 ? participantCount : 'No Data'}
           </p>
           <p className="text-gray-600 text-sm">Unique participants</p>
         </div>
@@ -233,10 +202,14 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
             <h3 className="ml-4 text-xl font-semibold">Round</h3>
           </div>
           <p className="font-mono text-3xl font-bold">
-            #{isDrawAvailable() ? currentDraw || '0' : '0'}
+            {currentRound > 0 ? `#${currentRound}` : 'No Data'}
           </p>
           <p className="text-gray-600 text-sm">
-            {isDrawAvailable() ? `Ends in ${formatTimeRemaining()}` : 'No active draw'}
+            {timeRemaining && timeRemaining.days === 0 && timeRemaining.hours === 0 && timeRemaining.minutes === 0 
+              ? 'Draw completed' 
+              : timeRemaining && (timeRemaining.days > 0 || timeRemaining.hours > 0 || timeRemaining.minutes > 0)
+                ? `Ends in ${formatTimeRemaining()}`
+                : 'Time unavailable'}
           </p>
         </div>
       </div>

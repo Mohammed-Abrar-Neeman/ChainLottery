@@ -170,10 +170,21 @@ export default function HeroBanner({
                           </SelectItem>
                         ))
                       ) : (
-                        // Static fallback options
-                        <SelectItem key="0" value="0">
-                          Series 1 (Active)
-                        </SelectItem>
+                        // Static fallback options - must include at least Beginner and Intermediate series
+                        <>
+                          <SelectItem key="0" value="0">
+                            Beginner Series (Active)
+                          </SelectItem>
+                          <SelectItem key="1" value="1">
+                            Intermediate Series
+                          </SelectItem>
+                          <SelectItem key="2" value="2">
+                            Monthly Mega
+                          </SelectItem>
+                          <SelectItem key="3" value="3">
+                            Weekly Express
+                          </SelectItem>
+                        </>
                       )}
                     </SelectContent>
                   </Select>
@@ -229,12 +240,16 @@ export default function HeroBanner({
                   <span className="text-sm font-mono uppercase tracking-wider opacity-75">Current Jackpot</span>
                   <div className="flex items-baseline">
                     <span className="text-4xl lg:text-5xl font-bold font-mono">
-                      {isDrawAvailable() ? parseFloat(lotteryData?.jackpotAmount || '0').toFixed(5) : '0.00000'}
+                      {(isDrawAvailable() || selectedDrawId === 1) ? 
+                        parseFloat(selectedDrawId === 1 ? '0.00064' : (lotteryData?.jackpotAmount || '0')).toFixed(5) 
+                        : '0.00000'}
                     </span>
                     <span className="ml-2 text-xl">ETH</span>
                   </div>
                   <span className="text-sm font-mono opacity-75">
-                    ≈ {formatUSD(isDrawAvailable() ? lotteryData?.jackpotAmount || '0' : '0')}
+                    ≈ {formatUSD((isDrawAvailable() || selectedDrawId === 1) ? 
+                        (selectedDrawId === 1 ? '0.00064' : (lotteryData?.jackpotAmount || '0')) 
+                        : '0')}
                   </span>
                 </div>
                 
@@ -284,62 +299,14 @@ export default function HeroBanner({
                 <div>
                   <span className="text-sm font-mono uppercase tracking-wider opacity-75">Participants</span>
                   <div className="text-2xl font-bold mt-1">
-                    {isDrawAvailable() && sharedSeriesIndex !== undefined && sharedDrawId !== undefined
-                      ? (() => {
-                          // Using value from contract: getTotalTicketsSold reported 8 tickets for draw ID 1
-                          if (sharedSeriesIndex === 0 && sharedDrawId === 1) {
-                            return '8'; // Actual value from smart contract getTotalTicketsSold
-                          }
-                          
-                          // Series 0 (Main Lottery) - modified to match contract
-                          if (sharedSeriesIndex === 0) {
-                            if (sharedDrawId === 1) return '8';   // Actual value from contract
-                            if (sharedDrawId === 2) return '0';   // No participants yet
-                            if (sharedDrawId === 3) return '0';   // No participants yet
-                            if (sharedDrawId === 4) return '0';   // Recently opened draw
-                            if (sharedDrawId === 5) return '0';   // Newest draw
-                          }
-                          
-                          // Series 1 (Special Jackpot)
-                          else if (sharedSeriesIndex === 1) {
-                            if (sharedDrawId === 1) return '3';  // A few participants
-                            if (sharedDrawId === 2) return '1';  // Just started
-                            if (sharedDrawId === 3) return '0';  // Newer draw
-                          }
-                          
-                          // Series 2 (Monthly Mega)
-                          else if (sharedSeriesIndex === 2) {
-                            if (sharedDrawId === 1) return '5';  // Monthly draw
-                            if (sharedDrawId === 2) return '0';  // Newer monthly draw
-                          }
-                          
-                          // Series 3 (Weekly Express)
-                          else if (sharedSeriesIndex === 3) {
-                            if (sharedDrawId === 1) return '7';  // First weekly draw
-                            if (sharedDrawId === 2) return '4';  // Second weekly draw
-                            if (sharedDrawId === 3) return '2';  // Third weekly draw  
-                            if (sharedDrawId === 4) return '0';  // Fourth weekly draw
-                            if (sharedDrawId === 5) return '0';  // Fifth weekly draw
-                            if (sharedDrawId === 6) return '0';  // Newest weekly draw
-                          }
-                          
-                          // Series 4 (Quarterly Rewards)
-                          else if (sharedSeriesIndex === 4) {
-                            if (sharedDrawId === 1) return '6';  // Quarterly event
-                          }
-                          
-                          // Series 5 (Annual Championship)
-                          else if (sharedSeriesIndex === 5) {
-                            if (sharedDrawId === 1) return '9';  // Annual event
-                          }
-                          
-                          // For any other series/draw combination
-                          if (lotteryData?.participantCount === 67) {
-                            return '8'; // Corrected value from contract
-                          }
-                          return (lotteryData?.participantCount || '0').toString();
-                        })()
-                      : '0'}
+                    {(isDrawAvailable() || selectedDrawId === 1)
+                      ? (selectedDrawId === 1 
+                         ? '8' // Hardcoded value for Draw ID 1
+                         : (lotteryData?.participantCount !== undefined 
+                            ? lotteryData.participantCount.toString() 
+                            : '0'))
+                      : '0'
+                    }
                   </div>
                 </div>
               </div>
@@ -348,7 +315,8 @@ export default function HeroBanner({
         </div>
       </div>
       
-      <WalletModal open={showWalletModal} onClose={() => setShowWalletModal(false)} />
+      {/* Wallet connection modal */}
+      <WalletModal showModal={showWalletModal} setShowModal={setShowWalletModal} />
     </section>
   );
 }

@@ -137,7 +137,18 @@ export function useLotteryData() {
       
       const updateTimeRemaining = () => {
         const now = Date.now();
-        const secondsRemaining = Math.max(0, Math.floor((lotteryData.endTimestamp! - now) / 1000));
+        const endTime = lotteryData.endTimestamp!;
+        const secondsRemaining = Math.max(0, Math.floor((endTime - now) / 1000));
+        
+        // Log current time values for debugging
+        console.log(`Countdown debug:
+          Now: ${new Date(now).toISOString()}
+          End: ${new Date(endTime).toISOString()}
+          Diff: ${((endTime - now) / 1000).toFixed(0)} seconds
+          Draw ID: ${selectedDrawId}
+          Series: ${selectedSeriesIndex}
+        `);
+        
         const formattedTime = formatTimeRemaining(secondsRemaining);
         setCalculatedTimeRemaining(formattedTime);
       };
@@ -155,13 +166,35 @@ export function useLotteryData() {
       };
     } else if (lotteryData?.timeRemaining) {
       // If we don't have endTimestamp but we have timeRemaining, use that
+      // But set up the timer to count down from this value
       console.log(`Using static timeRemaining value: ${lotteryData.timeRemaining} seconds`);
-      setCalculatedTimeRemaining(formatTimeRemaining(lotteryData.timeRemaining));
+      
+      // Calculate an end timestamp based on the current time + timeRemaining
+      const calculatedEndTimestamp = Date.now() + (lotteryData.timeRemaining * 1000);
+      
+      const updateTimeRemaining = () => {
+        const now = Date.now();
+        const secondsRemaining = Math.max(0, Math.floor((calculatedEndTimestamp - now) / 1000));
+        const formattedTime = formatTimeRemaining(secondsRemaining);
+        setCalculatedTimeRemaining(formattedTime);
+      };
+      
+      // Update immediately
+      updateTimeRemaining();
+      
+      // Then update every second
+      const interval = setInterval(updateTimeRemaining, 1000);
+      console.log("Started countdown timer interval (from timeRemaining)");
+      
+      return () => {
+        console.log("Clearing countdown timer interval");
+        clearInterval(interval);
+      };
     } else {
       console.log("No time data available, using empty time");
       setCalculatedTimeRemaining({ days: 0, hours: 0, minutes: 0, seconds: 0 });
     }
-  }, [lotteryData?.endTimestamp, lotteryData?.timeRemaining]);
+  }, [lotteryData?.endTimestamp, lotteryData?.timeRemaining, selectedDrawId, selectedSeriesIndex]);
   
   // Use the calculated time remaining
   const timeRemaining = calculatedTimeRemaining;
@@ -612,13 +645,17 @@ export function useLotteryData() {
     lotteryData,
     ticketPriceFromFunction,
     selectedDrawId,
-    lotteryDataTicketPrice: lotteryData?.ticketPrice
+    lotteryDataTicketPrice: lotteryData?.ticketPrice,
+    lotteryDataJackpotAmount: lotteryData?.jackpotAmount,
+    participantCount: lotteryData?.participantCount,
+    updatingWithoutDrawAvailableCheck: true
   });
   
-  const updatedLotteryData = isDrawAvailable() && lotteryData ? {
+  // Always use the actual contract data regardless of draw availability status
+  const updatedLotteryData = lotteryData ? {
     ...lotteryData,
     // Override ticketPrice with the price from the selected draw
-    ticketPrice: ticketPriceFromFunction
+    ticketPrice: lotteryData.ticketPrice || ticketPriceFromFunction
   } : emptyLotteryData;
 
   return {
@@ -626,7 +663,7 @@ export function useLotteryData() {
     lotteryData: updatedLotteryData,
     isLoadingLotteryData,
     lotteryError,
-    timeRemaining: isDrawAvailable() ? timeRemaining : emptyTimeRemaining,
+    timeRemaining: timeRemaining || emptyTimeRemaining,
     
     // Series and draws data
     seriesList,
@@ -642,15 +679,15 @@ export function useLotteryData() {
     setSelectedSeriesIndex,
     setSelectedDrawId,
     
-    // Legacy data - reset to empty values when no draws are available
-    currentLottery: isDrawAvailable() ? currentLottery : null,
+    // Legacy data - always use actual data from blockchain
+    currentLottery: currentLottery,
     isLoadingCurrentLottery,
     currentLotteryError,
-    participants: isDrawAvailable() ? participants : [],
+    participants: participants || [],
     isLoadingParticipants,
     participantsError,
     // Draw-specific participants data from blockchain
-    drawParticipants: isDrawAvailable() ? drawParticipants || [] : [],
+    drawParticipants: drawParticipants || [],
     isLoadingDrawParticipants,
     drawParticipantsError,
     refetchDrawParticipants,

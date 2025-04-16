@@ -154,3 +154,7 @@ export function useWallet(): UseWalletReturn {
     switchNetwork
   };
 }
+
+// Export useWallet as useWeb3 as an alias for backward compatibility
+// Renamed alias for backward compatibility with useLotteryData.js
+export const useWeb3 = useWallet;
