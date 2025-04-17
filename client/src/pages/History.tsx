@@ -1,13 +1,14 @@
 import React from 'react';
 import { useLotteryData } from '@/hooks/useLotteryData';
 import { formatAddress } from '@/lib/web3';
-import { ExternalLink, History as HistoryIcon, Award, Info as InfoIcon } from 'lucide-react';
+import { ExternalLink, History as HistoryIcon, Award, Info as InfoIcon, Target } from 'lucide-react';
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 
 export default function History() {
   const { pastWinners, isLoadingPastWinners, formatUSD } = useLotteryData();
@@ -129,11 +130,12 @@ export default function History() {
                   </div>
                 </div>
                 <div className="p-5">
+                  {/* Winner */}
                   <div className="mb-4">
                     <div className="text-sm text-gray-500 mb-1">Winner</div>
                     <div className="font-mono text-sm truncate">
                       <a 
-                        href={`https://etherscan.io/address/${round.winnerAddress}`}
+                        href={`https://sepolia.etherscan.io/address/${round.winnerAddress}`}
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="text-primary hover:text-accent transition"
@@ -141,19 +143,47 @@ export default function History() {
                         {formatAddress(round.winnerAddress)}
                       </a>
                     </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      Winning Ticket #{round.winningTicketIndex !== undefined ? round.winningTicketIndex : "N/A"}
+                    </div>
                   </div>
+                  
+                  {/* Winning Numbers */}
+                  {round.winningNumbers && (
+                    <div className="mb-4">
+                      <div className="text-sm text-gray-500 mb-2 flex items-center">
+                        <Target size={14} className="mr-1" /> Winning Numbers
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {round.winningNumbers.slice(0, 5).map((num, idx) => (
+                          <Badge key={idx} variant="outline" className="font-mono bg-gray-50 rounded-full">
+                            {num.toString().padStart(2, '0')}
+                          </Badge>
+                        ))}
+                        {round.winningNumbers[5] && (
+                          <Badge key="lotto" variant="default" className="font-mono rounded-full">
+                            {round.winningNumbers[5].toString().padStart(2, '0')}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Prize Amount */}
                   <div className="mb-4">
                     <div className="text-sm text-gray-500 mb-1">Prize Amount</div>
                     <div className="font-mono text-lg font-bold">{round.prizeAmount} ETH</div>
                     <div className="text-sm text-gray-500">≈ {formatUSD(round.prizeAmount)}</div>
                   </div>
+                  
+                  {/* Footer */}
                   <div className="flex justify-between text-sm">
                     <div>
                       <span className="text-gray-500">Tickets Sold:</span>
                       <span className="font-mono ml-1">{round.participantCount}</span>
                     </div>
                     <a 
-                      href={`https://etherscan.io/tx/${round.transactionHash}`}
+                      href={`https://sepolia.etherscan.io/tx/${round.transactionHash}`}
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="text-primary hover:text-accent transition flex items-center"
