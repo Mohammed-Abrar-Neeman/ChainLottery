@@ -1,10 +1,18 @@
-import { useState } from 'react';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ethers } from 'ethers';
-
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { formatAddress } from '@/lib/utils';
+import { getLotteryContract, getDrawParticipants } from '@/lib/lotteryContract';
+import { useWallet } from '@/hooks/useWallet';
+import { getLotteryAddress } from '@shared/contracts';
+import { lotteryABI } from '@shared/lotteryABI';
+import { 
+  RefreshCcw,
+  AlertCircle,
+  Loader2
+} from 'lucide-react';
 import {
   Pagination,
   PaginationContent,
@@ -13,16 +21,17 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-} from '@/components/ui/pagination';
+} from "@/components/ui/pagination";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-import { formatAddress } from '@/lib/utils';
-import { useWallet } from '@/hooks/useWallet';
-import { getLotteryContract } from '@/lib/lotteryContract';
-
-// Inline timestamp formatter
+// Helper function to format timestamp into readable date
 const formatTimestamp = (timestamp: number): string => {
-  if (!timestamp) return 'Unknown';
-  
   const date = new Date(timestamp);
   
   // Use Intl.DateTimeFormat for localized formatting
@@ -56,143 +65,388 @@ interface ContractData {
 }
 
 export default function ParticipantsList({ sharedSeriesIndex, sharedDrawId }: ParticipantsListProps) {
-  // Web3 connection
   const { provider, chainId } = useWallet();
+  
+  // State for storing previous value to detect changes
+  const [previousSeriesIndex, setPreviousSeriesIndex] = useState<number | undefined>(undefined);
+  const [previousDrawId, setPreviousDrawId] = useState<number | undefined>(undefined);
+  
+  // Create a local fallback draw ID map to ensure we always have a valid draw ID for each series
+  const getDefaultDrawIdForSeries = useCallback((seriesIndex?: number): number => {
+    if (seriesIndex === undefined) return 1; // Default to draw 1
+    
+    // Map series indices to their respective draw IDs (direct mapping from contract)
+    switch (seriesIndex) {
+      case 0: return 1; // Beginner Series
+      case 1: return 2; // Intermediate Series
+      case 2: return 3; // Monthly Mega
+      case 3: return 4; // Weekly Express
+      case 4: return 5; // Quarterly
+      case 5: return 6; // Annual
+      default: return 1;
+    }
+  }, []);
+  
+  // Compute effective draw ID that will never be undefined
+  const effectiveDrawId = sharedDrawId !== undefined ? sharedDrawId : getDefaultDrawIdForSeries(sharedSeriesIndex);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState<string>("10");
-  
-  // Create a single query to get participant data
-  const {
-    data: contractData,
-    isLoading,
-    error
-  } = useQuery<ContractData>({
-    queryKey: ['contractParticipantCount', chainId, sharedSeriesIndex, sharedDrawId],
-    queryFn: async () => {
-      
-      if (!provider || !chainId || sharedDrawId === undefined) {
-        return { tickets: [], participantCount: 0 };
-      }
-      
+  const [pageSize, setPageSize] = useState("10");
+
+  // Custom contract read implementation using React Query
+  const { data: contractData, error, isLoading, refetch: refetchParticipants } = useQuery({
+    queryKey: ['participants', effectiveDrawId, sharedSeriesIndex],
+    queryFn: async (): Promise<ContractData> => {
       try {
-        console.log(`Fetching tickets directly from contract for draw ID ${sharedDrawId}`);
-        const contract = getLotteryContract(provider, chainId);
+        console.log(`FORCE FETCH: Getting participants for draw ID ${effectiveDrawId} in series ${sharedSeriesIndex}`);
+        
+        // We now use effectiveDrawId which will never be undefined, but still guard series index
+        if (sharedSeriesIndex === undefined) {
+          throw new Error("Series Index is undefined");
+        }
+        
+        // Use a fallback provider if needed - we don't want this to fail due to wallet connection
+        const activeProvider = provider || new ethers.JsonRpcProvider("https://ethereum-sepolia.publicnode.com");
+        const activeChainId = chainId || "11155111"; // Sepolia testnet as fallback
+        
+        console.log(`Using provider: ${!!activeProvider}, chainId: ${activeChainId}`);
+        
+        // Direct implementation to query the contract
+        const contractAddress = getLotteryAddress(activeChainId);
+        const contract = new ethers.Contract(contractAddress, lotteryABI, activeProvider);
+        
         if (!contract) {
-          console.error("Failed to get contract instance");
+          throw new Error("Failed to create contract instance");
+        }
+        
+        console.log(`Created contract instance for ${contractAddress}`);
+        
+        // Get ticket count from contract
+        console.log(`Getting ticket count for draw ${effectiveDrawId}...`);
+        const totalTickets = await contract.getTotalTicketsSold(Number(effectiveDrawId));
+        const ticketCount = Number(totalTickets);
+        console.log(`Contract returned ${ticketCount} tickets for draw ${effectiveDrawId}`);
+        
+        if (ticketCount === 0) {
+          console.log(`No tickets found for draw ${effectiveDrawId}`);
           return { tickets: [], participantCount: 0 };
         }
         
-        // Step 1: Get total tickets count for this draw
-        let participantCount = 0;
-        try {
-          console.log(`Calling getTotalTicketsSold(${sharedDrawId})...`);
-          const count = await contract.getTotalTicketsSold(sharedDrawId);
-          participantCount = Number(count);
-          console.log(`✅ Contract returned ${participantCount} tickets sold for draw #${sharedDrawId}`);
-        } catch (e) {
-          console.error("Error getting ticket count from contract:", e);
-          // Use verified counts as fallback
-          if (sharedSeriesIndex === 0 && sharedDrawId === 1) {
-            participantCount = 8;
-            console.log("Using verified count of 8 tickets for Series 0, Draw 1");
-          } else if (sharedSeriesIndex === 1 && sharedDrawId === 2) {
-            participantCount = 6;
-          } else if (sharedSeriesIndex === 2 && sharedDrawId === 1) {
-            participantCount = 5;
-          } else if (sharedSeriesIndex === 3 && sharedDrawId === 1) {
-            participantCount = 7;
-          } else if (sharedSeriesIndex === 3 && sharedDrawId === 2) {
-            participantCount = 4;
-          } else if (sharedSeriesIndex === 4 && sharedDrawId === 1) {
-            participantCount = 6;
-          } else if (sharedSeriesIndex === 5 && sharedDrawId === 1) {
-            participantCount = 9;
-          }
-        }
-        
-        // Step 2: Get each ticket data directly from the 'tickets' mapping
-        console.log(`Attempting to fetch ${participantCount} tickets from contract's 'tickets' mapping`);
+        // Fetch all tickets directly
+        console.log(`Fetching ${ticketCount} tickets for draw ${effectiveDrawId}...`);
         const tickets: Ticket[] = [];
         
-        for (let i = 0; i < participantCount; i++) {
+        for (let i = 0; i < ticketCount; i++) {
           try {
-            // Direct access to the tickets mapping using tickets(drawId, ticketIndex)
-            const ticketData = await contract.tickets(sharedDrawId, i);
-            console.log(`Ticket #${i} raw data:`, ticketData);
+            const ticketDetails = await contract.getTicketDetails(Number(effectiveDrawId), i);
             
-            // According to Etherscan, the ticket mapping returns:
-            // [lottoNumber (uint8), buyer (address), buyTime (uint256), closed (bool)]
-            
-            if (ticketData && ticketData[1] && ticketData[1] !== '0x0000000000000000000000000000000000000000') {
-              const walletAddress = ticketData[1]; // buyer address is at index 1
-              const lottoNumber = Number(ticketData[0]); // lottoNumber is at index 0
-              const buyTimeSeconds = Number(ticketData[2] || 0); // buyTime is at index 2
-              const timestamp = buyTimeSeconds > 0 ? buyTimeSeconds * 1000 : Date.now() - (3600000); // Default to 1 hour ago if no timestamp
-              
-              // We need to get the full ticket details to get the numbers
-              // Call getTicketDetails for this specific ticket to get the numbers array
-              let numbers: number[] = [];
-              try {
-                const fullTicketDetails = await contract.getTicketDetails(sharedDrawId, i);
-                console.log(`Full ticket #${i} details:`, fullTicketDetails);
-                
-                if (fullTicketDetails && fullTicketDetails.numbers && fullTicketDetails.numbers.length > 0) {
-                  // Use only real data from contract
-                  numbers = Array.from({ length: Math.min(5, fullTicketDetails.numbers.length) }, (_, j) => 
-                    Number(fullTicketDetails.numbers[j])
-                  );
-                }
-              } catch (detailsError) {
-                console.error(`Error getting detailed ticket numbers for #${i}:`, detailsError);
-                
-                // If we can't get real data, use empty array - don't generate random numbers
-                console.log(`No ticket data available for this ticket - using empty array`);
-                numbers = [];
-                // Skip this ticket by continuing to the next iteration
-                continue;
-              }
-              
-              tickets.push({
-                walletAddress,
-                numbers,
-                lottoNumber,
-                timestamp,
-                ticketId: `${sharedDrawId}-${i}`
-              });
-              
-              console.log(`✅ Successfully retrieved ticket #${i}`, { 
-                wallet: walletAddress,
-                numbers,
-                lottoNumber
-              });
+            if (!ticketDetails || !ticketDetails.buyer) {
+              continue;
             }
+            
+            const walletAddress = ticketDetails.buyer;
+            const numbers = Array.isArray(ticketDetails.numbers) 
+              ? ticketDetails.numbers.map((n: any) => Number(n)) 
+              : [];
+            
+            const lottoNumber = ticketDetails.lottoNumber !== undefined 
+              ? Number(ticketDetails.lottoNumber) 
+              : null;
+              
+            const timestamp = ticketDetails.buyTime 
+              ? Number(ticketDetails.buyTime) * 1000 
+              : Date.now();
+            
+            // Create ticket object
+            const ticket: Ticket = {
+              walletAddress,
+              numbers,
+              lottoNumber,
+              timestamp,
+              ticketId: `${effectiveDrawId}-${i}`
+            };
+            
+            tickets.push(ticket);
           } catch (error) {
-            console.error(`Failed to get ticket #${i}:`, error);
+            console.error(`Error getting ticket ${i} details:`, error);
           }
         }
         
-        console.log(`Retrieved ${tickets.length} ticket data entries for series ${sharedSeriesIndex}, draw ${sharedDrawId}`);
-        return { tickets, participantCount };
-      } catch (error) {
-        console.error("Error fetching ticket data:", error);
+        console.log(`Successfully loaded ${tickets.length}/${ticketCount} tickets for draw ${effectiveDrawId}`);
+        return { tickets, participantCount: ticketCount };
+      } catch (error: any) {
+        console.error("Error in participant data retrieval:", error.message || error);
         return { tickets: [], participantCount: 0 };
       }
     },
-    enabled: !!provider && !!chainId && sharedSeriesIndex !== undefined && sharedDrawId !== undefined
+    enabled: sharedSeriesIndex !== undefined, // We always have effectiveDrawId, so only check seriesIndex
+    staleTime: 30000, // Keep data fresh for 30 seconds
+    refetchOnMount: true,
+    refetchOnWindowFocus: true
   });
+  
+  // Manual refresh function for the refresh button
+  const handleManualRefresh = useCallback(() => {
+    console.log(`🔄 ParticipantsList - Manual refresh triggered for Series ${sharedSeriesIndex}, Draw ${effectiveDrawId}`);
+    refetchParticipants();
+  }, [refetchParticipants, sharedSeriesIndex, effectiveDrawId]);
+  
+  // Reset to page 1 when series or draw changes and directly query the smart contract
+  useEffect(() => {
+    // Guard against undefined series index only (we always have effectiveDrawId)
+    if (sharedSeriesIndex === undefined) {
+      console.log("⚠️ ParticipantsList - Skipping effect due to undefined series");
+      return;
+    }
+    
+    // Reset to first page with any props update
+    setCurrentPage(1);
+    
+    // Log the update for debugging
+    console.log(`ParticipantsList - Props updated to series: ${sharedSeriesIndex}, effectiveDrawId: ${effectiveDrawId}`);
+    
+    // Always query directly from the smart contract - no local storage involved
+    console.log(`🔄 ParticipantsList - Directly querying blockchain for Series ${sharedSeriesIndex}, Draw ${effectiveDrawId}`);
+    refetchParticipants();
+    
+  }, [sharedSeriesIndex, effectiveDrawId, refetchParticipants]);
   
   // Destructure data with fallbacks
   const tickets = contractData?.tickets || [];
   const participantCount = contractData?.participantCount || 0;
+  
+  // REFACTORING: Extract the participants view into a reusable function
+  // This allows us to call it either with contract data or with guaranteed data
+  const renderParticipantsView = (ticketsToRender: Ticket[], participantCount: number) => {
+    console.log(`✅ Showing ${ticketsToRender.length} participants for Series ${sharedSeriesIndex}, Draw ID ${effectiveDrawId}`);
+    
+    // Pagination calculations
+    const totalTickets = ticketsToRender.length;
+    const pageCount = Math.max(1, Math.ceil(totalTickets / parseInt(pageSize)));
+    const startIndex = (currentPage - 1) * parseInt(pageSize);
+    const endIndex = startIndex + parseInt(pageSize);
+    const currentTickets = ticketsToRender.slice(startIndex, endIndex);
+    
+    // Debug log
+    console.log("🎫 SHOWING TICKETS:", { 
+      totalTickets,
+      currentTicketsCount: currentTickets.length,
+      pageSize,
+      currentPage
+    });
+    
+    return (
+      <section className="mx-auto max-w-7xl px-4 py-6">
+        <div className="p-6 rounded-lg shadow-lg bg-white dark:bg-slate-900">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold text-blue-600">{getSeriesTitle()} Participants (Draw ID {effectiveDrawId})</h2>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleManualRefresh}
+              disabled={isLoading}
+              className="flex items-center"
+            >
+              <RefreshCcw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
+          
+          <p className="text-md mb-4 font-medium">
+            Currently showing {totalTickets} tickets from {new Set(ticketsToRender.map(p => p.walletAddress)).size} participants
+          </p>
+          
+          <div className="overflow-x-auto">
+            <div className="w-full min-w-full">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-800">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Participant
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Numbers
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Timestamp
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Value
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-200 dark:divide-gray-700">
+                  {currentTickets.map((ticket) => (
+                    <tr key={ticket.ticketId} className={isTicketWinner(ticket.ticketId) ? 'bg-green-50 dark:bg-green-900/20' : ''}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                              {formatAddress(ticket.walletAddress)}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center space-x-1">
+                          {ticket.numbers.map((num, idx) => (
+                            <span 
+                              key={idx}
+                              className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-medium"
+                            >
+                              {num.toString().padStart(2, '0')}
+                            </span>
+                          ))}
+                          
+                          {ticket.lottoNumber !== null && (
+                            <span 
+                              className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 text-xs font-medium ml-2"
+                            >
+                              {ticket.lottoNumber.toString().padStart(2, '0')}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 dark:text-gray-100">
+                          {formatTimestamp(ticket.timestamp)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {isTicketWinner(ticket.ticketId) ? (
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
+                            Winner!
+                          </span>
+                        ) : (
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
+                            Active
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                        {getTicketPrice()} ETH
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            {/* Pagination controls */}
+            <div className="px-4 py-3 flex items-center justify-between sm:px-6">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-700 dark:text-gray-300">Show</span>
+                <Select value={pageSize} onValueChange={(value) => {
+                  setPageSize(value);
+                  setCurrentPage(1); // Reset to first page when changing page size
+                }}>
+                  <SelectTrigger className="h-8 w-20">
+                    <SelectValue placeholder="10" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">5</SelectItem>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                  </SelectContent>
+                </Select>
+                <span className="text-sm text-gray-700 dark:text-gray-300">entries</span>
+              </div>
+              
+              <div className="flex items-center justify-between sm:justify-end">
+                <p className="text-sm text-gray-700 dark:text-gray-300">
+                  Showing <span className="font-medium">{startIndex + 1}</span> to <span className="font-medium">{Math.min(endIndex, totalTickets)}</span> of <span className="font-medium">{totalTickets}</span> tickets
+                </p>
+              </div>
+              
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      className={currentPage === 1 ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                  
+                  {Array.from({ length: Math.min(5, pageCount) }).map((_, i) => {
+                    let pageNumber: number;
+                    
+                    // Logic to show appropriate page numbers
+                    if (pageCount <= 5 || currentPage <= 3) {
+                      pageNumber = i + 1;
+                    } else if (currentPage >= pageCount - 2) {
+                      pageNumber = pageCount - 4 + i;
+                    } else {
+                      pageNumber = currentPage - 2 + i;
+                    }
+                    
+                    // Only render if page number is valid
+                    if (pageNumber > 0 && pageNumber <= pageCount) {
+                      return (
+                        <PaginationItem key={i}>
+                          <PaginationLink
+                            onClick={() => setCurrentPage(pageNumber)}
+                            isActive={currentPage === pageNumber}
+                          >
+                            {pageNumber}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    }
+                    return null;
+                  })}
+                  
+                  {pageCount > 5 && currentPage < pageCount - 2 && (
+                    <>
+                      <PaginationItem>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                      <PaginationItem>
+                        <PaginationLink onClick={() => setCurrentPage(pageCount)}>
+                          {pageCount}
+                        </PaginationLink>
+                      </PaginationItem>
+                    </>
+                  )}
+                  
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => setCurrentPage(Math.min(pageCount, currentPage + 1))}
+                      className={currentPage === pageCount ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  };
   
   // Common rendering function for empty state
   const renderEmptyState = () => {
     return (
       <section className="mx-auto max-w-7xl px-4 py-6">
         <div className="p-6 rounded-lg shadow-lg bg-white dark:bg-slate-900">
-          <h2 className="text-2xl font-bold mb-4 text-blue-600">Current Participants</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold text-blue-600">Current Participants</h2>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleManualRefresh}
+              disabled={isLoading}
+              className="flex items-center"
+            >
+              <RefreshCcw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
+          
           <div className="text-center py-8">
             <Alert className="mb-4">
               <AlertCircle className="h-4 w-4" />
@@ -201,9 +455,9 @@ export default function ParticipantsList({ sharedSeriesIndex, sharedDrawId }: Pa
               </AlertDescription>
             </Alert>
             <p className="text-gray-600 dark:text-gray-400 mt-2">
-              {sharedSeriesIndex !== undefined && sharedDrawId !== undefined
-                ? `No participants found for Series ${sharedSeriesIndex}, Draw ID ${sharedDrawId}.`
-                : "Please select a Series and Draw to view participants."}
+              {sharedSeriesIndex !== undefined
+                ? `No participants found for Series ${sharedSeriesIndex}, Draw ID ${effectiveDrawId}.`
+                : "Please select a Series to view participants."}
             </p>
           </div>
         </div>
@@ -216,7 +470,20 @@ export default function ParticipantsList({ sharedSeriesIndex, sharedDrawId }: Pa
     return (
       <section className="mx-auto max-w-7xl px-4 py-6">
         <div className="p-6 rounded-lg shadow-lg bg-white dark:bg-slate-900">
-          <h2 className="text-2xl font-bold mb-4 text-blue-600">Loading Participants...</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold text-blue-600">Loading Participants...</h2>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleManualRefresh}
+              disabled={true}
+              className="flex items-center"
+            >
+              <RefreshCcw className="h-4 w-4 mr-2 animate-spin" />
+              Refreshing...
+            </Button>
+          </div>
+          
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
             <span className="ml-2 text-gray-600 dark:text-gray-400">Fetching participant data from blockchain...</span>
@@ -231,7 +498,19 @@ export default function ParticipantsList({ sharedSeriesIndex, sharedDrawId }: Pa
     return (
       <section className="mx-auto max-w-7xl px-4 py-6">
         <div className="p-6 rounded-lg shadow-lg bg-white dark:bg-slate-900">
-          <h2 className="text-2xl font-bold mb-4 text-blue-600">Error Loading Participants</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold text-blue-600">Error Loading Participants</h2>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleManualRefresh}
+              className="flex items-center"
+            >
+              <RefreshCcw className="h-4 w-4 mr-2" />
+              Retry
+            </Button>
+          </div>
+          
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
@@ -243,28 +522,35 @@ export default function ParticipantsList({ sharedSeriesIndex, sharedDrawId }: Pa
     );
   }
   
-  // No participants available case
+  // Always use direct contract data - no fallback or guaranteed data
+  console.log(`ParticipantsList - Using direct contract data for Series ${sharedSeriesIndex}, Draw ${effectiveDrawId}`);
+  console.log(`Contract data tickets length: ${tickets.length}`);
+  
+  // Check for zero tickets - but don't immediately render empty state
+  // Instead verify we have valid props and attempt a refresh
   if (tickets.length === 0) {
-    return renderEmptyState();
+    // If we have valid series index (we always have effectiveDrawId), attempt another fetch (once only)
+    if (sharedSeriesIndex !== undefined) {
+      // Trigger a refresh if it's the first time we're seeing this combination
+      if (previousSeriesIndex !== sharedSeriesIndex || previousDrawId !== effectiveDrawId) {
+        console.log(`FORCE REFRESH: No tickets found for Series ${sharedSeriesIndex}, Draw ${effectiveDrawId}`);
+        
+        // Update the previous values to prevent infinite refresh
+        setPreviousSeriesIndex(sharedSeriesIndex);
+        setPreviousDrawId(effectiveDrawId);
+        
+        // Trigger a refresh with a small delay to ensure params are set
+        setTimeout(() => {
+          refetchParticipants();
+        }, 500);
+      }
+    }
+    
+    // Render empty state if we're not loading
+    if (!isLoading) {
+      return renderEmptyState();
+    }
   }
-  
-  // If we have valid participants data
-  console.log(`✅ Showing ${tickets.length} participants for Series ${sharedSeriesIndex}, Draw ID ${sharedDrawId}`);
-  
-  // Pagination calculations
-  const totalTickets = tickets.length;
-  const pageCount = Math.max(1, Math.ceil(totalTickets / parseInt(pageSize)));
-  const startIndex = (currentPage - 1) * parseInt(pageSize);
-  const endIndex = startIndex + parseInt(pageSize);
-  const currentTickets = tickets.slice(startIndex, endIndex);
-  
-  // Debug log
-  console.log("🎫 SHOWING TICKETS:", { 
-    totalTickets,
-    currentTicketsCount: currentTickets.length,
-    pageSize,
-    currentPage
-  });
   
   // No synthetic winner determination - only contract-verified winners should be displayed
   // For now, since we're not fetching winner info in this component, all tickets are 'Active'
@@ -298,182 +584,6 @@ export default function ParticipantsList({ sharedSeriesIndex, sharedDrawId }: Pa
     }
   };
   
-  // Render participants data
-  return (
-    <section className="mx-auto max-w-7xl px-4 py-6">
-      <div className="p-6 rounded-lg shadow-lg bg-white dark:bg-slate-900">
-        <h2 className="text-2xl font-bold mb-4 text-blue-600">{getSeriesTitle()} Participants (Draw ID {sharedDrawId})</h2>
-        <p className="text-md mb-4 font-medium">
-          Currently showing {totalTickets} tickets from {new Set(tickets.map(p => p.walletAddress)).size} participants
-        </p>
-        
-        <div className="overflow-x-auto">
-          <div className="w-full min-w-full">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-800">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Participant
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Numbers
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Timestamp
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Value
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-200 dark:divide-gray-700">
-                {currentTickets.map((ticket) => (
-                  <tr key={ticket.ticketId} className={isTicketWinner(ticket.ticketId) ? 'bg-green-50 dark:bg-green-900/20' : ''}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                            {formatAddress(ticket.walletAddress)}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center space-x-1">
-                        {ticket.numbers.map((num, idx) => (
-                          <span 
-                            key={idx}
-                            className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-medium"
-                          >
-                            {num.toString().padStart(2, '0')}
-                          </span>
-                        ))}
-                        
-                        {ticket.lottoNumber !== null && (
-                          <span 
-                            className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 text-xs font-medium ml-2"
-                          >
-                            {ticket.lottoNumber.toString().padStart(2, '0')}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 dark:text-gray-100">
-                        {formatTimestamp(ticket.timestamp)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {isTicketWinner(ticket.ticketId) ? (
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
-                          Winner!
-                        </span>
-                      ) : (
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
-                          Active
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                      {getTicketPrice()} ETH
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          
-          {/* Pagination controls */}
-          <div className="px-4 py-3 flex items-center justify-between sm:px-6">
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-700 dark:text-gray-300">Show</span>
-              <Select value={pageSize} onValueChange={(value) => {
-                setPageSize(value);
-                setCurrentPage(1); // Reset to first page when changing page size
-              }}>
-                <SelectTrigger className="h-8 w-20">
-                  <SelectValue placeholder="10" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="5">5</SelectItem>
-                  <SelectItem value="10">10</SelectItem>
-                  <SelectItem value="20">20</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
-                </SelectContent>
-              </Select>
-              <span className="text-sm text-gray-700 dark:text-gray-300">entries</span>
-            </div>
-            
-            <div className="flex items-center justify-between sm:justify-end">
-              <p className="text-sm text-gray-700 dark:text-gray-300">
-                Showing <span className="font-medium">{startIndex + 1}</span> to <span className="font-medium">{Math.min(endIndex, totalTickets)}</span> of <span className="font-medium">{totalTickets}</span> tickets
-              </p>
-            </div>
-            
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious 
-                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                    className={currentPage === 1 ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
-                  />
-                </PaginationItem>
-                
-                {Array.from({ length: Math.min(5, pageCount) }).map((_, i) => {
-                  let pageNumber: number;
-                  
-                  // Logic to show appropriate page numbers
-                  if (pageCount <= 5 || currentPage <= 3) {
-                    pageNumber = i + 1;
-                  } else if (currentPage >= pageCount - 2) {
-                    pageNumber = pageCount - 4 + i;
-                  } else {
-                    pageNumber = currentPage - 2 + i;
-                  }
-                  
-                  // Only render if page number is valid
-                  if (pageNumber > 0 && pageNumber <= pageCount) {
-                    return (
-                      <PaginationItem key={i}>
-                        <PaginationLink
-                          onClick={() => setCurrentPage(pageNumber)}
-                          isActive={currentPage === pageNumber}
-                        >
-                          {pageNumber}
-                        </PaginationLink>
-                      </PaginationItem>
-                    );
-                  }
-                  return null;
-                })}
-                
-                {pageCount > 5 && currentPage < pageCount - 2 && (
-                  <>
-                    <PaginationItem>
-                      <PaginationEllipsis />
-                    </PaginationItem>
-                    <PaginationItem>
-                      <PaginationLink onClick={() => setCurrentPage(pageCount)}>
-                        {pageCount}
-                      </PaginationLink>
-                    </PaginationItem>
-                  </>
-                )}
-                
-                <PaginationItem>
-                  <PaginationNext 
-                    onClick={() => setCurrentPage(Math.min(pageCount, currentPage + 1))}
-                    className={currentPage === pageCount ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
+  // If we have valid participants data, render them
+  return renderParticipantsView(tickets, participantCount);
 }

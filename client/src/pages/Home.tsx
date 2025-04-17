@@ -13,39 +13,45 @@ export default function Home() {
   const [homeSeriesIndex, setHomeSeriesIndex] = useState<number | undefined>(0); // Default to series 0
   const [homeDrawId, setHomeDrawId] = useState<number | undefined>(1); // Default to draw 1
   
-  // Custom setter for home series index that also handles special cases
+  // Custom setter for home series index that handles switching between series cleanly
   const handleHomeSeriesIndexChange: React.Dispatch<React.SetStateAction<number | undefined>> = (value) => {
     const newSeriesIndex = typeof value === 'function' ? value(homeSeriesIndex) : value;
-    console.log("Home - Setting series index with special handling:", newSeriesIndex);
+    console.log("Home - Setting series index:", newSeriesIndex);
     
-    // INTERMEDIATE SERIES SPECIAL HANDLING:
-    // We add this code first and then set the state to ensure the special case is handled immediately
-    if (newSeriesIndex === 1) { // Series 1 (Intermediate)
-      console.log("🔄 INTERMEDIATE SERIES DETECTED - FORCING SPECIAL HANDLING!");
-      console.log("Home - Setting special draw ID 2 for Intermediate series");
-      
-      // Set the state values in this specific order:
-      setHomeSeriesIndex(1);
-      setHomeDrawId(2);
-      
-      // Also force the lottery data values directly for immediate consistency
-      setLotteryDataSeriesIndex(1);
-      setLotteryDataDrawId(2);
-      
-      // Force a refresh to ensure all components re-render with the new values
-      setRefreshTrigger(prev => prev + 1);
-      
-      // Force participants data refetch
-      setTimeout(() => {
-        console.log("🔄 Forcing refresh of participants for Intermediate series");
-        refetchDrawParticipants(); // Refetch without explicit parameters to avoid type errors
-      }, 50);
-      
-      return; // Skip the default state setting as we handled it specifically
+    // Set the correct default draw ID for each series based on contract structure
+    let defaultDrawId = 1; // Default for most series
+    
+    if (newSeriesIndex === 0) { // Main Lottery Series
+      defaultDrawId = 1;
+    } else if (newSeriesIndex === 1) { // Intermediate Series
+      defaultDrawId = 2; 
+    } else if (newSeriesIndex === 2) { // Monthly Mega
+      defaultDrawId = 3;
+    } else if (newSeriesIndex === 3) { // Weekly Express
+      defaultDrawId = 4;
+    } else if (newSeriesIndex === 4) { // Quarterly Rewards
+      defaultDrawId = 5;
+    } else if (newSeriesIndex === 5) { // Annual Championship
+      defaultDrawId = 6;
     }
     
-    // Default handling for other series
+    console.log(`Setting series ${newSeriesIndex} with draw ID ${defaultDrawId}`);
+    
+    // First update the series index
     setHomeSeriesIndex(newSeriesIndex);
+    // Then update the draw ID
+    setHomeDrawId(defaultDrawId);
+    
+    // Also update the lottery data state directly for consistency
+    setLotteryDataSeriesIndex(newSeriesIndex);
+    setLotteryDataDrawId(defaultDrawId);
+    
+    // Force a refresh to ensure all components re-render with the new values
+    setRefreshTrigger(prev => prev + 1);
+    
+    // Force data refresh to query blockchain for the new series/draw
+    console.log(`Forcing refresh for series ${newSeriesIndex}, draw ${defaultDrawId}`);
+    refetchDrawParticipants();
   }
   
   // Force refresh state when parameters change to ensure UI updates correctly
@@ -124,6 +130,22 @@ export default function Home() {
       setRefreshTrigger(prev => prev + 1);
     }
   }, [homeSeriesIndex, homeDrawId, selectedDrawId, selectedSeriesIndex, setLotteryDataSeriesIndex, setLotteryDataDrawId, refetchDrawParticipants]);
+  
+  // ADDITIONAL EFFECT: Force key changes and refetches on every refresh trigger
+  // This ensures that child components always re-render with fresh data
+  useEffect(() => {
+    // This effect runs whenever refreshTrigger changes
+    console.log("Home - Refresh trigger changed, forcing data refresh:", refreshTrigger);
+    
+    // Force direct refetch of participants and other data
+    if (homeDrawId) {
+      console.log("Home - Force refetching all data for draw ID:", homeDrawId);
+      refetchDrawParticipants();
+      
+      // Pass the updated keys to children
+      // (This is handled automatically by the key props in render)
+    }
+  }, [refreshTrigger, homeDrawId, refetchDrawParticipants]);
 
   // Debug log for state changes
   console.log("Home component - shared lottery state:", { 
@@ -156,8 +178,7 @@ export default function Home() {
       />
       <ParticipantsList 
         sharedSeriesIndex={homeSeriesIndex}
-        // Special handling for Intermediate Series (1) to always force Draw ID 2
-        sharedDrawId={homeSeriesIndex === 1 ? 2 : homeDrawId}
+        sharedDrawId={homeDrawId}
         key={`participants-${refreshTrigger}-${homeSeriesIndex}-${homeDrawId}`}
       />
       <PastWinners 
