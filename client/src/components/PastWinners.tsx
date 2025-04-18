@@ -255,7 +255,7 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex }: PastWin
       )}
       
       {/* Debug info */}
-      <div className="mb-2 p-2 bg-yellow-50 text-xs border border-yellow-200 rounded">
+      <div className="mb-2 p-2 bg-black/40 text-xs border border-primary/30 rounded text-white">
         Debug: Winners count: {winners.length}, Draw completed: {isDrawCompleted ? 'Yes' : 'No'}, DrawId: {effectiveDrawId}, Series: {sharedSeriesIndex}
       </div>
       
@@ -315,7 +315,7 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex }: PastWin
                   </div>
                   <div className="p-5">
                     <div className="mb-4">
-                      <div className="text-sm text-gray-500 mb-1">Winner</div>
+                      <div className="text-sm text-white/70 mb-1">Winner</div>
                       <div className="font-mono text-sm truncate">
                         <a 
                           href={`https://sepolia.etherscan.io/address/${winner.winnerAddress}`}
@@ -329,7 +329,7 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex }: PastWin
                     </div>
                     <div className="mb-4">
                       <div className="flex justify-between items-center">
-                        <div className="text-sm text-gray-500 mb-1">Prize Amount</div>
+                        <div className="text-sm text-white/70 mb-1">Prize Amount</div>
                         <Badge 
                           variant={getPrizeTier(winner.amountWon) === 'jackpot' ? 'destructive' : 
                                  getPrizeTier(winner.amountWon) === 'major' ? 'default' : 'outline'}
@@ -338,25 +338,25 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex }: PastWin
                            getPrizeTier(winner.amountWon) === 'major' ? 'Major Prize' : 'Prize'}
                         </Badge>
                       </div>
-                      <div className="font-mono text-lg font-bold">{winner.amountWon} ETH</div>
-                      <div className="text-sm text-gray-500">≈ {formatUSD(winner.amountWon)}</div>
+                      <div className="font-mono text-lg font-bold text-primary">{winner.amountWon} ETH</div>
+                      <div className="text-sm text-white/60">≈ {formatUSD(winner.amountWon)}</div>
                     </div>
                     
                     {winner.ticketNumbers && winner.ticketNumbers.length > 0 && (
                       <div className="mb-4">
-                        <div className="text-sm text-gray-500 mb-1">Winning Ticket</div>
+                        <div className="text-sm text-white/70 mb-1">Winning Ticket</div>
                         <div className="flex flex-wrap gap-1.5 mb-1">
                           {winner.ticketNumbers[0].numbers.map((num, i) => (
                             <span 
                               key={`number-${i}`} 
-                              className="inline-flex items-center justify-center w-6 h-6 text-xs font-semibold rounded-full bg-primary-100 text-primary"
+                              className="inline-flex items-center justify-center w-6 h-6 text-xs font-semibold rounded-full bg-primary/20 text-primary border border-primary/40"
                             >
                               {num}
                             </span>
                           ))}
                           {winner.ticketNumbers[0].lottoNumber && (
                             <span 
-                              className="inline-flex items-center justify-center w-6 h-6 text-xs font-semibold rounded-full bg-accent text-white"
+                              className="inline-flex items-center justify-center w-6 h-6 text-xs font-semibold rounded-full bg-accent/20 text-accent border border-accent/40"
                             >
                               {winner.ticketNumbers[0].lottoNumber}
                             </span>
@@ -367,13 +367,13 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex }: PastWin
                     
                     {winner.winningNumbers && winner.winningNumbers.length > 0 && (
                       <div className="mb-4">
-                        <div className="text-sm text-gray-500 mb-1">Winning Numbers</div>
+                        <div className="text-sm text-white/70 mb-1">Winning Numbers</div>
                         <div className="flex flex-wrap gap-1.5 mb-1">
                           {/* Display first 5 numbers */}
                           {winner.winningNumbers.slice(0, 5).map((num, i) => (
                             <span 
                               key={`winning-number-${i}`} 
-                              className="inline-flex items-center justify-center w-6 h-6 text-xs font-semibold rounded-full bg-green-100 text-green-700"
+                              className="inline-flex items-center justify-center w-6 h-6 text-xs font-semibold rounded-full bg-green-800/30 text-green-400 border border-green-500/40"
                             >
                               {num}
                             </span>
@@ -381,7 +381,7 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex }: PastWin
                           {/* Display lotto number (6th number) */}
                           {winner.winningNumbers.length >= 6 && (
                             <span 
-                              className="inline-flex items-center justify-center w-6 h-6 text-xs font-semibold rounded-full bg-yellow-400 text-yellow-900"
+                              className="inline-flex items-center justify-center w-6 h-6 text-xs font-semibold rounded-full bg-yellow-800/30 text-yellow-400 border border-yellow-500/40"
                             >
                               {winner.winningNumbers[5]}
                             </span>

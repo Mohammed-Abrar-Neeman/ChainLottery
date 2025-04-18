@@ -115,30 +115,72 @@ export default function HeroBanner({
   
   return (
     <section className="mb-16">
-      <div className="glass rounded-3xl shadow-glass overflow-hidden">
+      <div className="casino-card relative overflow-hidden">
+        {/* Casino card pattern overlay */}
+        <div className="absolute inset-0 opacity-10 pointer-events-none">
+          <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="smallGrid" width="10" height="10" patternUnits="userSpaceOnUse">
+                <path d="M 10 0 L 0 0 0 10" fill="none" stroke="currentColor" strokeWidth="0.5" />
+              </pattern>
+              <pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse">
+                <rect width="100" height="100" fill="url(#smallGrid)" />
+                <path d="M 100 0 L 0 0 0 100" fill="none" stroke="currentColor" strokeWidth="1" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#grid)" stroke="currentColor" className="text-primary" />
+          </svg>
+        </div>
+
         <div className="flex flex-col lg:flex-row">
-          <div className="lg:w-1/2 p-8 lg:p-12 flex flex-col justify-center">
-            <h2 className="text-3xl lg:text-4xl font-bold mb-4">
-              <span className="bg-gradient-to-r from-primary to-accent text-transparent bg-clip-text">
-                Blockchain Lottery
-              </span>
-            </h2>
-            <p className="text-lg mb-8 text-gray-700">
-              Join the fairest, most transparent lottery system powered by blockchain technology.
-            </p>
+          <div className="lg:w-1/2 p-8 lg:p-12 flex flex-col justify-center relative z-10">
+            <div className="rounded-full w-36 h-12 bg-gradient-to-r from-primary to-primary/60 absolute top-6 -left-6 transform -rotate-45 blur-xl opacity-30"></div>
+            <div className="mb-6">
+              <h2 className="text-4xl lg:text-5xl font-bold">
+                <span className="bg-gradient-to-r from-primary via-yellow-500 to-primary text-transparent bg-clip-text animate-glow">
+                  CRYPTO JACKPOT
+                </span>
+              </h2>
+              <p className="text-lg mt-2 text-white/80 font-medium">
+                The most <span className="text-primary">rewarding</span> blockchain lottery experience
+              </p>
+            </div>
+            
+            <div className="bg-card/40 backdrop-blur-sm rounded-lg p-6 mb-8 border border-primary/20">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                  <span className="animate-pulse">🎲</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Provably Fair</h3>
+                  <p className="text-sm text-white/70">Verified by blockchain technology</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                  <span className="animate-pulse">💰</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Guaranteed Jackpot</h3>
+                  <p className="text-sm text-white/70">Payouts secured by smart contracts</p>
+                </div>
+              </div>
+            </div>
             
             <div className="flex flex-col sm:flex-row gap-4">
               <Button 
                 onClick={scrollToBuyTickets}
-                className="bg-primary hover:bg-opacity-90 text-white font-semibold rounded-full px-8 py-3 transition"
+                className="btn-glow bg-gradient-to-r from-primary to-yellow-600 hover:from-yellow-600 hover:to-primary text-black font-bold rounded-lg px-8 py-5 h-14 text-lg transition-all shadow-lg group"
               >
-                Buy Tickets
+                <span className="transition-all group-hover:scale-110">
+                  Buy Tickets Now
+                </span>
               </Button>
               
               <Button 
                 onClick={scrollToHowItWorks}
                 variant="outline"
-                className="border-2 border-primary text-primary hover:bg-primary hover:text-white font-semibold rounded-full px-8 py-3 transition"
+                className="border-2 border-primary text-primary hover:bg-white/5 font-semibold rounded-lg px-8 py-5 h-14 text-lg transition-all"
               >
                 How It Works
               </Button>
@@ -146,22 +188,28 @@ export default function HeroBanner({
           </div>
           
           <div className="lg:w-1/2 relative">
-            <div className="bg-gradient-to-br from-primary to-accent p-8 lg:p-12 h-full flex flex-col justify-between text-white">
+            <div className="casino-card-header absolute top-0 left-0 right-0 py-4 px-6 text-center">
+              <div className="text-sm uppercase tracking-widest font-bold text-primary">
+                Choose Your Lottery
+              </div>
+            </div>
+            
+            <div className="bg-card bg-opacity-90 pt-16 pb-8 px-8 lg:px-12 h-full flex flex-col border-l border-primary/20">
               {/* Series and Draw Selection */}
-              <div className="mb-4 flex space-x-4">
+              <div className="mb-6 flex space-x-4">
                 <div className="w-1/2">
-                  <label className="text-sm font-mono uppercase tracking-wider opacity-75 mb-1 block">
+                  <label className="text-sm font-mono uppercase tracking-wider text-primary mb-1 block">
                     Series
                   </label>
                   <Select
-                    disabled={false} // Always enable the series dropdown
-                    value={selectedSeriesIndex?.toString() || "0"} // Default to Series 0
+                    disabled={false}
+                    value={selectedSeriesIndex?.toString() || "0"}
                     onValueChange={handleSeriesChange}
                   >
-                    <SelectTrigger className="bg-white bg-opacity-20 border-0 text-white">
+                    <SelectTrigger className="bg-secondary border border-primary/30 text-white">
                       <SelectValue placeholder="Select series" />
                     </SelectTrigger>
-                    <SelectContent className="bg-white text-gray-800">
+                    <SelectContent className="border border-primary/30">
                       {/* Use static fallback when seriesList is empty */}
                       {(seriesList && seriesList.length > 0) ? (
                         seriesList.map((series) => (
@@ -170,7 +218,7 @@ export default function HeroBanner({
                           </SelectItem>
                         ))
                       ) : (
-                        // Static fallback options - must include at least Beginner and Intermediate series
+                        // Static fallback options
                         <>
                           <SelectItem key="0" value="0">
                             Beginner Series (Active)
@@ -191,18 +239,18 @@ export default function HeroBanner({
                 </div>
                 
                 <div className="w-1/2">
-                  <label className="text-sm font-mono uppercase tracking-wider opacity-75 mb-1 block">
+                  <label className="text-sm font-mono uppercase tracking-wider text-primary mb-1 block">
                     Draw
                   </label>
                   <Select
-                    disabled={false} // Always enable the draw dropdown
-                    value={selectedDrawId?.toString() || "1"} // Default to Draw 1 
+                    disabled={false}
+                    value={selectedDrawId?.toString() || "1"}
                     onValueChange={handleDrawChange}
                   >
-                    <SelectTrigger className="bg-white bg-opacity-20 border-0 text-white">
+                    <SelectTrigger className="bg-secondary border border-primary/30 text-white">
                       <SelectValue placeholder="Select draw" />
                     </SelectTrigger>
-                    <SelectContent className="bg-white text-gray-800">
+                    <SelectContent className="border border-primary/30">
                       {/* Use seriesDraws if available, otherwise show static fallback */}
                       {(seriesDraws && seriesDraws.length > 0) ? (
                         seriesDraws.filter(draw => draw.drawId !== 0).map((draw) => (
@@ -228,86 +276,97 @@ export default function HeroBanner({
               
               <div className="flex-1">
                 {!isDrawAvailable() && (
-                  <div className="bg-white bg-opacity-20 rounded-lg p-4 mb-6">
-                    <p className="text-lg font-semibold mb-1">No Active Draws Available</p>
+                  <div className="bg-card border border-primary/20 rounded-lg p-4 mb-6">
+                    <p className="text-lg font-semibold mb-1 text-white">No Active Draws Available</p>
                     <p className="text-sm opacity-75">
                       The admin must start a new lottery draw. Check back soon!
                     </p>
                   </div>
                 )}
                 
-                <div className="mb-6">
-                  <span className="text-sm font-mono uppercase tracking-wider opacity-75">Current Jackpot</span>
-                  <div className="flex items-baseline">
-                    <span className="text-4xl lg:text-5xl font-bold font-mono">
-                      {(isDrawAvailable() || selectedDrawId === 1) ? 
-                        parseFloat(selectedDrawId === 1 ? '0.00064' : (lotteryData?.jackpotAmount || '0')).toFixed(5) 
-                        : '0.00000'}
+                <div className="mb-8 relative">
+                  <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 via-primary/40 to-primary/20 rounded-xl blur"></div>
+                  <div className="relative bg-black/30 backdrop-blur-sm rounded-lg border border-primary/30 p-6">
+                    <span className="text-xs font-mono uppercase tracking-wider text-primary/80">Current Jackpot</span>
+                    <div className="flex items-baseline">
+                      <span className="text-4xl lg:text-6xl font-bold font-mono text-white animate-glow">
+                        {(isDrawAvailable() || selectedDrawId === 1) ? 
+                          parseFloat(selectedDrawId === 1 ? '0.00064' : (lotteryData?.jackpotAmount || '0')).toFixed(5) 
+                          : '0.00000'}
+                      </span>
+                      <span className="ml-2 text-xl bg-gradient-to-r from-primary to-yellow-400 text-transparent bg-clip-text font-bold">ETH</span>
+                    </div>
+                    <span className="text-sm font-mono text-white/60">
+                      ≈ {formatUSD((isDrawAvailable() || selectedDrawId === 1) ? 
+                          (selectedDrawId === 1 ? '0.00064' : (lotteryData?.jackpotAmount || '0')) 
+                          : '0')}
                     </span>
-                    <span className="ml-2 text-xl">ETH</span>
                   </div>
-                  <span className="text-sm font-mono opacity-75">
-                    ≈ {formatUSD((isDrawAvailable() || selectedDrawId === 1) ? 
-                        (selectedDrawId === 1 ? '0.00064' : (lotteryData?.jackpotAmount || '0')) 
-                        : '0')}
-                  </span>
                 </div>
                 
-                <div className="mb-6">
-                  <span className="text-sm font-mono uppercase tracking-wider opacity-75">Time Remaining</span>
+                <div className="mb-8">
+                  <span className="text-xs font-mono uppercase tracking-wider text-primary/80 block mb-2">Time Remaining</span>
                   {isDrawAvailable() ? (
-                    <div className="flex space-x-2 mt-1 font-mono">
-                      <div className="bg-white bg-opacity-20 rounded-lg p-2 text-center w-16">
-                        <div className="text-2xl font-bold">{timeRemaining.days.toString().padStart(2, '0')}</div>
-                        <div className="text-xs uppercase">Days</div>
+                    <div className="grid grid-cols-4 gap-2 font-mono">
+                      <div className="bg-black/30 backdrop-blur-sm border border-primary/20 rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-white">{timeRemaining.days.toString().padStart(2, '0')}</div>
+                        <div className="text-xs uppercase text-primary/70">Days</div>
                       </div>
-                      <div className="bg-white bg-opacity-20 rounded-lg p-2 text-center w-16">
-                        <div className="text-2xl font-bold">{timeRemaining.hours.toString().padStart(2, '0')}</div>
-                        <div className="text-xs uppercase">Hours</div>
+                      <div className="bg-black/30 backdrop-blur-sm border border-primary/20 rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-white">{timeRemaining.hours.toString().padStart(2, '0')}</div>
+                        <div className="text-xs uppercase text-primary/70">Hours</div>
                       </div>
-                      <div className="bg-white bg-opacity-20 rounded-lg p-2 text-center w-16">
-                        <div className="text-2xl font-bold">{timeRemaining.minutes.toString().padStart(2, '0')}</div>
-                        <div className="text-xs uppercase">Mins</div>
+                      <div className="bg-black/30 backdrop-blur-sm border border-primary/20 rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-white">{timeRemaining.minutes.toString().padStart(2, '0')}</div>
+                        <div className="text-xs uppercase text-primary/70">Mins</div>
                       </div>
-                      <div className="bg-white bg-opacity-20 rounded-lg p-2 text-center w-16">
-                        <div className="text-2xl font-bold">{timeRemaining.seconds.toString().padStart(2, '0')}</div>
-                        <div className="text-xs uppercase">Secs</div>
+                      <div className="bg-black/30 backdrop-blur-sm border border-primary/20 rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-white">{timeRemaining.seconds.toString().padStart(2, '0')}</div>
+                        <div className="text-xs uppercase text-primary/70">Secs</div>
                       </div>
                     </div>
                   ) : (
-                    <div className="flex space-x-2 mt-1 font-mono">
-                      <div className="bg-white bg-opacity-20 rounded-lg p-2 text-center w-16">
-                        <div className="text-2xl font-bold">00</div>
-                        <div className="text-xs uppercase">Days</div>
+                    <div className="grid grid-cols-4 gap-2 font-mono">
+                      <div className="bg-black/30 backdrop-blur-sm border border-primary/20 rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-white">00</div>
+                        <div className="text-xs uppercase text-primary/70">Days</div>
                       </div>
-                      <div className="bg-white bg-opacity-20 rounded-lg p-2 text-center w-16">
-                        <div className="text-2xl font-bold">00</div>
-                        <div className="text-xs uppercase">Hours</div>
+                      <div className="bg-black/30 backdrop-blur-sm border border-primary/20 rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-white">00</div>
+                        <div className="text-xs uppercase text-primary/70">Hours</div>
                       </div>
-                      <div className="bg-white bg-opacity-20 rounded-lg p-2 text-center w-16">
-                        <div className="text-2xl font-bold">00</div>
-                        <div className="text-xs uppercase">Mins</div>
+                      <div className="bg-black/30 backdrop-blur-sm border border-primary/20 rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-white">00</div>
+                        <div className="text-xs uppercase text-primary/70">Mins</div>
                       </div>
-                      <div className="bg-white bg-opacity-20 rounded-lg p-2 text-center w-16">
-                        <div className="text-2xl font-bold">00</div>
-                        <div className="text-xs uppercase">Secs</div>
+                      <div className="bg-black/30 backdrop-blur-sm border border-primary/20 rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-white">00</div>
+                        <div className="text-xs uppercase text-primary/70">Secs</div>
                       </div>
                     </div>
                   )}
                 </div>
                 
-                <div>
-                  <span className="text-sm font-mono uppercase tracking-wider opacity-75">Participants</span>
-                  <div className="text-2xl font-bold mt-1">
-                    {(isDrawAvailable() || selectedDrawId === 1)
-                      ? (selectedDrawId === 1 
-                         ? '8' // Hardcoded value for Draw ID 1
-                         : (lotteryData?.participantCount !== undefined 
-                            ? lotteryData.participantCount.toString() 
-                            : '0'))
-                      : '0'
-                    }
+                <div className="flex items-center justify-between bg-black/30 backdrop-blur-sm border border-primary/20 rounded-lg p-4">
+                  <div>
+                    <span className="text-xs font-mono uppercase tracking-wider text-primary/80">Participants</span>
+                    <div className="text-2xl font-bold mt-1 text-white">
+                      {(isDrawAvailable() || selectedDrawId === 1)
+                        ? (selectedDrawId === 1 
+                           ? '8' // Hardcoded value for Draw ID 1
+                           : (lotteryData?.participantCount !== undefined 
+                              ? lotteryData.participantCount.toString() 
+                              : '0'))
+                        : '0'
+                      }
+                    </div>
                   </div>
+                  <Button
+                    onClick={scrollToBuyTickets}
+                    className="btn-glow bg-gradient-to-r from-primary to-yellow-600 hover:from-yellow-600 hover:to-primary text-black font-bold rounded-lg px-6 text-sm h-12 shadow-lg"
+                  >
+                    Join Now
+                  </Button>
                 </div>
               </div>
             </div>
@@ -316,7 +375,7 @@ export default function HeroBanner({
       </div>
       
       {/* Wallet connection modal */}
-      <WalletModal showModal={showWalletModal} setShowModal={setShowWalletModal} />
+      <WalletModal open={showWalletModal} onClose={() => setShowWalletModal(false)} />
     </section>
   );
 }

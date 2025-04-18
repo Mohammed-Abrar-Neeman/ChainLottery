@@ -2,12 +2,12 @@ import React from 'react';
 import { Link } from 'wouter';
 import { Twitter, Github, ExternalLink } from 'lucide-react';
 import { FaDiscord, FaTelegram } from 'react-icons/fa';
-import { ACTIVE_LOTTERY_CONTRACT_ADDRESS, ACTIVE_CHAIN_ID, CHAIN_IDS } from '@shared/contracts';
+import { ACTIVE_LOTTERY_CONTRACT_ADDRESS, DEFAULT_CHAIN_ID, CHAIN_IDS } from '@shared/contracts';
 
 export default function Footer() {
   // Determine the correct Etherscan URL based on the network
   const getEtherscanUrl = () => {
-    switch (ACTIVE_CHAIN_ID) {
+    switch (DEFAULT_CHAIN_ID) {
       case CHAIN_IDS.MAINNET:
         return `https://etherscan.io/address/${ACTIVE_LOTTERY_CONTRACT_ADDRESS}`;
       case CHAIN_IDS.SEPOLIA:
@@ -21,7 +21,7 @@ export default function Footer() {
 
   // Get the network name to display
   const getNetworkName = () => {
-    switch (ACTIVE_CHAIN_ID) {
+    switch (DEFAULT_CHAIN_ID) {
       case CHAIN_IDS.MAINNET:
         return 'Ethereum Mainnet';
       case CHAIN_IDS.SEPOLIA:

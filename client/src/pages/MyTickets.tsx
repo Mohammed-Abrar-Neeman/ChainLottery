@@ -288,16 +288,16 @@ export default function MyTickets() {
   if (!isConnected) {
     return (
       <div className="mt-10 flex flex-col items-center text-center">
-        <div className="bg-gray-100 rounded-full p-4 mb-4">
-          <Wallet className="h-10 w-10 text-gray-500" />
+        <div className="bg-black/30 border border-primary/30 rounded-full p-4 mb-4">
+          <Wallet className="h-10 w-10 text-primary" />
         </div>
-        <h1 className="text-2xl font-bold mb-2">Connect Your Wallet</h1>
-        <p className="text-gray-600 mb-6 max-w-md">
+        <h1 className="text-2xl font-bold mb-2 bg-gradient-to-r from-primary to-amber-500 text-transparent bg-clip-text">Connect Your Wallet</h1>
+        <p className="text-white/80 mb-6 max-w-md">
           Connect your wallet to view your lottery tickets and transaction history.
         </p>
         <Button 
           onClick={() => setShowWalletModal(true)}
-          className="bg-primary hover:bg-opacity-90 text-white font-semibold rounded-full px-8 py-3 transition"
+          className="bg-primary hover:bg-amber-500 text-black font-semibold rounded-full px-8 py-3 transition shadow-gold"
         >
           Connect Wallet
         </Button>
@@ -308,24 +308,34 @@ export default function MyTickets() {
   
   return (
     <div className="mt-8">
-      <h1 className="text-2xl font-bold mb-6">My Lottery Tickets</h1>
+      <h1 className="text-2xl font-bold mb-6 bg-gradient-to-r from-primary to-amber-500 text-transparent bg-clip-text">My Lottery Tickets</h1>
       
       {/* Connected Wallet Card */}
-      <div className="glass rounded-2xl shadow-glass p-6 mb-8">
+      <div className="casino-card p-6 mb-8 pt-12 mt-6">
+        <div className="casino-card-header flex justify-between items-center absolute inset-x-0 top-0 px-6 py-4 bg-black/40 border-b border-primary/20 rounded-t-xl">
+          <div className="text-sm uppercase tracking-widest font-bold text-primary">
+            Wallet
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+            <span className="text-xs text-white/70">Connected</span>
+          </div>
+        </div>
+        
         <div className="flex items-center mb-4">
-          <div className="h-10 w-10 rounded-full bg-primary bg-opacity-20 flex items-center justify-center text-primary mr-3">
+          <div className="h-10 w-10 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary mr-3">
             <Wallet className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-xl font-semibold">Connected Wallet</h2>
-            <p className="font-mono text-sm text-gray-600">{account ? formatAddress(account) : ''}</p>
+            <h2 className="text-xl font-semibold text-white">Connected Wallet</h2>
+            <p className="font-mono text-sm text-primary/80">{account ? formatAddress(account) : ''}</p>
           </div>
         </div>
         
         {/* Selection Controls - Matching the HeroBanner implementation */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
           <div>
-            <Label htmlFor="series-select" className="text-sm font-medium mb-2 block">Series</Label>
+            <Label htmlFor="series-select" className="text-sm font-bold mb-2 block text-primary uppercase tracking-wider">Series</Label>
             <Select
               disabled={false} // Always enable the dropdown
               value={localSeriesIndex?.toString() || "0"} // Default to Series 0
@@ -348,10 +358,10 @@ export default function MyTickets() {
                 setUserTickets([]);
               }}
             >
-              <SelectTrigger id="series-select" className="w-full">
+              <SelectTrigger id="series-select" className="w-full bg-black/30 border-primary/20 text-white">
                 <SelectValue placeholder="Select series" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-black/90 border-primary/20">
                 {/* Use loaded series or default to static values */}
                 {(seriesList && seriesList.length > 0) ? (
                   seriesList.map((series) => (
@@ -370,7 +380,7 @@ export default function MyTickets() {
           </div>
           
           <div>
-            <Label htmlFor="draw-select" className="text-sm font-medium mb-2 block">Draw</Label>
+            <Label htmlFor="draw-select" className="text-sm font-bold mb-2 block text-primary uppercase tracking-wider">Draw</Label>
             <Select
               disabled={false} // Always enable the dropdown for better user experience
               value={localDrawId?.toString() || "1"} // Default to Draw 1
@@ -441,7 +451,7 @@ export default function MyTickets() {
                 }
               }}
             >
-              <SelectTrigger id="draw-select" className="w-full">
+              <SelectTrigger id="draw-select" className="w-full bg-black/30 border-primary/20 text-white">
                 <SelectValue placeholder={
                   localSeriesIndex === undefined 
                     ? "Select a series first" 
@@ -450,7 +460,7 @@ export default function MyTickets() {
                     : "Select draw"
                 } />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-black/90 border-primary/20">
                 {/* Static fallback options when no draws are available */}
                 {(!seriesDraws || seriesDraws.length === 0) ? (
                   <>
@@ -528,31 +538,31 @@ export default function MyTickets() {
             variant="outline" 
             onClick={handleRefreshTickets}
             disabled={isLoadingTickets}
-            className="flex items-center"
+            className="flex items-center border-primary/30 text-primary hover:bg-primary/10 hover:border-primary transition-all"
           >
-            <RefreshCw className="h-4 w-4 mr-2" />
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoadingTickets ? 'animate-spin' : ''}`} />
             Refresh Tickets
           </Button>
         </div>
         
         {/* Tickets Count Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-          <div className="bg-gray-50 rounded-lg p-4">
-            <div className="text-sm text-gray-500 mb-1">Total Tickets</div>
-            <div className="text-2xl font-bold font-mono">
+          <div className="bg-black/30 border border-primary/20 rounded-lg p-4">
+            <div className="text-sm text-primary/80 mb-1 uppercase tracking-wider font-medium">Total Tickets</div>
+            <div className="text-2xl font-bold font-mono text-white">
               {userTickets.length}
             </div>
           </div>
-          <div className="bg-gray-50 rounded-lg p-4">
-            <div className="text-sm text-gray-500 mb-1">Active Tickets</div>
-            <div className="text-2xl font-bold font-mono">
+          <div className="bg-black/30 border border-primary/20 rounded-lg p-4">
+            <div className="text-sm text-primary/80 mb-1 uppercase tracking-wider font-medium">Active Tickets</div>
+            <div className="text-2xl font-bold font-mono text-white">
               {seriesDraws && localDrawId ? 
                 (seriesDraws.find(d => d.drawId === localDrawId)?.completed ? 0 : userTickets.length) : 0}
             </div>
           </div>
-          <div className="bg-gray-50 rounded-lg p-4">
-            <div className="text-sm text-gray-500 mb-1">Winning Tickets</div>
-            <div className="text-2xl font-bold font-mono">
+          <div className="bg-black/30 border border-primary/20 rounded-lg p-4">
+            <div className="text-sm text-primary/80 mb-1 uppercase tracking-wider font-medium">Winning Tickets</div>
+            <div className="text-2xl font-bold font-mono text-white">
               {userTickets.filter(ticket => ticket.isWinner).length}
             </div>
           </div>
@@ -561,29 +571,31 @@ export default function MyTickets() {
       
       {/* Loading State */}
       {isLoadingTickets && (
-        <div className="text-center py-10">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
-          <p className="text-gray-600">Loading your tickets...</p>
+        <div className="text-center py-10 casino-card">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+          <p className="text-white/80">Loading your tickets...</p>
         </div>
       )}
       
       {/* Error State */}
       {ticketsError && !isLoadingTickets && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-start">
-          <AlertTriangle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+        <div className="bg-red-900/20 border border-red-600/30 text-red-500 px-6 py-4 rounded-lg mb-6 flex items-start casino-card">
+          <AlertTriangle className="h-5 w-5 mr-3 mt-0.5 flex-shrink-0" />
           <div>
-            <p className="font-medium">Error loading tickets</p>
-            <p className="text-sm text-red-600">{ticketsError.message}</p>
+            <p className="font-medium text-white">Error Loading Tickets</p>
+            <p className="text-sm text-red-400/90">{ticketsError.message}</p>
           </div>
         </div>
       )}
       
       {/* Empty State */}
       {!isLoadingTickets && userTickets.length === 0 && (
-        <div className="text-center py-10 border border-gray-200 rounded-lg bg-gray-50">
-          <Ticket className="h-12 w-12 mx-auto text-gray-400 mb-3" />
-          <h3 className="text-lg font-medium text-gray-800 mb-1">No Tickets Found</h3>
-          <p className="text-gray-600 max-w-md mx-auto mb-6">
+        <div className="text-center py-10 casino-card">
+          <div className="rounded-full mx-auto h-16 w-16 bg-black/30 border border-primary/30 flex items-center justify-center mb-4">
+            <Ticket className="h-8 w-8 text-primary" />
+          </div>
+          <h3 className="text-xl font-medium text-primary mb-2">No Tickets Found</h3>
+          <p className="text-white/80 max-w-md mx-auto mb-6">
             {localSeriesIndex !== undefined && localDrawId !== undefined ? 
               `You haven't purchased any tickets for Draw #${localDrawId} in Series ${localSeriesIndex}.` : 
               'Select a series and draw to view your tickets.'}
@@ -591,7 +603,7 @@ export default function MyTickets() {
           <Button 
             asChild
             variant="outline"
-            className="rounded-full"
+            className="rounded-full border-primary/50 text-primary hover:bg-primary/10 hover:border-primary"
           >
             <a href="/#buy-tickets">Buy Tickets</a>
           </Button>
@@ -601,91 +613,103 @@ export default function MyTickets() {
       {/* Tickets List */}
       {!isLoadingTickets && userTickets.length > 0 && (
         <div className="mt-4 space-y-4">
-          <h2 className="font-bold text-xl">Your Tickets</h2>
+          <h2 className="font-bold text-xl bg-gradient-to-r from-primary to-amber-500 text-transparent bg-clip-text">Your Lottery Tickets</h2>
           
-          <div className="overflow-hidden border border-gray-200 rounded-lg">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ticket ID
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Numbers
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date Purchased
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Result
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {userTickets.map((ticket) => (
-                  <tr key={`${ticket.seriesIndex}-${ticket.drawId}-${ticket.ticketIndex}`} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      #{ticket.ticketIndex}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div className="flex items-center">
-                        <div className="flex space-x-1">
-                          {ticket.numbers.map((num, idx) => (
-                            <span 
-                              key={idx}
-                              className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-gray-100 text-xs font-medium"
-                            >
-                              {num.toString().padStart(2, '0')}
-                            </span>
-                          ))}
-                        </div>
-                        <span className="mx-2 text-gray-400">+</span>
-                        <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-purple-100 text-purple-800 text-xs font-medium">
-                          {ticket.lottoNumber.toString().padStart(2, '0')}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(ticket.timestamp)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {seriesDraws && seriesDraws.find(d => d.drawId === ticket.drawId && d.seriesIndex === ticket.seriesIndex)?.completed ? (
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                          Completed
-                        </span>
-                      ) : (
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                          Active
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {ticket.isWinner ? (
-                        <div>
-                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 mb-1">
-                            Winner
-                          </span>
-                          <div className="text-xs text-green-600 font-medium">
-                            {formatEther(ticket.amountWon)} ETH
-                          </div>
-                        </div>
-                      ) : seriesDraws && seriesDraws.find(d => d.drawId === ticket.drawId && d.seriesIndex === ticket.seriesIndex)?.completed ? (
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                          No Win
-                        </span>
-                      ) : (
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                          Pending
-                        </span>
-                      )}
-                    </td>
+          <div className="casino-card pt-12 mt-6">
+            <div className="casino-card-header flex justify-between items-center absolute inset-x-0 top-0 px-6 py-4 bg-black/40 border-b border-primary/20 rounded-t-xl">
+              <div className="text-sm uppercase tracking-widest font-bold text-primary">
+                Ticket History
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-medium text-white/70">Draw #{localDrawId}</span>
+                <span className="w-2 h-2 bg-primary/60 rounded-full animate-pulse"></span>
+              </div>
+            </div>
+            
+            <div className="overflow-x-auto mt-4">
+              <table className="min-w-full divide-y divide-primary/10">
+                <thead className="bg-black/40">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-primary/80 uppercase tracking-wider">
+                      Ticket ID
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-primary/80 uppercase tracking-wider">
+                      Numbers
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-primary/80 uppercase tracking-wider">
+                      Date Purchased
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-primary/80 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-primary/80 uppercase tracking-wider">
+                      Result
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-primary/10">
+                  {userTickets.map((ticket) => (
+                    <tr key={`${ticket.seriesIndex}-${ticket.drawId}-${ticket.ticketIndex}`} className="bg-black/20 hover:bg-black/30">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
+                        #{ticket.ticketIndex}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white/90">
+                        <div className="flex items-center">
+                          <div className="flex space-x-1">
+                            {ticket.numbers.map((num, idx) => (
+                              <span 
+                                key={idx}
+                                className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary border border-primary/30 text-xs font-medium"
+                              >
+                                {num.toString().padStart(2, '0')}
+                              </span>
+                            ))}
+                          </div>
+                          <span className="mx-2 text-white/50">+</span>
+                          <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-accent/10 text-accent border border-accent/30 text-xs font-medium">
+                            {ticket.lottoNumber.toString().padStart(2, '0')}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white/80">
+                        {formatDate(ticket.timestamp)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {seriesDraws && seriesDraws.find(d => d.drawId === ticket.drawId && d.seriesIndex === ticket.seriesIndex)?.completed ? (
+                          <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-900/20 text-blue-400 border border-blue-500/30">
+                            Completed
+                          </span>
+                        ) : (
+                          <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-900/20 text-green-400 border border-green-500/30">
+                            Active
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {ticket.isWinner ? (
+                          <div>
+                            <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-amber-900/20 text-amber-400 border border-amber-500/30 mb-1">
+                              Winner!
+                            </span>
+                            <div className="text-xs text-primary font-mono font-medium">
+                              {formatEther(ticket.amountWon)} ETH
+                            </div>
+                          </div>
+                        ) : seriesDraws && seriesDraws.find(d => d.drawId === ticket.drawId && d.seriesIndex === ticket.seriesIndex)?.completed ? (
+                          <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-900/20 text-gray-400 border border-gray-500/30">
+                            No Win
+                          </span>
+                        ) : (
+                          <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-900/20 text-yellow-400 border border-yellow-500/30">
+                            Pending
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

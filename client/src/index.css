@@ -4,50 +4,51 @@
 
 @layer base {
   :root {
-    --primary: 244 100% 69%;
-    --primary-foreground: 0 0% 100%;
+    /* Casino Gold Theme */
+    --primary: 42 100% 66%;
+    --primary-foreground: 0 0% 0%;
     
-    --secondary: 222 25% 23%;
-    --secondary-foreground: 240 100% 99%;
+    --secondary: 220 13% 18%;
+    --secondary-foreground: 0 0% 98%;
     
-    --accent: 262 80% 84%;
-    --accent-foreground: 222 47% 11%;
+    --accent: 344 79% 55%;
+    --accent-foreground: 0 0% 100%;
     
-    --background: 220 33% 98%;
-    --foreground: 222 47% 11%;
+    --background: 220 13% 12%;
+    --foreground: 0 0% 98%;
     
-    --muted: 220 14% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 220 13% 18%;
+    --muted-foreground: 220 13% 70%;
     
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card: 220 13% 18%;
+    --card-foreground: 0 0% 98%;
     
-    --destructive: 0 92% 70%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 92% 60%;
+    --destructive-foreground: 0 0% 98%;
     
-    --warning: 45 93% 61%;
-    --warning-foreground: 0 0% 20%;
+    --warning: 42 96% 59%;
+    --warning-foreground: 0 0% 0%;
     
     --success: 142 69% 51%;
-    --success-foreground: 0 0% 100%;
+    --success-foreground: 0 0% 98%;
     
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover: 220 13% 15%;
+    --popover-foreground: 0 0% 98%;
     
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 222 47% 11%;
+    --border: 220 13% 25%;
+    --input: 220 13% 25%;
+    --ring: 42 100% 66%;
     
-    --sidebar-background: 222 25% 23%;
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 244 100% 69%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 262 80% 84%;
-    --sidebar-accent-foreground: 0 0% 0%;
+    --sidebar-background: 222 13% 14%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 42 100% 66%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 344 79% 55%;
+    --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 0 0% 20%;
-    --sidebar-ring: 0 0% 83%;
+    --sidebar-ring: 42 100% 66%;
     
-    --radius: 0.5rem;
+    --radius: 0.75rem;
   }
 }
 
@@ -60,28 +61,97 @@
     font-family: 'Inter', sans-serif;
     @apply font-sans antialiased bg-background text-foreground;
     background-image: 
-      radial-gradient(at 80% 20%, rgba(108, 99, 255, 0.1) 0px, transparent 50%),
-      radial-gradient(at 20% 80%, rgba(159, 122, 234, 0.1) 0px, transparent 50%);
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='152' height='152' viewBox='0 0 152 152'%3E%3Cg fill-rule='evenodd'%3E%3Cg id='temple' fill='%23FFC851' fill-opacity='0.05'%3E%3Cpath d='M152 150v2H0v-2h28v-8H8v-20H0v-2h8V80h42v20h20v42H30v8h90v-8H80v-42h20V80h42v40h8V30h-8v40h-42V50H80V8h40V0h2v8h20v20h8V0h2v150zm-2 0v-28h-8v20h-20v8h28zM82 30v18h18V30H82zm20 18h20v20h18V30h-20V10H82v18h20v20zm0 2v18h18V50h-18zm20-22h18V10h-18v18zm-54 92v-18H50v18h18zm-20-18H28V82H10v38h20v20h38v-18H48v-20zm0-2V82H30v18h18zm-20 22H10v18h18v-18zm54 0v18h38v-20h20V82h-18v20h-20v20H82zm18-20H82v18h18v-18zm2-2h18V82h-18v18zm20 40v-18h18v18h-18zM30 0h-2v8H8v20H0v2h8v40h42V50h20V8H30V0zm20 48h18V30H50v18zm18-20H48v20H28v20H10V30h20V10h38v18zM30 50h18v18H30V50zm-2-40H10v18h18V10z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"),
+      radial-gradient(circle at 10% 20%, rgba(255, 200, 81, 0.1) 0px, transparent 50%),
+      radial-gradient(circle at 90% 80%, rgba(221, 51, 85, 0.1) 0px, transparent 50%);
     background-attachment: fixed;
   }
   
   h1, h2, h3, h4, h5, h6 {
-    @apply font-medium;
+    @apply font-bold;
   }
   
   .font-mono {
     font-family: 'Roboto Mono', monospace;
   }
   
+  /* Casino-inspired styles */
   .glass {
-    @apply bg-white/70 backdrop-blur-sm border border-white/20;
+    @apply bg-card/90 backdrop-blur-sm border border-primary/30 shadow-lg;
   }
   
   .glass-dark {
-    @apply bg-secondary/70 backdrop-blur-sm border border-white/10 text-white;
+    @apply bg-secondary/90 backdrop-blur-sm border border-primary/20 text-white shadow-lg;
   }
   
   .truncate-address {
     @apply inline-block max-w-[150px] whitespace-nowrap overflow-hidden text-ellipsis;
+  }
+  
+  /* Card styles */
+  .casino-card {
+    @apply relative bg-card shadow-xl border border-primary/30 rounded-lg overflow-hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 
+                0 0 0 1px rgba(255, 200, 81, 0.15), 
+                0 0 10px rgba(255, 200, 81, 0.1);
+  }
+  
+  .casino-card-header {
+    @apply relative bg-gradient-to-r from-secondary to-secondary border-b border-primary/30 p-4;
+  }
+  
+  .casino-card-header::before {
+    content: '';
+    @apply absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-primary/0 via-primary/70 to-primary/0;
+  }
+  
+  /* Button styles */
+  .btn-glow {
+    @apply relative overflow-hidden;
+    transition: all 0.3s ease;
+  }
+  
+  .btn-glow::after {
+    content: '';
+    @apply absolute inset-0 rounded-[inherit] pointer-events-none opacity-0;
+    background: radial-gradient(circle, rgba(255, 200, 81, 0.4) 0%, rgba(255, 200, 81, 0) 70%);
+    transition: opacity 0.5s ease;
+  }
+  
+  .btn-glow:hover::after {
+    @apply opacity-100;
+  }
+  
+  /* Ticket number styles */
+  .lottery-ball {
+    @apply inline-flex items-center justify-center rounded-full w-10 h-10 text-lg font-bold border-2;
+    box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.2), 0 3px 5px rgba(0, 0, 0, 0.2);
+  }
+  
+  .lottery-ball-regular {
+    @apply bg-gradient-to-b from-white to-gray-200 text-black border-gray-300;
+  }
+  
+  .lottery-ball-special {
+    @apply bg-gradient-to-b from-primary to-yellow-600 text-black border-yellow-400;
+  }
+  
+  /* Animation effects */
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 0 rgba(255, 200, 81, 0); }
+    50% { box-shadow: 0 0 15px rgba(255, 200, 81, 0.5); }
+  }
+  
+  .animate-glow {
+    animation: pulse-glow 3s infinite;
   }
 }

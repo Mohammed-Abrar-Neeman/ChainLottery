@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
 import { toast } from '@/hooks/use-toast';
-import { CHAIN_IDS, ACTIVE_CHAIN_ID } from '@shared/contracts';
+import { CHAIN_IDS, DEFAULT_CHAIN_ID } from '@shared/contracts';
 
 // Types
 export interface Web3Provider {
@@ -196,7 +196,7 @@ const addNetwork = async (chainId: string): Promise<void> => {
 // Switch to a specific network chain
 export const switchNetwork = async (
   provider: ethers.BrowserProvider | null,
-  chainId: string = ACTIVE_CHAIN_ID
+  chainId: string = DEFAULT_CHAIN_ID
 ): Promise<boolean> => {
   if (!provider) return false;
   

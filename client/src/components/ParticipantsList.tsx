@@ -238,54 +238,66 @@ export default function ParticipantsList({ sharedSeriesIndex, sharedDrawId }: Pa
     
     return (
       <section className="mx-auto max-w-7xl px-4 py-6">
-        <div className="p-6 rounded-lg shadow-lg bg-white dark:bg-slate-900">
+        <div className="casino-card p-6 overflow-hidden">
+          <div className="casino-card-header flex justify-between items-center mb-6 -mx-6 -mt-6 px-6 py-4">
+            <div className="text-sm uppercase tracking-widest font-bold text-primary">
+              {getSeriesTitle()} Participants
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-sm font-medium text-white/70">Draw ID {effectiveDrawId}</span>
+              <span className="w-2 h-2 bg-primary/60 rounded-full animate-pulse"></span>
+            </div>
+          </div>
+          
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold text-blue-600">{getSeriesTitle()} Participants (Draw ID {effectiveDrawId})</h2>
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-primary to-yellow-500 text-transparent bg-clip-text">
+              Recent Ticket Purchases
+            </h2>
             <Button 
               variant="outline" 
               size="sm"
               onClick={handleManualRefresh}
               disabled={isLoading}
-              className="flex items-center"
+              className="flex items-center border-primary/30 text-primary hover:bg-primary/10 hover:border-primary transition-all"
             >
               <RefreshCcw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
           </div>
           
-          <p className="text-md mb-4 font-medium">
+          <p className="text-md mb-4 font-medium text-white/80">
             Currently showing {totalTickets} tickets from {new Set(ticketsToRender.map(p => p.walletAddress)).size} participants
           </p>
           
           <div className="overflow-x-auto">
             <div className="w-full min-w-full">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-800">
+              <table className="min-w-full divide-y divide-primary/10">
+                <thead className="bg-black/40">
                   <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-primary/80 uppercase tracking-wider">
                       Participant
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-primary/80 uppercase tracking-wider">
                       Numbers
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-primary/80 uppercase tracking-wider">
                       Timestamp
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-primary/80 uppercase tracking-wider">
                       Status
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-primary/80 uppercase tracking-wider">
                       Value
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody className="divide-y divide-primary/10">
                   {currentTickets.map((ticket) => (
-                    <tr key={ticket.ticketId} className={isTicketWinner(ticket.ticketId) ? 'bg-green-50 dark:bg-green-900/20' : ''}>
+                    <tr key={ticket.ticketId} className={isTicketWinner(ticket.ticketId) ? 'bg-primary/5' : 'bg-black/20 hover:bg-black/30'}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          <div>
+                            <div className="text-sm font-medium text-white/90">
                               {formatAddress(ticket.walletAddress)}
                             </div>
                           </div>
@@ -296,7 +308,7 @@ export default function ParticipantsList({ sharedSeriesIndex, sharedDrawId }: Pa
                           {ticket.numbers.map((num, idx) => (
                             <span 
                               key={idx}
-                              className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-medium"
+                              className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-primary/10 text-primary border border-primary/30 text-xs font-medium"
                             >
                               {num.toString().padStart(2, '0')}
                             </span>
@@ -304,7 +316,7 @@ export default function ParticipantsList({ sharedSeriesIndex, sharedDrawId }: Pa
                           
                           {ticket.lottoNumber !== null && (
                             <span 
-                              className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 text-xs font-medium ml-2"
+                              className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-accent/10 text-accent border border-accent/30 text-xs font-medium ml-2"
                             >
                               {ticket.lottoNumber.toString().padStart(2, '0')}
                             </span>
@@ -312,22 +324,22 @@ export default function ParticipantsList({ sharedSeriesIndex, sharedDrawId }: Pa
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 dark:text-gray-100">
+                        <div className="text-sm text-white/80">
                           {formatTimestamp(ticket.timestamp)}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {isTicketWinner(ticket.ticketId) ? (
-                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
+                          <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-900/20 text-green-400 border border-green-500/30">
                             Winner!
                           </span>
                         ) : (
-                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
+                          <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-primary/10 text-primary/80 border border-primary/20">
                             Active
                           </span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-primary font-medium">
                         {getTicketPrice()} ETH
                       </td>
                     </tr>
@@ -337,29 +349,29 @@ export default function ParticipantsList({ sharedSeriesIndex, sharedDrawId }: Pa
             </div>
             
             {/* Pagination controls */}
-            <div className="px-4 py-3 flex items-center justify-between sm:px-6">
+            <div className="px-4 py-6 flex flex-col md:flex-row items-center justify-between sm:px-6 mt-4 gap-4 border-t border-primary/10">
               <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-700 dark:text-gray-300">Show</span>
+                <span className="text-sm text-white/70">Show</span>
                 <Select value={pageSize} onValueChange={(value) => {
                   setPageSize(value);
                   setCurrentPage(1); // Reset to first page when changing page size
                 }}>
-                  <SelectTrigger className="h-8 w-20">
+                  <SelectTrigger className="h-8 w-20 bg-black/30 border-primary/20 text-white">
                     <SelectValue placeholder="10" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-black/90 border-primary/20">
                     <SelectItem value="5">5</SelectItem>
                     <SelectItem value="10">10</SelectItem>
                     <SelectItem value="20">20</SelectItem>
                     <SelectItem value="50">50</SelectItem>
                   </SelectContent>
                 </Select>
-                <span className="text-sm text-gray-700 dark:text-gray-300">entries</span>
+                <span className="text-sm text-white/70">entries</span>
               </div>
               
-              <div className="flex items-center justify-between sm:justify-end">
-                <p className="text-sm text-gray-700 dark:text-gray-300">
-                  Showing <span className="font-medium">{startIndex + 1}</span> to <span className="font-medium">{Math.min(endIndex, totalTickets)}</span> of <span className="font-medium">{totalTickets}</span> tickets
+              <div className="flex items-center justify-between md:justify-end">
+                <p className="text-sm text-white/80">
+                  Showing <span className="font-medium text-primary">{startIndex + 1}</span> to <span className="font-medium text-primary">{Math.min(endIndex, totalTickets)}</span> of <span className="font-medium text-primary">{totalTickets}</span> tickets
                 </p>
               </div>
               
@@ -368,7 +380,7 @@ export default function ParticipantsList({ sharedSeriesIndex, sharedDrawId }: Pa
                   <PaginationItem>
                     <PaginationPrevious 
                       onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                      className={currentPage === 1 ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
+                      className={`${currentPage === 1 ? "opacity-50 pointer-events-none" : "cursor-pointer"} bg-black/20 border-primary/20 text-white hover:bg-primary/10 hover:text-primary`}
                     />
                   </PaginationItem>
                   
@@ -391,6 +403,9 @@ export default function ParticipantsList({ sharedSeriesIndex, sharedDrawId }: Pa
                           <PaginationLink
                             onClick={() => setCurrentPage(pageNumber)}
                             isActive={currentPage === pageNumber}
+                            className={currentPage === pageNumber 
+                              ? "bg-primary text-black font-bold" 
+                              : "bg-black/20 border-primary/20 text-white hover:bg-primary/10 hover:text-primary"}
                           >
                             {pageNumber}
                           </PaginationLink>
@@ -403,10 +418,13 @@ export default function ParticipantsList({ sharedSeriesIndex, sharedDrawId }: Pa
                   {pageCount > 5 && currentPage < pageCount - 2 && (
                     <>
                       <PaginationItem>
-                        <PaginationEllipsis />
+                        <PaginationEllipsis className="bg-black/20 border-primary/20 text-white" />
                       </PaginationItem>
                       <PaginationItem>
-                        <PaginationLink onClick={() => setCurrentPage(pageCount)}>
+                        <PaginationLink 
+                          onClick={() => setCurrentPage(pageCount)}
+                          className="bg-black/20 border-primary/20 text-white hover:bg-primary/10 hover:text-primary"
+                        >
                           {pageCount}
                         </PaginationLink>
                       </PaginationItem>
@@ -416,7 +434,7 @@ export default function ParticipantsList({ sharedSeriesIndex, sharedDrawId }: Pa
                   <PaginationItem>
                     <PaginationNext 
                       onClick={() => setCurrentPage(Math.min(pageCount, currentPage + 1))}
-                      className={currentPage === pageCount ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
+                      className={`${currentPage === pageCount ? "opacity-50 pointer-events-none" : "cursor-pointer"} bg-black/20 border-primary/20 text-white hover:bg-primary/10 hover:text-primary`}
                     />
                   </PaginationItem>
                 </PaginationContent>
