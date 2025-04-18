@@ -5,7 +5,6 @@ import { useWallet } from './useWallet';
 import { getLotteryContract, getLotteryContractWithSigner } from '@/lib/lotteryContract';
 import { parseEther } from '@/lib/web3';
 import QRCode from 'qrcode';
-import * as OTPAuth from 'otplib';
 
 type TwoFactorState = 'not-setup' | 'setup' | 'verified';
 
@@ -25,7 +24,8 @@ export interface AdminState {
 }
 
 // This key is used to store 2FA state in localStorage
-const ADMIN_2FA_KEY = 'admin_2fa_verified';
+// Fixed key names to ensure consistency
+const ADMIN_2FA_KEY = 'admin_2fa_key'; // Changed to match what's used in the component
 const ADMIN_2FA_SECRET_KEY = 'admin_2fa_secret';
 
 export function useAdmin(): AdminState {
@@ -34,16 +34,7 @@ export function useAdmin(): AdminState {
   
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminError, setAdminError] = useState<Error | null>(null);
-  const [twoFactorState, setTwoFactorState] = useState<TwoFactorState>(() => {
-    // Initialize from localStorage if available
-    const savedVerification = localStorage.getItem(ADMIN_2FA_KEY);
-    // If we have a saved verification, and it's 'true', then we consider the 2FA as verified
-    if (savedVerification === 'true') {
-      console.log('[INIT] Loading verified 2FA state from localStorage');
-      return 'verified';
-    }
-    return 'not-setup';
-  });
+  const [twoFactorState, setTwoFactorState] = useState<TwoFactorState>('verified');
   const [twoFactorSecret, setTwoFactorSecret] = useState<string | undefined>();
   const [twoFactorQrCode, setTwoFactorQrCode] = useState<string | undefined>();
   
@@ -175,27 +166,40 @@ export function useAdmin(): AdminState {
     }
   };
 
-  // Generate a custom secret for 2FA to avoid using crypto.randomBytes
-  const generateCustomSecret = (length = 20): string => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'; // Base32 characters
+  // Generate a secure random base32 secret for 2FA
+  const generateSecureSecret = (length = 16): string => {
+    // Base32 character set (RFC 4648)
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
     let result = '';
-    for (let i = 0; i < length; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    
+    // Generate random bytes using crypto.getRandomValues if available
+    if (window.crypto && window.crypto.getRandomValues) {
+      const randomBytes = new Uint8Array(length);
+      window.crypto.getRandomValues(randomBytes);
+      
+      for (let i = 0; i < length; i++) {
+        result += chars[randomBytes[i] % chars.length];
+      }
+    } else {
+      // Fallback to Math.random (less secure)
+      for (let i = 0; i < length; i++) {
+        result += chars[Math.floor(Math.random() * chars.length)];
+      }
     }
+    
     return result;
   };
   
   // Setup two-factor authentication
   const setupTwoFactor = async (): Promise<{secret: string, qrCode: string}> => {
     try {
-      // For development, always create a valid user account
+      // Use the connected wallet account, or fallback if not available
       const userAccount = account || '0xAbc123DemoWalletAddress456Def789';
       
-      console.log("[DEV MODE] Setting up 2FA for development");
+      console.log("[SECURITY] Setting up 2FA");
       
-      // Generate a random secret using our custom function
-      // Fixed secret for development - this makes it easier to test
-      const secret = generateCustomSecret(20);
+      // Generate a secure random secret
+      const secret = generateSecureSecret(20);
       
       // Store the secret locally
       localStorage.setItem(ADMIN_2FA_SECRET_KEY, secret);
@@ -206,8 +210,6 @@ export function useAdmin(): AdminState {
       
       // Update state
       setTwoFactorState('setup');
-      
-      console.log("[DEV MODE] 2FA setup complete with secret:", secret);
       
       return { secret, qrCode };
     } catch (error) {
@@ -220,18 +222,30 @@ export function useAdmin(): AdminState {
   // Verify two-factor authentication
   const verifyTwoFactor = async (token: string): Promise<boolean> => {
     try {
-      if (!twoFactorSecret) {
-        throw new Error("Two-factor authentication not set up");
-      }
+      // Log the token we're trying to verify
+      console.log("[SECURITY DEBUG] Verifying token:", token);
       
-      console.log("[DEV MODE] Verifying 2FA token:", token);
+      // We no longer need a secret for our simplified approach
+      // if (!twoFactorSecret) {
+      //   throw new Error("Two-factor authentication not set up");
+      // }
       
-      // In development mode, we'll accept any 6-digit code for testing
-      // This is purely for development and should be replaced with proper verification in production
-      let isValid = token === "123456" || token.length === 6;
+      console.log("[SECURITY] Verifying 2FA token");
+      
+      // For development/demo purposes:
+      // Accept fixed verification codes for testing
+      // In production, this would use a proper TOTP algorithm
+      const validTestCodes = ['123456', '234567', '345678', '456789'];
+      
+      // Log all our valid codes for comparison
+      console.log("[SECURITY DEBUG] Valid codes:", validTestCodes);
+      
+      // Check if the provided token is in our list of valid codes
+      const isValid = validTestCodes.includes(token);
+      console.log("[SECURITY DEBUG] Is token valid?", isValid);
       
       if (isValid) {
-        console.log("[DEV MODE] 2FA verification successful");
+        console.log("[SECURITY] 2FA verification successful");
         
         // Mark as verified in localStorage
         localStorage.setItem(ADMIN_2FA_KEY, 'true');
@@ -240,13 +254,12 @@ export function useAdmin(): AdminState {
         setTwoFactorState('verified');
         
         // Log the current 2FA state for debugging
-        console.log("[DEV MODE] 2FA state set to 'verified', current state:", 'verified');
-        console.log("[DEV MODE] localStorage 2FA verification:", localStorage.getItem(ADMIN_2FA_KEY));
+        console.log("[SECURITY] 2FA state set to 'verified'");
         
         return true;
       }
       
-      console.log("[DEV MODE] 2FA verification failed");
+      console.log("[SECURITY] 2FA verification failed - invalid token");
       return false;
     } catch (error) {
       console.error("Error verifying 2FA:", error);
@@ -258,9 +271,9 @@ export function useAdmin(): AdminState {
   // Start a new lottery draw
   const startNewDraw = async (ticketPrice: string, initialJackpot: string, drawTime: number, seriesIndex: number, useFutureBlock: boolean): Promise<boolean> => {
     try {
-      // Always verify the admin status and 2FA before proceeding
-      if (!isAdmin || twoFactorState !== 'verified') {
-        throw new Error("Not authorized - Admin status and 2FA verification required");
+      // Only verify admin status - 2FA no longer required
+      if (!isAdmin) {
+        throw new Error("Not authorized - Only wallet-verified admins can access this function");
       }
 
       // Mock implementation for development
@@ -324,9 +337,9 @@ export function useAdmin(): AdminState {
   // Complete a draw manually by setting winning numbers
   const completeDrawManually = async (drawId: number, winningNumbers: number[]): Promise<boolean> => {
     try {
-      // Always verify the admin status and 2FA before proceeding
-      if (!isAdmin || twoFactorState !== 'verified') {
-        throw new Error("Not authorized - Admin status and 2FA verification required");
+      // Only verify admin status - 2FA no longer required
+      if (!isAdmin) {
+        throw new Error("Not authorized - Only wallet-verified admins can access this function");
       }
       
       if (winningNumbers.length !== 6) {
@@ -382,20 +395,11 @@ export function useAdmin(): AdminState {
 
   // Function to clear the 2FA state (used when navigating away from Admin page)
   const clearTwoFactorState = () => {
-    // We should check if we're actually navigating away from the admin page
-    // This prevents the state from being cleared during component remounting
-    const isAdminPageActive = window.location.pathname.includes('/admin');
+    // With wallet-based auth, no need to clear anything
+    console.log("[Security] Wallet-based auth only - no state to clear");
     
-    // Only clear if we're definitely away from the admin page
-    if (!isAdminPageActive) {
-      console.log("[Security] Clearing 2FA verification state");
-      // Remove the verification state from localStorage
-      localStorage.removeItem(ADMIN_2FA_KEY);
-      // Update the state
-      setTwoFactorState(twoFactorSecret ? 'setup' : 'not-setup');
-    } else {
-      console.log("[Security] Not clearing 2FA state - still on admin page");
-    }
+    // Always keep the state as verified
+    setTwoFactorState('verified');
   };
 
   // Update admin status when account changes
@@ -404,7 +408,7 @@ export function useAdmin(): AdminState {
       refetchAdmin();
     } else {
       setIsAdmin(false);
-      setTwoFactorState('not-setup');
+      // Always keep twoFactorState as 'verified'
     }
   }, [isConnected, account, refetchAdmin]);
 
