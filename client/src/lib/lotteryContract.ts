@@ -1462,6 +1462,7 @@ export interface UserTicket {
   isWinner: boolean;
   amountWon: string;
   transactionHash?: string;
+  claimed?: boolean;  // New field to track if a ticket has been claimed
 }
 
 // Get ticket counts for a user across all draws or for a specific draw
@@ -2097,3 +2098,131 @@ export const checkTicketsWinningStatus = async (
     console.error("Error in checkTicketsWinningStatus:", error);
   }
 }
+
+// Helper function to format ETH amounts
+export const formatEther = (value: string | number): string => {
+  try {
+    // Check if value is a decimal string (like "2.0") and handle specially
+    if (typeof value === 'string' && value.includes('.')) {
+      // Just return the string value as-is since it's already in human-readable form
+      return value;
+    }
+    
+    return ethers.formatEther(value.toString());
+  } catch (error) {
+    console.error("Error formatting ether:", error);
+    return value.toString(); // Return the original value as string if formatting fails
+  }
+};
+
+// Check if a ticket has been claimed
+export const isTicketClaimed = async (
+  drawId: number,
+  ticketIndex: number,
+  provider: ethers.BrowserProvider | null,
+  chainId: string = ACTIVE_CHAIN_ID
+): Promise<boolean> => {
+  if (!provider) {
+    console.error('Provider is required to check if ticket is claimed');
+    return false;
+  }
+
+  try {
+    const contract = getLotteryContract(provider, chainId);
+    if (!contract) {
+      console.error('Failed to get contract instance');
+      return false;
+    }
+    
+    // Get the ticket details from the contract
+    const ticketDetails = await contract.tickets(drawId, ticketIndex);
+    
+    // In the Lottery contract, the 'closed' property indicates if a ticket is claimed
+    return ticketDetails.closed || false;
+  } catch (error) {
+    console.error('Error checking if ticket is claimed:', error);
+    return false;
+  }
+};
+
+// Check and update ticket claim status
+export const checkTicketClaimStatus = async (
+  tickets: UserTicket[],
+  provider: ethers.BrowserProvider | null,
+  chainId: string = ACTIVE_CHAIN_ID
+): Promise<UserTicket[]> => {
+  if (!provider || tickets.length === 0) {
+    return tickets;
+  }
+
+  const updatedTickets = [...tickets];
+  
+  // Check claimed status for each ticket
+  for (let i = 0; i < updatedTickets.length; i++) {
+    try {
+      const ticket = updatedTickets[i];
+      // Only check winning tickets
+      if (ticket.isWinner) {
+        const isClaimed = await isTicketClaimed(ticket.drawId, ticket.ticketIndex, provider, chainId);
+        ticket.claimed = isClaimed;
+      }
+    } catch (error) {
+      console.error(`Error checking claim status for ticket ${i}:`, error);
+    }
+  }
+  
+  return updatedTickets;
+};
+
+// Claim prize for a winning ticket
+export const claimPrize = async (
+  drawId: number,
+  ticketIndex: number,
+  provider: ethers.BrowserProvider | null,
+  chainId: string = ACTIVE_CHAIN_ID
+): Promise<{ success: boolean; txHash?: string; error?: string }> => {
+  if (!provider) {
+    return { success: false, error: 'Wallet provider not available' };
+  }
+
+  try {
+    const contractWithSigner = await getLotteryContractWithSigner(provider, chainId);
+    if (!contractWithSigner) {
+      return { success: false, error: 'Failed to get contract with signer' };
+    }
+
+    // Check if the draw is completed
+    const draw = await contractWithSigner.draws(drawId);
+    if (!draw.completed) {
+      return { success: false, error: 'Draw is not completed yet' };
+    }
+
+    // Check if the ticket is already claimed
+    const isClaimed = await isTicketClaimed(drawId, ticketIndex, provider, chainId);
+    if (isClaimed) {
+      return { success: false, error: 'Ticket prize already claimed' };
+    }
+
+    // Check if the ticket has a prize to claim
+    const prizeAmount = await contractWithSigner.checkPrize(drawId, ticketIndex);
+    if (prizeAmount.toString() === '0') {
+      return { success: false, error: 'No prize to claim for this ticket' };
+    }
+
+    // Claim the prize
+    console.log(`Claiming prize for draw ${drawId}, ticket ${ticketIndex}`);
+    const tx = await contractWithSigner.claimPrize(drawId, ticketIndex);
+    await tx.wait(); // Wait for transaction to be mined
+
+    return { 
+      success: true, 
+      txHash: tx.hash 
+    };
+  } catch (error: any) {
+    console.error('Error claiming prize:', error);
+    return { 
+      success: false, 
+      error: error.message || 'Unknown error claiming prize' 
+    };
+  }
+};

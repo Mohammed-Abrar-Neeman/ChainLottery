@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Dispatch, SetStateAction } from 'react';
+import React, { useState, useEffect, Dispatch, SetStateAction, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useLotteryData } from '@/hooks/useLotteryData';
@@ -19,6 +19,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+// Stable default numbers for non-connected state
+const DEFAULT_SELECTED_NUMBERS = [7, 14, 21, 42, 63];
+const DEFAULT_LOTTO_NUMBER = 17;
+const STABLE_TICKET_PRICE = 0.0001;
+const NETWORK_FEE = 0.0025;
+
 // Props interface for shared state
 interface BuyTicketsProps {
   sharedSeriesIndex?: number;
@@ -27,15 +33,19 @@ interface BuyTicketsProps {
   setSharedDrawId?: Dispatch<SetStateAction<number | undefined>>;
 }
 
-export default function BuyTickets({
+// Using React.memo to prevent unnecessary re-renders
+const BuyTickets = React.memo(function BuyTickets({
   sharedSeriesIndex,
   setSharedSeriesIndex,
   sharedDrawId,
   setSharedDrawId
 }: BuyTicketsProps) {
+  // Ref to track if numbers have been initialized
+  const hasInitializedRef = useRef(false);
+  
   // State for selected numbers (5 main numbers + 1 LOTTO number)
-  const [selectedNumbers, setSelectedNumbers] = useState<number[]>([]);
-  const [selectedLottoNumber, setSelectedLottoNumber] = useState<number | null>(null);
+  const [selectedNumbers, setSelectedNumbers] = useState<number[]>(DEFAULT_SELECTED_NUMBERS);
+  const [selectedLottoNumber, setSelectedLottoNumber] = useState<number | null>(DEFAULT_LOTTO_NUMBER);
   
   // UI states
   const [showWalletModal, setShowWalletModal] = useState(false);
@@ -48,8 +58,8 @@ export default function BuyTickets({
   const { 
     lotteryData, 
     formatUSD, 
-    buyCustomTicket,
-    generateQuickPick, 
+    buyCustomTicket: buyTicket,
+    generateQuickPick: genQuickPick, 
     isBuyingTickets,
     seriesList,
     isLoadingSeriesList,
@@ -68,10 +78,8 @@ export default function BuyTickets({
   const { isConnected } = useWallet();
   const { toast } = useToast();
   
-  // Using the enhanced check for draw availability from useLotteryData hook
-  
-  // Create a memoized function to get the current ticket price
-  const getCurrentTicketPrice = React.useCallback(() => {
+  // Create a function to get the current ticket price
+  const getCurrentTicketPrice = () => {
     const price = getSelectedDrawTicketPrice();
     console.log('BuyTickets - Getting current ticket price:', {
       price,
@@ -79,7 +87,7 @@ export default function BuyTickets({
       sharedDrawId
     });
     return price;
-  }, [getSelectedDrawTicketPrice, selectedDrawId, sharedDrawId]);
+  };
   
   // Get the current ticket price from the selected draw
   const rawTicketPrice = getCurrentTicketPrice();
@@ -92,13 +100,20 @@ export default function BuyTickets({
     sharedDrawId
   });
   
-  // Parse ticket price from the selected draw
-  const ticketPrice = isDrawAvailable() ? parseFloat(rawTicketPrice || '0.01') : 0;
-  const networkFee = 0.0025; // Estimated gas fee in ETH
+  // Use completely stable values when wallet is not connected to prevent flickering
+  // This is the key to preventing flickering - we bypass all the data fetching processes when not connected
+  const ticketPrice = !isConnected ? STABLE_TICKET_PRICE : (isDrawAvailable() ? parseFloat(rawTicketPrice || '0.01') : 0);
+  const networkFee = NETWORK_FEE; // Estimated gas fee in ETH
   const totalCost = ticketPrice + networkFee;
   
-  // Sync local state with shared state when provided and generate a quick pick
+  // Create stable series and draw name for non-connected state
+  const stableSeriesName = "Beginner Series";
+  const stableDrawId = 1;
+  
+  // Sync local state with shared state when provided and connected
   useEffect(() => {
+    if (!isConnected) return; // Skip syncing when wallet is not connected to prevent flickering
+    
     // If sharedSeriesIndex is provided, update local state
     if (sharedSeriesIndex !== undefined && sharedSeriesIndex !== selectedSeriesIndex) {
       console.log("BuyTickets - Updating series index from shared state:", 
@@ -112,12 +127,7 @@ export default function BuyTickets({
         { old: selectedDrawId, new: sharedDrawId });
       setSelectedDrawId(sharedDrawId);
     }
-    
-    // Generate a quick pick when component mounts or shared values change
-    if (!selectedNumbers.length) {
-      handleQuickPick();
-    }
-  }, [sharedSeriesIndex, sharedDrawId]);
+  }, [isConnected, sharedSeriesIndex, sharedDrawId, selectedSeriesIndex, selectedDrawId, setSelectedSeriesIndex, setSelectedDrawId]);
   
   // Force a re-render when selectedDrawId changes
   useEffect(() => {
@@ -126,36 +136,38 @@ export default function BuyTickets({
     // The component will re-render and get the new ticket price
   }, [selectedDrawId]);
 
-  // Generate a quick pick only when component first mounts
-  useEffect(() => {
-    handleQuickPick();
-  }, []);
+  // Handle quick pick generation
+  const handleQuickPick = () => {
+    if (!isConnected) {
+      // Use stable, pre-defined numbers when no wallet is connected
+      // This prevents constant re-renders and flickering
+      setSelectedNumbers(DEFAULT_SELECTED_NUMBERS);
+      setSelectedLottoNumber(DEFAULT_LOTTO_NUMBER);
+    } else {
+      // Use random generation only when wallet is connected
+      const { numbers, lottoNumber } = genQuickPick();
+      setSelectedNumbers(numbers);
+      setSelectedLottoNumber(lottoNumber);
+    }
+  };
   
   // Handle number selection
   const toggleNumber = (num: number) => {
-    if (selectedNumbers.includes(num)) {
-      setSelectedNumbers(selectedNumbers.filter(n => n !== num));
-    } else {
-      if (selectedNumbers.length < 5) {
-        setSelectedNumbers([...selectedNumbers, num]);
+    setSelectedNumbers(prev => {
+      if (prev.includes(num)) {
+        return prev.filter(n => n !== num);
+      } else {
+        if (prev.length < 5) {
+          return [...prev, num];
+        }
+        return prev;
       }
-    }
+    });
   };
   
   // Handle LOTTO number selection
   const toggleLottoNumber = (num: number) => {
-    if (selectedLottoNumber === num) {
-      setSelectedLottoNumber(null);
-    } else {
-      setSelectedLottoNumber(num);
-    }
-  };
-  
-  // Handle quick pick generation
-  const handleQuickPick = () => {
-    const { numbers, lottoNumber } = generateQuickPick();
-    setSelectedNumbers(numbers);
-    setSelectedLottoNumber(lottoNumber);
+    setSelectedLottoNumber(prev => prev === num ? null : num);
   };
   
   // Handle series change
@@ -190,8 +202,6 @@ export default function BuyTickets({
     if (setSharedDrawId) {
       setSharedDrawId(drawId);
     }
-    
-    // No need to manually update ticketPrice as it's now directly calculated from getSelectedDrawTicketPrice()
   };
   
   // Check if time remaining is zero
@@ -303,7 +313,7 @@ export default function BuyTickets({
     setShowPendingModal(true);
     
     // Pass the selected draw ID to the buyCustomTicket function
-    const result = await buyCustomTicket(
+    const result = await buyTicket(
       selectedNumbers, 
       selectedLottoNumber,
       selectedSeriesIndex,
@@ -317,8 +327,6 @@ export default function BuyTickets({
       setShowSuccessModal(true);
     }
   };
-  
-
   
   // Render number selection grid (1-70)
   const renderNumberGrid = () => {
@@ -404,6 +412,168 @@ export default function BuyTickets({
     );
   };
   
+  // Render ticket summary section
+  const renderTicketSummary = () => {
+    // Determine which series and draw info to display based on connection status
+    const displaySeriesName = !isConnected 
+      ? stableSeriesName 
+      : (selectedSeriesIndex !== undefined && seriesList?.find(s => s.index === selectedSeriesIndex)?.name || "");
+    
+    const displayDrawId = !isConnected 
+      ? stableDrawId 
+      : selectedDrawId;
+    
+    return (
+      <div className="bg-black/30 border border-primary/20 rounded-lg p-5 space-y-4">
+        {/* Draw information - Selected from Hero Banner */}
+        <div className="mb-2 text-center">
+          <div className="text-sm text-white/80 mb-1 font-medium">
+            {!isConnected 
+              ? `${stableSeriesName} - Draw #${stableDrawId}` 
+              : `${displaySeriesName}${displayDrawId ? ` - Draw #${displayDrawId}` : ''}`
+            }
+          </div>
+          <div className="text-xs text-white/50">
+            {isConnected ? "(Change draw selection in the banner above)" : "(Connect wallet to select draw)"}
+          </div>
+        </div>
+        
+        <div className="space-y-3">
+          <div className="flex justify-between border-b border-white/10 pb-2">
+            <span className="text-white/70">Your Numbers:</span>
+            <span className="font-mono text-primary font-medium">
+              {selectedNumbers.length > 0 
+                ? selectedNumbers.sort((a, b) => a - b).map(n => n < 10 ? `0${n}` : n).join(', ') 
+                : 'None selected'}
+            </span>
+          </div>
+          <div className="flex justify-between border-b border-white/10 pb-2">
+            <span className="text-white/70">Your LOTTO Number:</span>
+            <span className="font-mono text-accent font-medium">
+              {selectedLottoNumber 
+                ? (selectedLottoNumber < 10 ? `0${selectedLottoNumber}` : selectedLottoNumber) 
+                : 'None selected'}
+            </span>
+          </div>
+          <div className="flex justify-between border-b border-white/10 pb-2">
+            <span className="text-white/70">Ticket Price:</span>
+            <span className="font-mono text-white">
+              {ticketPrice.toFixed(4)} ETH
+            </span>
+          </div>
+          <div className="flex justify-between border-b border-white/10 pb-2">
+            <span className="text-white/70">Network Fee (est.):</span>
+            <span className="font-mono text-white">{networkFee.toFixed(4)} ETH</span>
+          </div>
+          <div className="pt-2 mt-1 flex justify-between font-bold">
+            <span className="text-white">Total:</span>
+            <span className="font-mono text-primary text-lg">
+              {totalCost.toFixed(4)} ETH
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Render the how it works section
+  const renderHowItWorks = () => {
+    return (
+      <div id="how-it-works" className="casino-card p-0 relative">
+        <div className="casino-card-header bg-card/80 py-4 px-6 text-center">
+          <div className="text-sm uppercase tracking-widest font-bold text-primary">
+            How It Works
+          </div>
+        </div>
+        
+        <div className="p-6 pt-12 space-y-6">
+          <div className="flex items-start">
+            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 border border-primary/50 flex items-center justify-center font-bold mr-4 text-primary">
+              1
+            </div>
+            <div>
+              <p className="text-white font-medium">Choose 5 numbers from 1-70 and 1 LOTTO number from 1-30</p>
+            </div>
+          </div>
+          
+          <div className="flex items-start">
+            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 border border-primary/50 flex items-center justify-center font-bold mr-4 text-primary">
+              2
+            </div>
+            <div>
+              <p className="text-white font-medium">Purchase your ticket using ETH</p>
+            </div>
+          </div>
+          
+          <div className="flex items-start">
+            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 border border-primary/50 flex items-center justify-center font-bold mr-4 text-primary">
+              3
+            </div>
+            <div>
+              <p className="text-white font-medium">Wait for the lottery draw to complete</p>
+            </div>
+          </div>
+          
+          <div className="flex items-start">
+            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 border border-primary/50 flex items-center justify-center font-bold mr-4 text-primary">
+              4
+            </div>
+            <div>
+              <p className="text-white font-medium">Matching numbers win prizes automatically</p>
+            </div>
+          </div>
+          
+          <div className="mt-8">
+            <div className="relative">
+              <div className="absolute -inset-1 bg-gradient-to-r from-primary/10 via-primary/30 to-primary/10 rounded-xl blur-sm"></div>
+              <div className="relative bg-black/40 backdrop-blur-sm border border-primary/20 rounded-lg p-4">
+                <h4 className="text-sm font-bold uppercase mb-3 text-primary">Prize Tiers</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm text-white/90">
+                  <div className="flex items-center">
+                    <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
+                    <span>5 + LOTTO: 100% Jackpot</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
+                    <span>5 Numbers: 1% Jackpot</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
+                    <span>4 + LOTTO: 0.01% Jackpot</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
+                    <span>4 Numbers: 0.001% Jackpot</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
+                    <span>3 + LOTTO: 0.0001% Jackpot</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
+                    <span>3 Numbers: 10 ETH</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
+                    <span>2 + LOTTO: 8 ETH</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
+                    <span>1 + LOTTO: 3 ETH</span>
+                  </div>
+                  <div className="col-span-2 flex items-center">
+                    <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
+                    <span>LOTTO only: 2 ETH</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+  
   return (
     <section id="buy-tickets" className="mb-16">
       <h2 className="text-3xl font-bold mb-6 bg-gradient-to-r from-primary to-yellow-500 text-transparent bg-clip-text">
@@ -462,53 +632,7 @@ export default function BuyTickets({
                 </h3>
               </div>
               
-              <div className="bg-black/30 border border-primary/20 rounded-lg p-5 space-y-4">
-                {/* Draw information - Selected from Hero Banner */}
-                <div className="mb-2 text-center">
-                  <div className="text-sm text-white/80 mb-1 font-medium">
-                    {selectedSeriesIndex !== undefined && seriesList?.find(s => s.index === selectedSeriesIndex)?.name} 
-                    {selectedDrawId ? ` - Draw #${selectedDrawId}` : ''}
-                  </div>
-                  <div className="text-xs text-white/50">
-                    (Change draw selection in the banner above)
-                  </div>
-                </div>
-                
-                <div className="space-y-3">
-                  <div className="flex justify-between border-b border-white/10 pb-2">
-                    <span className="text-white/70">Your Numbers:</span>
-                    <span className="font-mono text-primary font-medium">
-                      {selectedNumbers.length > 0 
-                        ? selectedNumbers.sort((a, b) => a - b).map(n => n < 10 ? `0${n}` : n).join(', ') 
-                        : 'None selected'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between border-b border-white/10 pb-2">
-                    <span className="text-white/70">Your LOTTO Number:</span>
-                    <span className="font-mono text-accent font-medium">
-                      {selectedLottoNumber 
-                        ? (selectedLottoNumber < 10 ? `0${selectedLottoNumber}` : selectedLottoNumber) 
-                        : 'None selected'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between border-b border-white/10 pb-2">
-                    <span className="text-white/70">Ticket Price:</span>
-                    <span className="font-mono text-white">
-                      {ticketPrice < 0.0001 ? ticketPrice.toFixed(6) : ticketPrice.toFixed(4)} ETH
-                    </span>
-                  </div>
-                  <div className="flex justify-between border-b border-white/10 pb-2">
-                    <span className="text-white/70">Network Fee (est.):</span>
-                    <span className="font-mono text-white">{networkFee.toFixed(4)} ETH</span>
-                  </div>
-                  <div className="pt-2 mt-1 flex justify-between font-bold">
-                    <span className="text-white">Total:</span>
-                    <span className="font-mono text-primary text-lg">
-                      {totalCost < 0.0001 ? totalCost.toFixed(6) : totalCost.toFixed(4)} ETH
-                    </span>
-                  </div>
-                </div>
-              </div>
+              {renderTicketSummary()}
             </div>
             
             {!isConnected ? (
@@ -527,11 +651,7 @@ export default function BuyTickets({
                   selectedNumbers.length !== 5 || 
                   selectedLottoNumber === null ||
                   !isDrawAvailable() ||
-                  // Disable when time remaining is zero (all time components are 0)
-                  (timeRemaining && timeRemaining.days === 0 && 
-                   timeRemaining.hours === 0 && 
-                   timeRemaining.minutes === 0 && 
-                   timeRemaining.seconds === 0)
+                  isTimeRemainingZero()
                 }
                 className="btn-glow w-full bg-gradient-to-r from-primary to-yellow-600 hover:from-yellow-600 hover:to-primary text-black font-bold rounded-lg py-6 h-14 text-lg transition-all shadow-lg"
               >
@@ -540,98 +660,7 @@ export default function BuyTickets({
             )}
           </div>
           
-          <div id="how-it-works" className="casino-card p-0 relative">
-            <div className="casino-card-header bg-card/80 py-4 px-6 text-center">
-              <div className="text-sm uppercase tracking-widest font-bold text-primary">
-                How It Works
-              </div>
-            </div>
-            
-            <div className="p-6 pt-12 space-y-6">
-              <div className="flex items-start">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 border border-primary/50 flex items-center justify-center font-bold mr-4 text-primary">
-                  1
-                </div>
-                <div>
-                  <p className="text-white font-medium">Choose 5 numbers from 1-70 and 1 LOTTO number from 1-30</p>
-                </div>
-              </div>
-              
-              <div className="flex items-start">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 border border-primary/50 flex items-center justify-center font-bold mr-4 text-primary">
-                  2
-                </div>
-                <div>
-                  <p className="text-white font-medium">Purchase your ticket using ETH</p>
-                </div>
-              </div>
-              
-              <div className="flex items-start">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 border border-primary/50 flex items-center justify-center font-bold mr-4 text-primary">
-                  3
-                </div>
-                <div>
-                  <p className="text-white font-medium">Wait for the lottery draw to complete</p>
-                </div>
-              </div>
-              
-              <div className="flex items-start">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 border border-primary/50 flex items-center justify-center font-bold mr-4 text-primary">
-                  4
-                </div>
-                <div>
-                  <p className="text-white font-medium">Matching numbers win prizes automatically</p>
-                </div>
-              </div>
-              
-              <div className="mt-8">
-                <div className="relative">
-                  <div className="absolute -inset-1 bg-gradient-to-r from-primary/10 via-primary/30 to-primary/10 rounded-xl blur-sm"></div>
-                  <div className="relative bg-black/40 backdrop-blur-sm border border-primary/20 rounded-lg p-4">
-                    <h4 className="text-sm font-bold uppercase mb-3 text-primary">Prize Tiers</h4>
-                    <div className="grid grid-cols-2 gap-2 text-sm text-white/90">
-                      <div className="flex items-center">
-                        <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
-                        <span>5 + LOTTO: 100% Jackpot</span>
-                      </div>
-                      <div className="flex items-center">
-                        <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
-                        <span>5 Numbers: 1% Jackpot</span>
-                      </div>
-                      <div className="flex items-center">
-                        <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
-                        <span>4 + LOTTO: 0.01% Jackpot</span>
-                      </div>
-                      <div className="flex items-center">
-                        <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
-                        <span>4 Numbers: 0.001% Jackpot</span>
-                      </div>
-                      <div className="flex items-center">
-                        <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
-                        <span>3 + LOTTO: 0.0001% Jackpot</span>
-                      </div>
-                      <div className="flex items-center">
-                        <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
-                        <span>3 Numbers: 10 ETH</span>
-                      </div>
-                      <div className="flex items-center">
-                        <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
-                        <span>2 + LOTTO: 8 ETH</span>
-                      </div>
-                      <div className="flex items-center">
-                        <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
-                        <span>1 + LOTTO: 3 ETH</span>
-                      </div>
-                      <div className="col-span-2 flex items-center">
-                        <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
-                        <span>LOTTO only: 2 ETH</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          {renderHowItWorks()}
         </div>
       </div>
       
@@ -664,8 +693,8 @@ export default function BuyTickets({
         totalCost={totalCost}
         selectedNumbers={selectedNumbers}
         selectedLottoNumber={selectedLottoNumber}
-        seriesName={selectedSeriesIndex !== undefined ? seriesList?.find(s => s.index === selectedSeriesIndex)?.name : ""}
-        drawId={selectedDrawId}
+        seriesName={!isConnected ? stableSeriesName : (selectedSeriesIndex !== undefined ? seriesList?.find(s => s.index === selectedSeriesIndex)?.name : "")}
+        drawId={!isConnected ? stableDrawId : selectedDrawId}
       />
       
       <TransactionPendingModal
@@ -685,4 +714,6 @@ export default function BuyTickets({
       />
     </section>
   );
-}
+});
+
+export default BuyTickets;

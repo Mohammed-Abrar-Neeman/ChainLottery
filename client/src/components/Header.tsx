@@ -188,7 +188,7 @@ export default function Header() {
                 Home
               </span>
             } />
-            <NavLink href="/tickets" label={
+            <NavLink href="/my-tickets" label={
               <span className="flex items-center px-3 py-2 rounded-md hover:bg-white/5">
                 <Ticket className="mr-1.5 h-4 w-4" />
                 My Tickets
@@ -230,7 +230,7 @@ export default function Header() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="border border-primary/20">
                   <DropdownMenuItem asChild>
-                    <Link href="/tickets">
+                    <Link href="/my-tickets">
                       <span className="w-full cursor-pointer flex items-center">
                         <Ticket className="mr-2 h-4 w-4" />
                         My Tickets
@@ -279,7 +279,7 @@ export default function Header() {
                 Home
               </span>
             } isMobile />
-            <NavLink href="/tickets" label={
+            <NavLink href="/my-tickets" label={
               <span className="flex items-center">
                 <Ticket className="mr-2 h-5 w-5" />
                 My Tickets

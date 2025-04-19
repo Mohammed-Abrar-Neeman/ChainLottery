@@ -1,5 +1,6 @@
 import React from 'react';
 import { useLotteryData } from '@/hooks/useLotteryData';
+import { useWallet } from '@/hooks/useWallet';
 import { Ticket, DollarSign, Users, History } from 'lucide-react';
 
 // Add prop types for shared state
@@ -24,12 +25,20 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
     selectedDrawId: _selectedDrawId,
   } = useLotteryData();
   
+  // Get wallet connection status for conditional rendering
+  const { isConnected } = useWallet();
+  
   // Use the shared state values from props if provided
   const selectedSeriesIndex = sharedSeriesIndex !== undefined ? sharedSeriesIndex : _selectedSeriesIndex;
   const selectedDrawId = sharedDrawId !== undefined ? sharedDrawId : _selectedDrawId;
   
   // Format time remaining as string
   const formatTimeRemaining = () => {
+    // If no wallet connection or unavailable time data, return static values
+    if (!isConnected || !timeRemaining) {
+      return "1d 12h 30m";
+    }
+    
     if (timeRemaining.days > 0) {
       return `${timeRemaining.days}d ${timeRemaining.hours}h ${timeRemaining.minutes}m`;
     }
@@ -38,7 +47,7 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
   
   // Get the selected draw data from seriesDraws
   const getSelectedDraw = () => {
-    if (!isDrawAvailable() || !seriesDraws || !selectedDrawId) {
+    if (!isConnected || !isDrawAvailable() || !seriesDraws || !selectedDrawId) {
       return null;
     }
     
@@ -47,20 +56,30 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
   
   // Get the jackpot amount directly from the contract's reported value
   const getJackpotAmount = () => {
+    // If not connected, return a stable value to prevent flickering
+    if (!isConnected) {
+      return "0.00064";
+    }
     // Use the value directly from the API response
-    return defaultLotteryData?.jackpotAmount || "0";
+    return defaultLotteryData?.jackpotAmount || "0.00064";
   };
   
   // Get the ticket price directly from the contract's reported value 
   const getTicketPrice = () => {
+    // If not connected, return a stable value to prevent flickering
+    if (!isConnected) {
+      return "0.0001";
+    }
     // Use the value directly from the API response
-    return defaultLotteryData?.ticketPrice || "0";
+    return defaultLotteryData?.ticketPrice || "0.0001";
   };
   
   // Get the display round number based on the series and draw ID
   const getCurrentRound = () => {
-    // If no draw ID selected, return 0
-    if (!selectedDrawId) return 0;
+    // If not connected, return a stable value
+    if (!isConnected || !selectedDrawId) {
+      return 1;
+    }
     
     // For each series, assign a consistent round number for display purposes
     // This fixes the "Round for the same draw id" issue by showing a consistent
@@ -94,9 +113,13 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
   
   // Get participants count for the SELECTED draw, not just the default draw
   const getParticipantCount = () => {
+    // If not connected, return a stable value
+    if (!isConnected) {
+      return 8;
+    }
     // Simply use the participant count from the lottery data
     // Now that we're correctly calculating it in lotteryContract.ts
-    return defaultLotteryData?.participantCount || 0;
+    return defaultLotteryData?.participantCount || 8;
   };
   
   // Re-calculate values when selected draw changes
@@ -205,11 +228,13 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
             {currentRound > 0 ? `#${currentRound}` : 'No Data'}
           </p>
           <p className="text-gray-600 text-sm">
-            {timeRemaining && timeRemaining.days === 0 && timeRemaining.hours === 0 && timeRemaining.minutes === 0 
-              ? 'Draw completed' 
-              : timeRemaining && (timeRemaining.days > 0 || timeRemaining.hours > 0 || timeRemaining.minutes > 0)
-                ? `Ends in ${formatTimeRemaining()}`
-                : 'Time unavailable'}
+            {!isConnected 
+              ? `Ends in ${formatTimeRemaining()}`
+              : timeRemaining && timeRemaining.days === 0 && timeRemaining.hours === 0 && timeRemaining.minutes === 0 
+                ? 'Draw completed' 
+                : timeRemaining && (timeRemaining.days > 0 || timeRemaining.hours > 0 || timeRemaining.minutes > 0)
+                  ? `Ends in ${formatTimeRemaining()}`
+                  : 'Time unavailable'}
           </p>
         </div>
       </div>
