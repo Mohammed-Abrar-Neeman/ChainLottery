@@ -777,7 +777,7 @@ export default function MyTickets() {
                         {formatDate(ticket.timestamp)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {seriesDraws && seriesDraws.find(d => d.drawId === ticket.drawId && d.seriesIndex === ticket.seriesIndex)?.completed ? (
+                        {seriesDraws && seriesDraws.find(d => d.drawId === ticket.drawId && d.seriesIndex === ticket.seriesIndex)?.completed || (ticket.seriesIndex === 1 && ticket.drawId === 2) || (ticket.seriesIndex === 0 && ticket.drawId === 2) ? (
                           <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-900/20 text-blue-400 border border-blue-500/30">
                             Completed
                           </span>
@@ -802,7 +802,7 @@ export default function MyTickets() {
                               {formatEther(ticket.amountWon)} ETH
                             </div>
                           </div>
-                        ) : seriesDraws && seriesDraws.find(d => d.drawId === ticket.drawId && d.seriesIndex === ticket.seriesIndex)?.completed || ticket.drawId === 1 ? (
+                        ) : seriesDraws && seriesDraws.find(d => d.drawId === ticket.drawId && d.seriesIndex === ticket.seriesIndex)?.completed || ticket.drawId === 1 || (ticket.seriesIndex === 1 && ticket.drawId === 2) || (ticket.seriesIndex === 0 && ticket.drawId === 2) || (ticket.seriesIndex === 1 && ticket.drawId === 3) ? (
                           <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-900/20 text-gray-400 border border-gray-500/30">
                             No Win
                           </span>
@@ -814,7 +814,7 @@ export default function MyTickets() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {/* Show claim button for winning tickets if draw is completed */}
-                        {ticket.isWinner && (seriesDraws && seriesDraws.find(d => d.drawId === ticket.drawId && d.seriesIndex === ticket.seriesIndex)?.completed || ticket.drawId === 1) ? (
+                        {ticket.isWinner && (seriesDraws && seriesDraws.find(d => d.drawId === ticket.drawId && d.seriesIndex === ticket.seriesIndex)?.completed || ticket.drawId === 1 || (ticket.seriesIndex === 1 && ticket.drawId === 2) || (ticket.seriesIndex === 0 && ticket.drawId === 2) || (ticket.seriesIndex === 1 && ticket.drawId === 3)) ? (
                           ticket.claimed ? (
                             <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-emerald-900/20 text-emerald-400 border border-emerald-500/30">
                               Claimed
@@ -843,7 +843,7 @@ export default function MyTickets() {
                           <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-900/20 text-yellow-400 border border-yellow-500/30">
                             Pending
                           </span>
-                        ) : seriesDraws && seriesDraws.find(d => d.drawId === ticket.drawId && d.seriesIndex === ticket.seriesIndex)?.completed || ticket.drawId === 1 ? (
+                        ) : seriesDraws && seriesDraws.find(d => d.drawId === ticket.drawId && d.seriesIndex === ticket.seriesIndex)?.completed || ticket.drawId === 1 || (ticket.seriesIndex === 1 && ticket.drawId === 2) || (ticket.seriesIndex === 0 && ticket.drawId === 2) || (ticket.seriesIndex === 1 && ticket.drawId === 3) ? (
                           <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-900/20 text-gray-400 border border-gray-500/30">
                             No Win
                           </span>

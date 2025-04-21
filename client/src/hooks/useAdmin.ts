@@ -2,11 +2,27 @@ import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useWallet } from './useWallet';
-import { getLotteryContract, getLotteryContractWithSigner } from '@/lib/lotteryContract';
+import { 
+  getLotteryContract, 
+  getLotteryContractWithSigner,
+  getAllSeriesData,
+  updateBlockGap as updateBlockGapFunc,
+  newSeries as newSeriesFunc,
+  startNewXDraw as startNewXDrawFunc,
+  startNewFutureBlockDraw as startNewFutureBlockDrawFunc,
+  completeDrawManually as completeDrawManuallyFunc,
+  completeDrawWithBlockHash as completeDrawWithBlockHashFunc
+} from '@/lib/lotteryContract';
 import { parseEther } from '@/lib/web3';
+import { useToast } from '@/hooks/use-toast';
 import QRCode from 'qrcode';
 
 type TwoFactorState = 'not-setup' | 'setup' | 'verified';
+
+export interface SeriesInfo {
+  index: number; 
+  name: string;
+}
 
 export interface AdminState {
   isAdmin: boolean;
@@ -15,12 +31,20 @@ export interface AdminState {
   twoFactorState: TwoFactorState;
   twoFactorSecret?: string;
   twoFactorQrCode?: string;
+  seriesList: SeriesInfo[];
+  seriesLoading: boolean;
   setupTwoFactor: () => Promise<{secret: string, qrCode: string}>;
   verifyTwoFactor: (token: string) => Promise<boolean>;
   startNewDraw: (ticketPrice: string, initialJackpot: string, drawTime: number, seriesIndex: number, useFutureBlock: boolean) => Promise<boolean>;
   completeDrawManually: (drawId: number, winningNumbers: number[]) => Promise<boolean>;
   getAdminStatus: () => Promise<void>;
   clearTwoFactorState: () => void;
+  updateBlockGap: (newBlockGap: number) => Promise<boolean>;
+  createNewSeries: (seriesName: string) => Promise<boolean>;
+  startNewXDraw: (ticketPrice: string, initialJackpot: string, drawTime: number, seriesIndex: number) => Promise<boolean>;
+  startNewFutureBlockDraw: (ticketPrice: string, initialJackpot: string, futureBlock: number, seriesIndex: number) => Promise<boolean>;
+  completeDrawWithBlockHash: (drawId: number, blockHash: string) => Promise<boolean>;
+  refreshSeriesList: () => Promise<void>;
 }
 
 // This key is used to store 2FA state in localStorage
@@ -37,6 +61,8 @@ export function useAdmin(): AdminState {
   const [twoFactorState, setTwoFactorState] = useState<TwoFactorState>('verified');
   const [twoFactorSecret, setTwoFactorSecret] = useState<string | undefined>();
   const [twoFactorQrCode, setTwoFactorQrCode] = useState<string | undefined>();
+  const [seriesList, setSeriesList] = useState<SeriesInfo[]>([]);
+  const [seriesLoading, setSeriesLoading] = useState(false);
   
   // Admin verification is now entirely done by checking against the contract owner
 
@@ -393,6 +419,28 @@ export function useAdmin(): AdminState {
     await refetchAdmin();
   };
 
+  // Function to fetch series list from the contract
+  const refreshSeriesList = async (): Promise<void> => {
+    if (!provider) return;
+    
+    try {
+      setSeriesLoading(true);
+      console.log("Fetching series list from contract...");
+      
+      const network = await provider.getNetwork();
+      const chainId = network.chainId.toString();
+      
+      const seriesData = await getAllSeriesData(provider, chainId);
+      console.log("Series data fetched:", seriesData);
+      
+      setSeriesList(seriesData);
+    } catch (error) {
+      console.error("Error fetching series list:", error);
+    } finally {
+      setSeriesLoading(false);
+    }
+  };
+
   // Function to clear the 2FA state (used when navigating away from Admin page)
   const clearTwoFactorState = () => {
     // With wallet-based auth, no need to clear anything
@@ -412,6 +460,197 @@ export function useAdmin(): AdminState {
     }
   }, [isConnected, account, refetchAdmin]);
 
+  // Update block gap for future block draws
+  const updateBlockGap = async (newBlockGap: number): Promise<boolean> => {
+    try {
+      // Only verify admin status
+      if (!isAdmin) {
+        throw new Error("Not authorized - Only wallet-verified admins can access this function");
+      }
+
+      if (!provider) {
+        throw new Error("Wallet provider not available");
+      }
+
+      console.log(`Updating block gap to ${newBlockGap}`);
+      
+      const network = await provider.getNetwork();
+      const chainId = network.chainId.toString();
+      
+      const result = await updateBlockGapFunc(newBlockGap, provider, chainId);
+      
+      if (result.success) {
+        console.log("Block gap successfully updated to", newBlockGap);
+        
+        // Invalidate relevant queries
+        queryClient.invalidateQueries({ queryKey: ['lottery'] });
+        
+        return true;
+      } else {
+        console.error("Failed to update block gap:", result.error);
+        return false;
+      }
+    } catch (error) {
+      console.error("Error updating block gap:", error);
+      return false;
+    }
+  };
+
+  // Create a new lottery series
+  const createNewSeries = async (seriesName: string): Promise<boolean> => {
+    try {
+      // Only verify admin status
+      if (!isAdmin) {
+        throw new Error("Not authorized - Only wallet-verified admins can access this function");
+      }
+
+      if (!provider) {
+        throw new Error("Wallet provider not available");
+      }
+
+      console.log(`Creating new series: ${seriesName}`);
+      
+      const network = await provider.getNetwork();
+      const chainId = network.chainId.toString();
+      
+      const result = await newSeriesFunc(seriesName, provider, chainId);
+      
+      if (result.success) {
+        console.log(`New lottery series "${seriesName}" successfully created`);
+        
+        // Invalidate relevant queries
+        queryClient.invalidateQueries({ queryKey: ['lottery'] });
+        
+        return true;
+      } else {
+        console.error("Failed to create new series:", result.error);
+        return false;
+      }
+    } catch (error) {
+      console.error("Error creating new series:", error);
+      return false;
+    }
+  };
+
+  // Start a new time-based draw
+  const startNewXDraw = async (
+    ticketPrice: string, 
+    initialJackpot: string, 
+    drawTime: number, 
+    seriesIndex: number
+  ): Promise<boolean> => {
+    try {
+      // Only verify admin status
+      if (!isAdmin) {
+        throw new Error("Not authorized - Only wallet-verified admins can access this function");
+      }
+
+      if (!provider) {
+        throw new Error("Wallet provider not available");
+      }
+
+      console.log(`Starting new time-based draw: price=${ticketPrice} ETH, jackpot=${initialJackpot} ETH, time=${drawTime}, series=${seriesIndex}`);
+      
+      const network = await provider.getNetwork();
+      const chainId = network.chainId.toString();
+      
+      const result = await startNewXDrawFunc(ticketPrice, initialJackpot, drawTime, seriesIndex, provider, chainId);
+      
+      if (result.success) {
+        console.log(`New time-based draw started with ticket price ${ticketPrice} ETH and initial jackpot ${initialJackpot} ETH`);
+        
+        // Invalidate relevant queries
+        queryClient.invalidateQueries({ queryKey: ['lottery'] });
+        
+        return true;
+      } else {
+        console.error("Failed to start new time-based draw:", result.error);
+        return false;
+      }
+    } catch (error) {
+      console.error("Error starting new time-based draw:", error);
+      return false;
+    }
+  };
+
+  // Start a new block-based draw
+  const startNewFutureBlockDraw = async (
+    ticketPrice: string, 
+    initialJackpot: string, 
+    futureBlock: number, 
+    seriesIndex: number
+  ): Promise<boolean> => {
+    try {
+      // Only verify admin status
+      if (!isAdmin) {
+        throw new Error("Not authorized - Only wallet-verified admins can access this function");
+      }
+
+      if (!provider) {
+        throw new Error("Wallet provider not available");
+      }
+
+      console.log(`Starting new block-based draw: price=${ticketPrice} ETH, jackpot=${initialJackpot} ETH, block=${futureBlock}, series=${seriesIndex}`);
+      
+      const network = await provider.getNetwork();
+      const chainId = network.chainId.toString();
+      
+      const result = await startNewFutureBlockDrawFunc(ticketPrice, initialJackpot, futureBlock, seriesIndex, provider, chainId);
+      
+      if (result.success) {
+        console.log(`New block-based draw started with ticket price ${ticketPrice} ETH and initial jackpot ${initialJackpot} ETH`);
+        
+        // Invalidate relevant queries
+        queryClient.invalidateQueries({ queryKey: ['lottery'] });
+        
+        return true;
+      } else {
+        console.error("Failed to start new block-based draw:", result.error);
+        return false;
+      }
+    } catch (error) {
+      console.error("Error starting new block-based draw:", error);
+      return false;
+    }
+  };
+
+  // Complete a draw with a block hash
+  const completeDrawWithBlockHash = async (drawId: number, blockHash: string): Promise<boolean> => {
+    try {
+      // Only verify admin status
+      if (!isAdmin) {
+        throw new Error("Not authorized - Only wallet-verified admins can access this function");
+      }
+
+      if (!provider) {
+        throw new Error("Wallet provider not available");
+      }
+
+      console.log(`Completing draw ${drawId} with block hash: ${blockHash}`);
+      
+      const network = await provider.getNetwork();
+      const chainId = network.chainId.toString();
+      
+      const result = await completeDrawWithBlockHashFunc(drawId, blockHash, provider, chainId);
+      
+      if (result.success) {
+        console.log(`Draw #${drawId} completed successfully with block hash`);
+        
+        // Invalidate relevant queries
+        queryClient.invalidateQueries({ queryKey: ['lottery'] });
+        
+        return true;
+      } else {
+        console.error("Failed to complete draw with block hash:", result.error);
+        return false;
+      }
+    } catch (error) {
+      console.error("Error completing draw with block hash:", error);
+      return false;
+    }
+  };
+
+  // End of hook - return admin state
   return {
     isAdmin,
     isAdminLoading,
@@ -419,11 +658,19 @@ export function useAdmin(): AdminState {
     twoFactorState,
     twoFactorSecret,
     twoFactorQrCode,
+    seriesList,
+    seriesLoading,
     setupTwoFactor,
     verifyTwoFactor,
     startNewDraw,
     completeDrawManually,
     getAdminStatus,
-    clearTwoFactorState
+    clearTwoFactorState,
+    updateBlockGap,
+    createNewSeries,
+    startNewXDraw,
+    startNewFutureBlockDraw,
+    completeDrawWithBlockHash,
+    refreshSeriesList
   };
 }
