@@ -129,16 +129,18 @@ export default function PromoBanner() {
         >
           <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-transparent" />
         </div>
-        <div className="relative z-10 flex flex-col justify-center h-full px-8 md:px-20 max-w-2xl">
-          <h2 className="text-4xl md:text-6xl font-bold text-white mb-4 md:mb-6">
-            {currentBanner.title}
-          </h2>
-          <p className="text-xl md:text-2xl text-white/90 mb-4 md:mb-8 max-w-xl leading-relaxed">
-            {currentBanner.description}
-          </p>
-          <Button className="mt-4 md:mt-6 w-48 md:w-56 h-14 md:h-16 text-lg md:text-xl bg-primary hover:bg-primary/90 font-semibold">
-            Learn More
-          </Button>
+        <div className="container mx-auto relative z-10 flex flex-col justify-center h-full py-8 lg:py-12">
+          <div className="max-w-2xl">
+            <h2 className="text-4xl md:text-6xl font-bold text-white mb-4 md:mb-6">
+              {currentBanner.title}
+            </h2>
+            <p className="text-xl md:text-2xl text-white/90 mb-4 md:mb-8 max-w-xl leading-relaxed">
+              {currentBanner.description}
+            </p>
+            <Button className="mt-4 md:mt-6 w-48 md:w-56 h-14 md:h-16 text-lg md:text-xl bg-primary hover:bg-primary/90 font-semibold">
+              Learn More
+            </Button>
+          </div>
         </div>
       </div>
 

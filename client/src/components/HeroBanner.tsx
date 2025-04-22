@@ -2,6 +2,9 @@ import React, { Dispatch, SetStateAction } from 'react';
 import { Button } from '@/components/ui/button';
 import { useLotteryData } from '@/hooks/useLotteryData';
 import { useWallet } from '@/hooks/useWallet';
+import { useAppSettings } from '@/context/AppSettingsContext';
+import { useDrawDate } from '@/hooks/useDrawDate';
+import { Calendar } from 'lucide-react';
 import WalletModal from './modals/WalletModal';
 import {
   Select,
@@ -42,6 +45,8 @@ export default function HeroBanner({
     hasAvailableDraws: isDrawAvailable
   } = useLotteryData();
   const { isConnected } = useWallet();
+  const { settings } = useAppSettings();
+  const { getDrawDate } = useDrawDate();
   const [showWalletModal, setShowWalletModal] = React.useState(false);
   
   // ONE-WAY DATA FLOW: No longer syncing FROM shared props TO selectedDrawId
@@ -263,81 +268,131 @@ export default function HeroBanner({
             <div className="bg-card bg-opacity-90 pt-16 pb-8 px-8 lg:px-12 h-full flex flex-col border-l border-primary/20">
               {/* Series and Draw Selection */}
               <div className="mb-6 flex space-x-4">
-                <div className="w-1/2">
-                  <label className="text-sm font-mono uppercase tracking-wider text-primary mb-1 block">
-                    Series
-                  </label>
-                  <Select
-                    disabled={false}
-                    value={selectedSeriesIndex?.toString() || "0"}
-                    onValueChange={handleSeriesChange}
-                  >
-                    <SelectTrigger className="bg-secondary border border-primary/30 text-white">
-                      <SelectValue placeholder="Select series" />
-                    </SelectTrigger>
-                    <SelectContent className="border border-primary/30">
-                      {/* Use static fallback when seriesList is empty */}
-                      {(seriesList && seriesList.length > 0) ? (
-                        seriesList.map((series) => (
-                          <SelectItem key={series.index} value={series.index.toString()}>
-                            {series.name} {series.active ? ' (Active)' : ''}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        // Static fallback options
-                        <>
-                          <SelectItem key="0" value="0">
-                            Beginner Series (Active)
-                          </SelectItem>
-                          <SelectItem key="1" value="1">
-                            Intermediate Series
-                          </SelectItem>
-                          <SelectItem key="2" value="2">
-                            Monthly Mega
-                          </SelectItem>
-                          <SelectItem key="3" value="3">
-                            Weekly Express
-                          </SelectItem>
-                        </>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="w-1/2">
-                  <label className="text-sm font-mono uppercase tracking-wider text-primary mb-1 block">
-                    Draw
-                  </label>
-                  <Select
-                    disabled={false}
-                    value={selectedDrawId?.toString() || "1"}
-                    onValueChange={handleDrawChange}
-                  >
-                    <SelectTrigger className="bg-secondary border border-primary/30 text-white">
-                      <SelectValue placeholder="Select draw" />
-                    </SelectTrigger>
-                    <SelectContent className="border border-primary/30">
-                      {/* Use seriesDraws if available, otherwise show static fallback */}
-                      {(seriesDraws && seriesDraws.length > 0) ? (
-                        seriesDraws.filter(draw => draw.drawId !== 0).map((draw) => (
-                          <SelectItem key={draw.drawId} value={draw.drawId.toString()}>
-                            Draw #{draw.drawId} {!draw.completed ? ' (Active)' : ''}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        // Static fallback options
-                        <>
-                          <SelectItem key="1" value="1">
-                            Draw #1 (Active)
-                          </SelectItem>
-                          <SelectItem key="2" value="2">
-                            Draw #2
-                          </SelectItem>
-                        </>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {settings.showSeriesDropdown ? (
+                  // Show series and draw dropdowns when setting is enabled
+                  <>
+                    <div className="w-1/2">
+                      <label className="text-sm font-mono uppercase tracking-wider text-primary mb-1 block">
+                        Series
+                      </label>
+                      <Select
+                        disabled={false}
+                        value={selectedSeriesIndex?.toString() || "0"}
+                        onValueChange={handleSeriesChange}
+                      >
+                        <SelectTrigger className="bg-secondary border border-primary/30 text-white">
+                          <SelectValue placeholder="Select series" />
+                        </SelectTrigger>
+                        <SelectContent className="border border-primary/30">
+                          {/* Use static fallback when seriesList is empty */}
+                          {(seriesList && seriesList.length > 0) ? (
+                            seriesList.map((series) => (
+                              <SelectItem key={series.index} value={series.index.toString()}>
+                                {series.name} {series.active ? ' (Active)' : ''}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            // Static fallback options
+                            <>
+                              <SelectItem key="0" value="0">
+                                Beginner Series (Active)
+                              </SelectItem>
+                              <SelectItem key="1" value="1">
+                                Intermediate Series
+                              </SelectItem>
+                              <SelectItem key="2" value="2">
+                                Monthly Mega
+                              </SelectItem>
+                              <SelectItem key="3" value="3">
+                                Weekly Express
+                              </SelectItem>
+                            </>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="w-1/2">
+                      <label className="text-sm font-mono uppercase tracking-wider text-primary mb-1 block">
+                        Draw
+                      </label>
+                      <Select
+                        disabled={false}
+                        value={selectedDrawId?.toString() || "1"}
+                        onValueChange={handleDrawChange}
+                      >
+                        <SelectTrigger className="bg-secondary border border-primary/30 text-white">
+                          <SelectValue placeholder="Select draw" />
+                        </SelectTrigger>
+                        <SelectContent className="border border-primary/30">
+                          {/* Use seriesDraws if available, otherwise show static fallback */}
+                          {(seriesDraws && seriesDraws.length > 0) ? (
+                            seriesDraws.filter(draw => draw.drawId !== 0).map((draw) => (
+                              <SelectItem key={draw.drawId} value={draw.drawId.toString()}>
+                                Draw #{draw.drawId} {!draw.completed ? ' (Active)' : ''}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            // Static fallback options
+                            <>
+                              <SelectItem key="1" value="1">
+                                Draw #1 (Active)
+                              </SelectItem>
+                              <SelectItem key="2" value="2">
+                                Draw #2
+                              </SelectItem>
+                              <SelectItem key="3" value="3">
+                                Draw #3
+                              </SelectItem>
+                            </>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                ) : (
+                  // Show simplified view with just draw date when setting is disabled
+                  <div className="w-full">
+                    <label className="text-sm font-mono uppercase tracking-wider text-primary mb-1 block">
+                      Current Draw
+                    </label>
+                    <Select
+                      disabled={false}
+                      value={selectedDrawId?.toString() || "1"}
+                      onValueChange={handleDrawChange}
+                    >
+                      <SelectTrigger className="bg-secondary border border-primary/30 text-white">
+                        <div className="flex items-center">
+                          <Calendar className="h-4 w-4 mr-2 text-primary/70" />
+                          <SelectValue placeholder="Select draw" />
+                        </div>
+                      </SelectTrigger>
+                      <SelectContent className="border border-primary/30">
+                        {/* Use seriesDraws if available, otherwise show static fallback */}
+                        {(seriesDraws && seriesDraws.length > 0) ? (
+                          seriesDraws.filter(draw => draw.drawId !== 0).map((draw) => (
+                            <SelectItem key={draw.drawId} value={draw.drawId.toString()}>
+                              Draw #{draw.drawId} ({getDrawDate(seriesDraws, draw.drawId)})
+                            </SelectItem>
+                          ))
+                        ) : (
+                          // Static fallback options
+                          <>
+                            <SelectItem key="1" value="1">
+                              Draw #1 (04/22/25)
+                            </SelectItem>
+                            <SelectItem key="2" value="2">
+                              Draw #2 (04/23/25)
+                            </SelectItem>
+                            <SelectItem key="3" value="3">
+                              Draw #3 (04/24/25)
+                            </SelectItem>
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
               
               <div className="flex-1">

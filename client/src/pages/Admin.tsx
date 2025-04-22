@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAppSettings } from '@/context/AppSettingsContext';
 import { Redirect } from 'wouter';
 import { useWallet } from '@/hooks/useWallet';
 import { useAdmin, SeriesInfo } from '@/hooks/useAdmin';
@@ -17,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 
 export default function Admin() {
   const { isConnected, account } = useWallet();
+  const { settings, updateSettings } = useAppSettings();
   const { 
     isAdmin, 
     isAdminLoading, 
@@ -766,11 +768,12 @@ export default function Admin() {
         </Alert>
       ) : (
         <Tabs defaultValue="series" value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-4 mb-6">
+          <TabsList className="grid grid-cols-5 mb-6">
             <TabsTrigger value="complete">Complete Draw</TabsTrigger>
             <TabsTrigger value="block-hash">Complete w/ Hash</TabsTrigger>
             <TabsTrigger value="block-gap">Block Gap</TabsTrigger>
             <TabsTrigger value="series">Manage Series</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
           
           {/* Admin success notification is now shown as a toast only */}
@@ -936,6 +939,85 @@ export default function Admin() {
           </TabsContent>
 
           {/* Series Management Tab */}
+          {/* Settings Tab */}
+          <TabsContent value="settings">
+            <Card>
+              <CardHeader>
+                <CardTitle>UI Settings</CardTitle>
+                <CardDescription>
+                  Configure display options for the lottery interface
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label htmlFor="show-series" className="font-medium">Show Series Dropdown</Label>
+                      <p className="text-sm text-muted-foreground">
+                        When disabled, users will only see the selected draw date instead of series selection
+                      </p>
+                    </div>
+                    <Switch 
+                      id="show-series" 
+                      className="ml-4"
+                      checked={settings.showSeriesDropdown}
+                      onCheckedChange={(checked) => {
+                        // Update the setting via context
+                        updateSettings({ showSeriesDropdown: checked });
+                        console.log("Series dropdown visibility changed to:", checked);
+                        
+                        // Show toast notification
+                        toast({
+                          title: "Setting Updated",
+                          description: `Series dropdown will now be ${checked ? 'shown' : 'hidden'} to users`,
+                          duration: 3000,
+                        });
+                      }}
+                    />
+                  </div>
+                  
+                  <div className="mt-6 p-4 bg-card/80 border rounded-md">
+                    <p className="text-sm font-medium mb-2">Preview</p>
+                    <div className="flex flex-col md:flex-row gap-4 border border-dashed border-muted-foreground/50 p-4 rounded-md">
+                      <div className="md:w-1/2">
+                        <p className="text-sm text-muted-foreground mb-1">
+                          With Series Dropdown {settings.showSeriesDropdown ? "(Current)" : ""}
+                        </p>
+                        <div className="space-y-2 border p-3 rounded-md">
+                          <Label className="text-xs">Series</Label>
+                          <div className="h-9 bg-input rounded-md flex items-center px-3 text-sm">
+                            Beginner Series
+                          </div>
+                          <Label className="text-xs">Draw</Label>
+                          <div className="h-9 bg-input rounded-md flex items-center px-3 text-sm">
+                            Draw #1
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="md:w-1/2">
+                        <p className="text-sm text-muted-foreground mb-1">
+                          Without Series Dropdown {!settings.showSeriesDropdown ? "(Current)" : ""}
+                        </p>
+                        <div className="space-y-2 border p-3 rounded-md">
+                          <Label className="text-xs">Current Draw</Label>
+                          <div className="h-9 bg-input rounded-md flex items-center px-3 text-sm font-medium">
+                            Draw #1 (04/22/25)
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter className="flex justify-end border-t pt-6">
+                <p className="text-sm text-muted-foreground">
+                  Settings are automatically saved when changed
+                </p>
+              </CardFooter>
+            </Card>
+          </TabsContent>
+          
           <TabsContent value="series">
             <div className="grid md:grid-cols-2 gap-6">
               {/* Left column - Create New Series */}

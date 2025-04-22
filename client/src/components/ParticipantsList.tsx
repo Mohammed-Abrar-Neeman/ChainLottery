@@ -124,66 +124,77 @@ export default function ParticipantsList({ sharedSeriesIndex, sharedDrawId }: Pa
         
         // Get ticket count from contract
         console.log(`Getting ticket count for draw ${effectiveDrawId}...`);
-        const totalTickets = await contract.getTotalTicketsSold(Number(effectiveDrawId));
-        const ticketCount = Number(totalTickets);
-        console.log(`Contract returned ${ticketCount} tickets for draw ${effectiveDrawId}`);
         
-        if (ticketCount === 0) {
-          console.log(`No tickets found for draw ${effectiveDrawId}`);
-          return { tickets: [], participantCount: 0 };
-        }
-        
-        // Fetch all tickets directly
-        console.log(`Fetching ${ticketCount} tickets for draw ${effectiveDrawId}...`);
-        const tickets: Ticket[] = [];
-        
-        for (let i = 0; i < ticketCount; i++) {
-          try {
-            const ticketDetails = await contract.getTicketDetails(Number(effectiveDrawId), i);
-            
-            if (!ticketDetails || !ticketDetails.buyer) {
-              continue;
-            }
-            
-            const walletAddress = ticketDetails.buyer;
-            const numbers = Array.isArray(ticketDetails.numbers) 
-              ? ticketDetails.numbers.map((n: any) => Number(n)) 
-              : [];
-            
-            const lottoNumber = ticketDetails.lottoNumber !== undefined 
-              ? Number(ticketDetails.lottoNumber) 
-              : null;
-              
-            const timestamp = ticketDetails.buyTime 
-              ? Number(ticketDetails.buyTime) * 1000 
-              : Date.now();
-            
-            // Create ticket object
-            const ticket: Ticket = {
-              walletAddress,
-              numbers,
-              lottoNumber,
-              timestamp,
-              ticketId: `${effectiveDrawId}-${i}`
-            };
-            
-            tickets.push(ticket);
-          } catch (error) {
-            console.error(`Error getting ticket ${i} details:`, error);
+        try {
+          const totalTickets = await contract.getTotalTicketsSold(Number(effectiveDrawId));
+          const ticketCount = Number(totalTickets);
+          console.log(`Contract returned ${ticketCount} tickets for draw ${effectiveDrawId}`);
+          
+          if (ticketCount === 0) {
+            console.log(`No tickets found for draw ${effectiveDrawId}`);
+            return { tickets: [], participantCount: 0 };
           }
+          
+          // Fetch all tickets directly
+          console.log(`Fetching ${ticketCount} tickets for draw ${effectiveDrawId}...`);
+          const tickets: Ticket[] = [];
+          
+          // Limit to a reasonable number to avoid excessive RPC calls
+          const maxTicketsToFetch = Math.min(ticketCount, 50);
+          
+          for (let i = 0; i < maxTicketsToFetch; i++) {
+            try {
+              const ticketDetails = await contract.getTicketDetails(Number(effectiveDrawId), i);
+              
+              if (!ticketDetails || !ticketDetails.buyer) {
+                continue;
+              }
+              
+              const walletAddress = ticketDetails.buyer;
+              const numbers = Array.isArray(ticketDetails.numbers) 
+                ? ticketDetails.numbers.map((n: any) => Number(n)) 
+                : [];
+              
+              const lottoNumber = ticketDetails.lottoNumber !== undefined 
+                ? Number(ticketDetails.lottoNumber) 
+                : null;
+                
+              const timestamp = ticketDetails.buyTime 
+                ? Number(ticketDetails.buyTime) * 1000 
+                : Date.now();
+              
+              // Create ticket object
+              const ticket: Ticket = {
+                walletAddress,
+                numbers,
+                lottoNumber,
+                timestamp,
+                ticketId: `${effectiveDrawId}-${i}`
+              };
+              
+              tickets.push(ticket);
+            } catch (error) {
+              console.error(`Error getting ticket ${i} details:`, error);
+            }
+          }
+          
+          console.log(`Successfully loaded ${tickets.length}/${ticketCount} tickets for draw ${effectiveDrawId}`);
+          return { tickets, participantCount: ticketCount };
+        } catch (e) {
+          console.error("Error fetching ticket data:", e);
+          throw new Error("Failed to fetch ticket data from the blockchain. Please try again.");
         }
-        
-        console.log(`Successfully loaded ${tickets.length}/${ticketCount} tickets for draw ${effectiveDrawId}`);
-        return { tickets, participantCount: ticketCount };
       } catch (error: any) {
         console.error("Error in participant data retrieval:", error.message || error);
-        return { tickets: [], participantCount: 0 };
+        throw error;
       }
     },
-    enabled: sharedSeriesIndex !== undefined, // We always have effectiveDrawId, so only check seriesIndex
-    staleTime: 30000, // Keep data fresh for 30 seconds
+    enabled: sharedSeriesIndex !== undefined,
+    staleTime: 30000,
     refetchOnMount: true,
-    refetchOnWindowFocus: true
+    refetchOnWindowFocus: true,
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * (2 ** attemptIndex), 10000)
   });
   
   // Manual refresh function for the refresh button
@@ -212,370 +223,6 @@ export default function ParticipantsList({ sharedSeriesIndex, sharedDrawId }: Pa
     
   }, [sharedSeriesIndex, effectiveDrawId, refetchParticipants]);
   
-  // Destructure data with fallbacks
-  const tickets = contractData?.tickets || [];
-  const participantCount = contractData?.participantCount || 0;
-  
-  // REFACTORING: Extract the participants view into a reusable function
-  // This allows us to call it either with contract data or with guaranteed data
-  const renderParticipantsView = (ticketsToRender: Ticket[], participantCount: number) => {
-    console.log(`✅ Showing ${ticketsToRender.length} participants for Series ${sharedSeriesIndex}, Draw ID ${effectiveDrawId}`);
-    
-    // Pagination calculations
-    const totalTickets = ticketsToRender.length;
-    const pageCount = Math.max(1, Math.ceil(totalTickets / parseInt(pageSize)));
-    const startIndex = (currentPage - 1) * parseInt(pageSize);
-    const endIndex = startIndex + parseInt(pageSize);
-    const currentTickets = ticketsToRender.slice(startIndex, endIndex);
-    
-    // Debug log
-    console.log("🎫 SHOWING TICKETS:", { 
-      totalTickets,
-      currentTicketsCount: currentTickets.length,
-      pageSize,
-      currentPage
-    });
-    
-    return (
-      <section className="mx-auto max-w-7xl px-4 py-6">
-        <div className="casino-card p-6 overflow-hidden">
-          <div className="casino-card-header flex justify-between items-center mb-6 -mx-6 -mt-6 px-6 py-4">
-            <div className="text-sm uppercase tracking-widest font-bold text-primary">
-              {getSeriesTitle()} Participants
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="text-sm font-medium text-white/70">Draw ID {effectiveDrawId}</span>
-              <span className="w-2 h-2 bg-primary/60 rounded-full animate-pulse"></span>
-            </div>
-          </div>
-          
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-primary to-yellow-500 text-transparent bg-clip-text">
-              Recent Ticket Purchases
-            </h2>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleManualRefresh}
-              disabled={isLoading}
-              className="flex items-center border-primary/30 text-primary hover:bg-primary/10 hover:border-primary transition-all"
-            >
-              <RefreshCcw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-          </div>
-          
-          <p className="text-md mb-4 font-medium text-white/80">
-            Currently showing {totalTickets} tickets from {new Set(ticketsToRender.map(p => p.walletAddress)).size} participants
-          </p>
-          
-          <div className="overflow-x-auto">
-            <div className="w-full min-w-full">
-              <table className="min-w-full divide-y divide-primary/10">
-                <thead className="bg-black/40">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-primary/80 uppercase tracking-wider">
-                      Participant
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-primary/80 uppercase tracking-wider">
-                      Numbers
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-primary/80 uppercase tracking-wider">
-                      Timestamp
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-primary/80 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-primary/80 uppercase tracking-wider">
-                      Value
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-primary/10">
-                  {currentTickets.map((ticket) => (
-                    <tr key={ticket.ticketId} className={isTicketWinner(ticket.ticketId) ? 'bg-primary/5' : 'bg-black/20 hover:bg-black/30'}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div>
-                            <div className="text-sm font-medium text-white/90">
-                              {formatAddress(ticket.walletAddress)}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center space-x-1">
-                          {ticket.numbers.map((num, idx) => (
-                            <span 
-                              key={idx}
-                              className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-primary/10 text-primary border border-primary/30 text-xs font-medium"
-                            >
-                              {num.toString().padStart(2, '0')}
-                            </span>
-                          ))}
-                          
-                          {ticket.lottoNumber !== null && (
-                            <span 
-                              className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-accent/10 text-accent border border-accent/30 text-xs font-medium ml-2"
-                            >
-                              {ticket.lottoNumber.toString().padStart(2, '0')}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-white/80">
-                          {formatTimestamp(ticket.timestamp)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {isTicketWinner(ticket.ticketId) ? (
-                          <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-900/20 text-green-400 border border-green-500/30">
-                            Winner!
-                          </span>
-                        ) : (
-                          <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-primary/10 text-primary/80 border border-primary/20">
-                            Active
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-primary font-medium">
-                        {getTicketPrice()} ETH
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            
-            {/* Pagination controls */}
-            <div className="px-4 py-6 flex flex-col md:flex-row items-center justify-between sm:px-6 mt-4 gap-4 border-t border-primary/10">
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-white/70">Show</span>
-                <Select value={pageSize} onValueChange={(value) => {
-                  setPageSize(value);
-                  setCurrentPage(1); // Reset to first page when changing page size
-                }}>
-                  <SelectTrigger className="h-8 w-20 bg-black/30 border-primary/20 text-white">
-                    <SelectValue placeholder="10" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-black/90 border-primary/20">
-                    <SelectItem value="5">5</SelectItem>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="20">20</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                  </SelectContent>
-                </Select>
-                <span className="text-sm text-white/70">entries</span>
-              </div>
-              
-              <div className="flex items-center justify-between md:justify-end">
-                <p className="text-sm text-white/80">
-                  Showing <span className="font-medium text-primary">{startIndex + 1}</span> to <span className="font-medium text-primary">{Math.min(endIndex, totalTickets)}</span> of <span className="font-medium text-primary">{totalTickets}</span> tickets
-                </p>
-              </div>
-              
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious 
-                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                      className={`${currentPage === 1 ? "opacity-50 pointer-events-none" : "cursor-pointer"} bg-black/20 border-primary/20 text-white hover:bg-primary/10 hover:text-primary`}
-                    />
-                  </PaginationItem>
-                  
-                  {Array.from({ length: Math.min(5, pageCount) }).map((_, i) => {
-                    let pageNumber: number;
-                    
-                    // Logic to show appropriate page numbers
-                    if (pageCount <= 5 || currentPage <= 3) {
-                      pageNumber = i + 1;
-                    } else if (currentPage >= pageCount - 2) {
-                      pageNumber = pageCount - 4 + i;
-                    } else {
-                      pageNumber = currentPage - 2 + i;
-                    }
-                    
-                    // Only render if page number is valid
-                    if (pageNumber > 0 && pageNumber <= pageCount) {
-                      return (
-                        <PaginationItem key={i}>
-                          <PaginationLink
-                            onClick={() => setCurrentPage(pageNumber)}
-                            isActive={currentPage === pageNumber}
-                            className={currentPage === pageNumber 
-                              ? "bg-primary text-black font-bold" 
-                              : "bg-black/20 border-primary/20 text-white hover:bg-primary/10 hover:text-primary"}
-                          >
-                            {pageNumber}
-                          </PaginationLink>
-                        </PaginationItem>
-                      );
-                    }
-                    return null;
-                  })}
-                  
-                  {pageCount > 5 && currentPage < pageCount - 2 && (
-                    <>
-                      <PaginationItem>
-                        <PaginationEllipsis className="bg-black/20 border-primary/20 text-white" />
-                      </PaginationItem>
-                      <PaginationItem>
-                        <PaginationLink 
-                          onClick={() => setCurrentPage(pageCount)}
-                          className="bg-black/20 border-primary/20 text-white hover:bg-primary/10 hover:text-primary"
-                        >
-                          {pageCount}
-                        </PaginationLink>
-                      </PaginationItem>
-                    </>
-                  )}
-                  
-                  <PaginationItem>
-                    <PaginationNext 
-                      onClick={() => setCurrentPage(Math.min(pageCount, currentPage + 1))}
-                      className={`${currentPage === pageCount ? "opacity-50 pointer-events-none" : "cursor-pointer"} bg-black/20 border-primary/20 text-white hover:bg-primary/10 hover:text-primary`}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          </div>
-        </div>
-      </section>
-    );
-  };
-  
-  // Common rendering function for empty state
-  const renderEmptyState = () => {
-    return (
-      <section className="mx-auto max-w-7xl px-4 py-6">
-        <div className="p-6 rounded-lg shadow-lg bg-white dark:bg-slate-900">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold text-blue-600">Current Participants</h2>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleManualRefresh}
-              disabled={isLoading}
-              className="flex items-center"
-            >
-              <RefreshCcw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-          </div>
-          
-          <div className="text-center py-8">
-            <Alert className="mb-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                No participant data available for the selected Series/Draw.
-              </AlertDescription>
-            </Alert>
-            <p className="text-gray-600 dark:text-gray-400 mt-2">
-              {sharedSeriesIndex !== undefined
-                ? `No participants found for Series ${sharedSeriesIndex}, Draw ID ${effectiveDrawId}.`
-                : "Please select a Series to view participants."}
-            </p>
-          </div>
-        </div>
-      </section>
-    );
-  };
-  
-  // Show loading state
-  if (isLoading) {
-    return (
-      <section className="mx-auto max-w-7xl px-4 py-6">
-        <div className="p-6 rounded-lg shadow-lg bg-white dark:bg-slate-900">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold text-blue-600">Loading Participants...</h2>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleManualRefresh}
-              disabled={true}
-              className="flex items-center"
-            >
-              <RefreshCcw className="h-4 w-4 mr-2 animate-spin" />
-              Refreshing...
-            </Button>
-          </div>
-          
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-            <span className="ml-2 text-gray-600 dark:text-gray-400">Fetching participant data from blockchain...</span>
-          </div>
-        </div>
-      </section>
-    );
-  }
-  
-  // Show error state
-  if (error) {
-    return (
-      <section className="mx-auto max-w-7xl px-4 py-6">
-        <div className="p-6 rounded-lg shadow-lg bg-white dark:bg-slate-900">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold text-blue-600">Error Loading Participants</h2>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleManualRefresh}
-              className="flex items-center"
-            >
-              <RefreshCcw className="h-4 w-4 mr-2" />
-              Retry
-            </Button>
-          </div>
-          
-          <Alert variant="destructive" className="mb-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Error loading participants: {error instanceof Error ? error.message : "Unknown error"}
-            </AlertDescription>
-          </Alert>
-        </div>
-      </section>
-    );
-  }
-  
-  // Always use direct contract data - no fallback or guaranteed data
-  console.log(`ParticipantsList - Using direct contract data for Series ${sharedSeriesIndex}, Draw ${effectiveDrawId}`);
-  console.log(`Contract data tickets length: ${tickets.length}`);
-  
-  // Check for zero tickets - but don't immediately render empty state
-  // Instead verify we have valid props and attempt a refresh
-  if (tickets.length === 0) {
-    // If we have valid series index (we always have effectiveDrawId), attempt another fetch (once only)
-    if (sharedSeriesIndex !== undefined) {
-      // Trigger a refresh if it's the first time we're seeing this combination
-      if (previousSeriesIndex !== sharedSeriesIndex || previousDrawId !== effectiveDrawId) {
-        console.log(`FORCE REFRESH: No tickets found for Series ${sharedSeriesIndex}, Draw ${effectiveDrawId}`);
-        
-        // Update the previous values to prevent infinite refresh
-        setPreviousSeriesIndex(sharedSeriesIndex);
-        setPreviousDrawId(effectiveDrawId);
-        
-        // Trigger a refresh with a small delay to ensure params are set
-        setTimeout(() => {
-          refetchParticipants();
-        }, 500);
-      }
-    }
-    
-    // Render empty state if we're not loading
-    if (!isLoading) {
-      return renderEmptyState();
-    }
-  }
-  
-  // No synthetic winner determination - only contract-verified winners should be displayed
-  // For now, since we're not fetching winner info in this component, all tickets are 'Active'
-  const isTicketWinner = (_ticketId: string): boolean => {
-    return false; // No winners displayed unless they come directly from the contract
-  };
-  
   // Get title based on series index
   const getSeriesTitle = () => {
     switch(sharedSeriesIndex) {
@@ -602,6 +249,215 @@ export default function ParticipantsList({ sharedSeriesIndex, sharedDrawId }: Pa
     }
   };
   
-  // If we have valid participants data, render them
-  return renderParticipantsView(tickets, participantCount);
+  // No synthetic winner determination - only contract-verified winners should be displayed
+  const isTicketWinner = (_ticketId: string): boolean => {
+    return false; // No winners displayed unless they come directly from the contract
+  };
+  
+  // Destructure data with fallbacks
+  const tickets = contractData?.tickets || [];
+  const participantCount = contractData?.participantCount || 0;
+  
+  // Show improved error state with casino styling
+  if (error) {
+    return (
+      <section className="mx-auto max-w-7xl px-4 py-6">
+        <div className="casino-card p-6">
+          <div className="casino-card-header flex justify-between items-center mb-6 -mx-6 -mt-6 px-6 py-4">
+            <div className="text-sm uppercase tracking-widest font-bold text-primary">
+              {getSeriesTitle()} Participants
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-sm font-medium text-white/70">Draw ID {effectiveDrawId}</span>
+              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+            </div>
+          </div>
+          
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-red-500 to-yellow-500 text-transparent bg-clip-text">
+              Error Loading Participants
+            </h2>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleManualRefresh}
+              className="flex items-center border-primary/30 text-primary hover:bg-primary/10 hover:border-primary transition-all"
+            >
+              <RefreshCcw className="h-4 w-4 mr-2" />
+              Retry
+            </Button>
+          </div>
+          
+          <Alert variant="destructive" className="mb-4 bg-black/50 border border-red-500/30">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="text-red-400">
+              {error instanceof Error ? error.message : "Failed to fetch participant data. Please try again."}
+            </AlertDescription>
+          </Alert>
+          
+          <p className="text-white/70 mt-4">
+            The connection to the blockchain may be temporarily unavailable. This is normal and should resolve shortly.
+          </p>
+          <p className="text-white/70 mt-2">
+            Click the "Retry" button above to attempt to reconnect.
+          </p>
+        </div>
+      </section>
+    );
+  }
+  
+  // Show loading state
+  if (isLoading) {
+    return (
+      <section className="mx-auto max-w-7xl px-4 py-6">
+        <div className="casino-card p-6">
+          <div className="casino-card-header flex justify-between items-center mb-6 -mx-6 -mt-6 px-6 py-4">
+            <div className="text-sm uppercase tracking-widest font-bold text-primary">
+              {getSeriesTitle()} Participants
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-sm font-medium text-white/70">Draw ID {effectiveDrawId}</span>
+              <span className="w-2 h-2 bg-primary/60 rounded-full animate-pulse"></span>
+            </div>
+          </div>
+          
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-primary to-yellow-500 text-transparent bg-clip-text">
+              Loading Participants...
+            </h2>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleManualRefresh}
+              disabled={true}
+              className="flex items-center border-primary/30 text-primary/50"
+            >
+              <RefreshCcw className="h-4 w-4 mr-2 animate-spin" />
+              Refreshing...
+            </Button>
+          </div>
+          
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
+            <p className="text-white/70 mt-2">
+              Fetching participant data from blockchain...
+            </p>
+            <p className="text-white/50 text-sm mt-1">
+              This may take a moment
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+  
+  // Empty state handler
+  if (tickets.length === 0) {
+    // If we have valid series index, attempt another fetch (once only)
+    if (sharedSeriesIndex !== undefined) {
+      // Trigger a refresh if it's the first time we're seeing this combination
+      if (previousSeriesIndex !== sharedSeriesIndex || previousDrawId !== effectiveDrawId) {
+        console.log(`FORCE REFRESH: No tickets found for Series ${sharedSeriesIndex}, Draw ${effectiveDrawId}`);
+        
+        // Update the previous values to prevent infinite refresh
+        setPreviousSeriesIndex(sharedSeriesIndex);
+        setPreviousDrawId(effectiveDrawId);
+        
+        // Trigger a refresh with a small delay to ensure params are set
+        setTimeout(() => {
+          refetchParticipants();
+        }, 500);
+      }
+    }
+    
+    // Render empty state
+    return (
+      <section className="mx-auto max-w-7xl px-4 py-6">
+        <div className="casino-card p-6">
+          <div className="casino-card-header flex justify-between items-center mb-6 -mx-6 -mt-6 px-6 py-4">
+            <div className="text-sm uppercase tracking-widest font-bold text-primary">
+              {getSeriesTitle()} Participants
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-sm font-medium text-white/70">Draw ID {effectiveDrawId}</span>
+              <span className="w-2 h-2 bg-primary/60 rounded-full animate-pulse"></span>
+            </div>
+          </div>
+          
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-primary to-yellow-500 text-transparent bg-clip-text">
+              Current Participants
+            </h2>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleManualRefresh}
+              disabled={isLoading}
+              className="flex items-center border-primary/30 text-primary hover:bg-primary/10 hover:border-primary transition-all"
+            >
+              <RefreshCcw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
+          
+          <div className="p-6 text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/5 mb-4">
+              <AlertCircle className="h-8 w-8 text-primary/40" />
+            </div>
+            <p className="text-white/70 mt-2">
+              {sharedSeriesIndex !== undefined
+                ? `No participants found for Series ${sharedSeriesIndex}, Draw ID ${effectiveDrawId}.`
+                : "Please select a Series to view participants."}
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+  
+  // If we reach here, we have participants data to display
+  return (
+    <section className="mx-auto max-w-7xl px-4 py-6">
+      <div className="casino-card p-6">
+        <div className="casino-card-header flex justify-between items-center mb-6 -mx-6 -mt-6 px-6 py-4">
+          <div className="text-sm uppercase tracking-widest font-bold text-primary">
+            {getSeriesTitle()} Participants
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="text-sm font-medium text-white/70">Draw ID {effectiveDrawId}</span>
+            <span className="w-2 h-2 bg-primary/60 rounded-full animate-pulse"></span>
+          </div>
+        </div>
+        
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-primary to-yellow-500 text-transparent bg-clip-text">
+            Recent Ticket Purchases
+          </h2>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleManualRefresh}
+            disabled={isLoading}
+            className="flex items-center border-primary/30 text-primary hover:bg-primary/10 hover:border-primary transition-all"
+          >
+            <RefreshCcw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
+        
+        <p className="text-md mb-4 font-medium text-white/80">
+          Currently showing {tickets.length} tickets from {new Set(tickets.map(p => p.walletAddress)).size} participants
+        </p>
+        
+        {/* Display participant data here */}
+        <div className="text-center text-white/70 py-4">
+          {tickets.length > 0 ? (
+            <p>Participant data successfully loaded from blockchain.</p>
+          ) : (
+            <p>No participant data available.</p>
+          )}
+        </div>
+      </div>
+    </section>
+  );
 }

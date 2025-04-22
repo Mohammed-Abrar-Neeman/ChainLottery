@@ -10,6 +10,7 @@ import History from "@/pages/History";
 import ScalableHistory from "@/pages/ScalableHistory";
 import FAQ from "@/pages/FAQ";
 import Admin from "@/pages/Admin";
+import { AppSettingsProvider } from "./context/AppSettingsContext";
 
 function Router() {
   return (
@@ -30,10 +31,12 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Layout>
-        <Router />
-      </Layout>
-      <Toaster />
+      <AppSettingsProvider>
+        <Layout>
+          <Router />
+        </Layout>
+        <Toaster />
+      </AppSettingsProvider>
     </QueryClientProvider>
   );
 }

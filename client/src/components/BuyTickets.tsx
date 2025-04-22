@@ -3,7 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useLotteryData } from '@/hooks/useLotteryData';
 import { useWallet } from '@/hooks/useWallet';
-import { Wallet, Shuffle, TicketIcon, RefreshCw } from 'lucide-react';
+import { useAppSettings } from '@/context/AppSettingsContext';
+import { useDrawDate } from '@/hooks/useDrawDate';
+import { Wallet, Shuffle, TicketIcon, RefreshCw, Calendar } from 'lucide-react';
 import WalletModal from './modals/WalletModal';
 import BuyConfirmationModal from './modals/BuyConfirmationModal';
 import TicketReconfirmationModal from './modals/TicketReconfirmationModal';
@@ -76,6 +78,8 @@ const BuyTickets = React.memo(function BuyTickets({
     timeRemaining
   } = useLotteryData();
   const { isConnected } = useWallet();
+  const { settings } = useAppSettings();
+  const { getDrawDate } = useDrawDate();
   const { toast } = useToast();
   
   // Create a function to get the current ticket price
@@ -428,12 +432,20 @@ const BuyTickets = React.memo(function BuyTickets({
         {/* Draw information - Selected from Hero Banner */}
         <div className="mb-2 text-center">
           <div className="text-sm text-white/80 mb-1 font-medium">
-            {!isConnected 
-              ? `${stableSeriesName} - Draw #${stableDrawId}` 
-              : `${displaySeriesName}${displayDrawId ? ` - Draw #${displayDrawId}` : ''}`
-            }
+            {!isConnected ? (
+              `${stableSeriesName} - Draw #${stableDrawId}`
+            ) : settings.showSeriesDropdown ? (
+              // When series dropdown is enabled, show series and draw
+              `${displaySeriesName}${displayDrawId ? ` - Draw #${displayDrawId}` : ''}`
+            ) : (
+              // When series dropdown is disabled, show draw with date
+              `Draw #${displayDrawId} ${seriesDraws && displayDrawId ? `(${getDrawDate(seriesDraws, displayDrawId)})` : ''}`
+            )}
           </div>
-          <div className="text-xs text-white/50">
+          <div className="text-xs text-white/50 flex items-center justify-center">
+            {!settings.showSeriesDropdown && isConnected && (
+              <Calendar className="h-3 w-3 mr-1 text-primary/70" />
+            )}
             {isConnected ? "(Change draw selection in the banner above)" : "(Connect wallet to select draw)"}
           </div>
         </div>
@@ -582,7 +594,18 @@ const BuyTickets = React.memo(function BuyTickets({
       
       <div className="casino-card overflow-hidden">
         <div className="casino-card-header flex items-center justify-between py-4 px-6">
-          <div className="text-sm uppercase tracking-widest font-bold text-primary">Choose Your Lottery Numbers</div>
+          <div className="flex items-center">
+            <div className="text-sm uppercase tracking-widest font-bold text-primary mr-3">Choose Your Lottery Numbers</div>
+            <Button 
+              onClick={handleQuickPick}
+              variant="outline"
+              size="sm"
+              className="flex items-center justify-center border-primary/30 text-primary hover:bg-primary/10 hover:border-primary h-7"
+            >
+              <Shuffle className="mr-1 h-3 w-3" />
+              Quick Pick
+            </Button>
+          </div>
           <div className="flex items-center space-x-2">
             <span className="w-2 h-2 bg-primary rounded-full animate-pulse"></span>
             <span className="w-2 h-2 bg-primary/80 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></span>
@@ -613,17 +636,6 @@ const BuyTickets = React.memo(function BuyTickets({
             </div>
             
             {renderLottoNumberGrid()}
-            
-            <div className="mb-8 mt-6">
-              <Button 
-                onClick={handleQuickPick}
-                variant="outline"
-                className="w-full flex items-center justify-center border-primary/30 text-primary hover:bg-primary/10 hover:border-primary py-6 h-12"
-              >
-                <Shuffle className="mr-2 h-5 w-5" />
-                Quick Pick
-              </Button>
-            </div>
             
             <div className="mb-8">
               <div className="flex items-center mb-4">

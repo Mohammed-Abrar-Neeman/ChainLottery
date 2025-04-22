@@ -5,9 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from '@/components/ui/label';
 import { useToast } from "@/hooks/use-toast";
+import { useAppSettings } from '@/context/AppSettingsContext';
+import { useDrawDate } from '@/hooks/useDrawDate';
 import WalletModal from '@/components/modals/WalletModal';
 import { formatAddress } from '@/lib/web3';
-import { ExternalLink, Ticket, AlertTriangle, Wallet, ChevronDown, RefreshCw, CheckCircle } from 'lucide-react';
+import { ExternalLink, Ticket, AlertTriangle, Wallet, ChevronDown, RefreshCw, CheckCircle, Calendar } from 'lucide-react';
 import { useLotteryData } from '@/hooks/useLotteryData';
 import { 
   getAllUserTicketDetails, 
@@ -24,6 +26,8 @@ import {
 export default function MyTickets() {
   const { account, isConnected, provider } = useWallet();
   const { toast } = useToast();
+  const { settings } = useAppSettings();
+  const { getDrawDate } = useDrawDate();
   const { 
     formatUSD, 
     seriesList, 
@@ -433,12 +437,13 @@ export default function MyTickets() {
         
         {/* Selection Controls - Matching the HeroBanner implementation */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
-          <div>
-            <Label htmlFor="series-select" className="text-sm font-bold mb-2 block text-primary uppercase tracking-wider">Series</Label>
-            <Select
-              disabled={false} // Always enable the dropdown
-              value={localSeriesIndex?.toString() || "0"} // Default to Series 0
-              onValueChange={(value) => {
+          {settings.showSeriesDropdown && (
+            <div>
+              <Label htmlFor="series-select" className="text-sm font-bold mb-2 block text-primary uppercase tracking-wider">Series</Label>
+              <Select
+                disabled={false} // Always enable the dropdown
+                value={localSeriesIndex?.toString() || "0"} // Default to Series 0
+                onValueChange={(value) => {
                 const numValue = Number(value);
                 console.log("MyTickets - Series change:", { 
                   oldValue: localSeriesIndex, 
@@ -477,9 +482,12 @@ export default function MyTickets() {
               </SelectContent>
             </Select>
           </div>
+          )}
           
-          <div>
-            <Label htmlFor="draw-select" className="text-sm font-bold mb-2 block text-primary uppercase tracking-wider">Draw</Label>
+          <div className={settings.showSeriesDropdown ? "" : "md:col-span-2"}>
+            <Label htmlFor="draw-select" className="text-sm font-bold mb-2 block text-primary uppercase tracking-wider">
+              {settings.showSeriesDropdown ? "Draw" : "Current Draw"}
+            </Label>
             <Select
               disabled={false} // Always enable the dropdown for better user experience
               value={localDrawId?.toString() || "1"} // Default to Draw 1
@@ -551,13 +559,27 @@ export default function MyTickets() {
               }}
             >
               <SelectTrigger id="draw-select" className="w-full bg-black/30 border-primary/20 text-white">
-                <SelectValue placeholder={
-                  localSeriesIndex === undefined 
-                    ? "Select a series first" 
-                    : !hasDrawsForSeries(localSeriesIndex)
-                    ? "No draws available" 
-                    : "Select draw"
-                } />
+                {!settings.showSeriesDropdown && (
+                  <div className="flex items-center">
+                    <Calendar className="h-4 w-4 mr-2 text-primary/70" />
+                    <SelectValue placeholder={
+                      localSeriesIndex === undefined 
+                        ? "Select a draw date" 
+                        : !hasDrawsForSeries(localSeriesIndex)
+                        ? "No draws available" 
+                        : "Select draw date"
+                    } />
+                  </div>
+                )}
+                {settings.showSeriesDropdown && (
+                  <SelectValue placeholder={
+                    localSeriesIndex === undefined 
+                      ? "Select a series first" 
+                      : !hasDrawsForSeries(localSeriesIndex)
+                      ? "No draws available" 
+                      : "Select draw"
+                  } />
+                )}
               </SelectTrigger>
               <SelectContent className="bg-black/90 border-primary/20">
                 {/* Static fallback options when no draws are available */}
@@ -621,7 +643,10 @@ export default function MyTickets() {
                       
                       return (
                         <SelectItem key={draw.drawId} value={draw.drawId.toString()}>
-                          Draw #{draw.drawId} {!draw.completed ? ' (Active)' : ' (Completed)'}
+                          {settings.showSeriesDropdown 
+                            ? `Draw #${draw.drawId} ${!draw.completed ? ' (Active)' : ' (Completed)'}`
+                            : `Draw #${draw.drawId} (${getDrawDate(seriesDraws, draw.drawId)})`
+                          }
                         </SelectItem>
                       );
                     });

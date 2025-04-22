@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useLotteryData } from '@/hooks/useLotteryData';
+import { useAppSettings } from '@/context/AppSettingsContext';
+import { useDrawDate } from '@/hooks/useDrawDate';
 import { formatAddress } from '@/lib/web3';
-import { ExternalLink, History as HistoryIcon, Award, Info as InfoIcon, Target, Filter } from 'lucide-react';
+import { ExternalLink, History as HistoryIcon, Award, Info as InfoIcon, Target, Filter, Calendar } from 'lucide-react';
 import {
   Tabs,
   TabsContent,
@@ -137,6 +139,9 @@ export default function History() {
     setSelectedSeriesIndex,
     setSelectedDrawId
   } = useLotteryData();
+  
+  const { settings } = useAppSettings();
+  const { getDrawDate } = useDrawDate();
   
   // Use the contract draw data hook
   const { drawData, isLoading: isLoadingDrawData, fetchDrawData } = useContractDrawData();
@@ -533,46 +538,58 @@ export default function History() {
       {/* Series and Draw Selection */}
       <div className="casino-card p-6 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="text-primary text-sm font-medium mb-2 block">Series</label>
-            {isLoadingSeriesList ? (
-              <Skeleton className="h-10 w-full" />
-            ) : (
-              <Select
-                value={selectedSeriesIndex !== undefined ? selectedSeriesIndex.toString() : undefined}
-                onValueChange={handleSeriesChange}
-              >
-                <SelectTrigger className="bg-black/40 border-primary/30">
-                  <SelectValue placeholder="Select a series" />
-                </SelectTrigger>
-                <SelectContent className="bg-black/90 border-primary/30">
-                  <SelectItem value="all">All Series</SelectItem>
-                  {seriesList && seriesList.length > 0 ? (
-                    seriesList.map((series: LotterySeries) => (
-                      <SelectItem key={series.index} value={series.index.toString()}>
-                        {series.name} (Series #{series.index})
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="0">Default Series</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
+          {settings.showSeriesDropdown && (
+            <div>
+              <label className="text-primary text-sm font-medium mb-2 block">Series</label>
+              {isLoadingSeriesList ? (
+                <Skeleton className="h-10 w-full" />
+              ) : (
+                <Select
+                  value={selectedSeriesIndex !== undefined ? selectedSeriesIndex.toString() : undefined}
+                  onValueChange={handleSeriesChange}
+                >
+                  <SelectTrigger className="bg-black/40 border-primary/30">
+                    <SelectValue placeholder="Select a series" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-black/90 border-primary/30">
+                    <SelectItem value="all">All Series</SelectItem>
+                    {seriesList && seriesList.length > 0 ? (
+                      seriesList.map((series: LotterySeries) => (
+                        <SelectItem key={series.index} value={series.index.toString()}>
+                          {series.name} (Series #{series.index})
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="0">Default Series</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          )}
           
-          <div>
-            <label className="text-primary text-sm font-medium mb-2 block">Draw</label>
+          <div className={settings.showSeriesDropdown ? "" : "md:col-span-2"}>
+            <label className="text-primary text-sm font-medium mb-2 block">
+              {settings.showSeriesDropdown ? "Draw" : "Current Draw"}
+            </label>
             {isLoadingSeriesDraws ? (
               <Skeleton className="h-10 w-full" />
             ) : (
               <Select
                 value={selectedDrawId !== undefined ? selectedDrawId.toString() : undefined}
                 onValueChange={handleDrawChange}
-                disabled={selectedSeriesIndex === undefined} // Only disable when "All Series" is selected (undefined)
+                disabled={settings.showSeriesDropdown && selectedSeriesIndex === undefined} // Only disable when "All Series" is selected in series mode
               >
                 <SelectTrigger className="bg-black/40 border-primary/30">
-                  <SelectValue placeholder="Select a draw" />
+                  {!settings.showSeriesDropdown && (
+                    <div className="flex items-center">
+                      <Calendar className="h-4 w-4 mr-2 text-primary/70" />
+                      <SelectValue placeholder="Select a draw" />
+                    </div>
+                  )}
+                  {settings.showSeriesDropdown && (
+                    <SelectValue placeholder="Select a draw" />
+                  )}
                 </SelectTrigger>
                 <SelectContent className="bg-black/90 border-primary/30">
                   <SelectItem value="all">All Draws</SelectItem>

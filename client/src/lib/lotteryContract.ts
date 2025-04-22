@@ -1969,6 +1969,7 @@ export interface LotteryDraw {
   isFutureBlockDraw: boolean;
   completed: boolean;
   winningNumbers?: number[];
+  endTimestamp?: number; // End timestamp for the draw
 }
 
 export interface LotterySeries {
