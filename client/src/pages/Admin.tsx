@@ -18,7 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 
 export default function Admin() {
   const { isConnected, account } = useWallet();
-  const { settings, updateSettings } = useAppSettings();
+  const { settings, updateShowSeriesDropdown } = useAppSettings();
   const { 
     isAdmin, 
     isAdminLoading, 
@@ -961,17 +961,27 @@ export default function Admin() {
                       id="show-series" 
                       className="ml-4"
                       checked={settings.showSeriesDropdown}
-                      onCheckedChange={(checked) => {
-                        // Update the setting via context
-                        updateSettings({ showSeriesDropdown: checked });
-                        console.log("Series dropdown visibility changed to:", checked);
-                        
-                        // Show toast notification
-                        toast({
-                          title: "Setting Updated",
-                          description: `Series dropdown will now be ${checked ? 'shown' : 'hidden'} to users`,
-                          duration: 3000,
-                        });
+                      onCheckedChange={async (checked) => {
+                        try {
+                          // Update the setting via context
+                          await updateShowSeriesDropdown(checked);
+                          console.log("Series dropdown visibility changed to:", checked);
+                          
+                          // Show toast notification
+                          toast({
+                            title: "Setting Updated",
+                            description: `Series dropdown will now be ${checked ? 'shown' : 'hidden'} to users`,
+                            duration: 3000,
+                          });
+                        } catch (error) {
+                          console.error("Error updating series dropdown setting:", error);
+                          toast({
+                            title: "Error",
+                            description: "Failed to update setting. Please try again.",
+                            variant: "destructive",
+                            duration: 3000,
+                          });
+                        }
                       }}
                     />
                   </div>

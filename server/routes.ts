@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
 import { insertLotteryTicketSchema } from "@shared/schema";
+import { appSettingsRouter } from "./routes/appSettings";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup the API routes
@@ -49,7 +50,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  const apiRouter = app.route('/api');
+  // Register app settings routes
+  app.use('/api/settings', appSettingsRouter);
   
   // Admin routes
   app.post('/api/admin/lottery/finalize/:roundId', isAdmin, async (req, res) => {

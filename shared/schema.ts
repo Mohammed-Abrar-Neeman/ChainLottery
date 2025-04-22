@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, numeric, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -59,3 +59,19 @@ export type LotteryRound = typeof lotteryRounds.$inferSelect;
 
 export type InsertLotteryTicket = z.infer<typeof insertLotteryTicketSchema>;
 export type LotteryTicket = typeof lotteryTickets.$inferSelect;
+
+// App Settings Table
+export const appSettings = pgTable("app_settings", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  value: jsonb("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertAppSettingsSchema = createInsertSchema(appSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertAppSetting = z.infer<typeof insertAppSettingsSchema>;
+export type AppSetting = typeof appSettings.$inferSelect;
