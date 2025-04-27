@@ -5,7 +5,7 @@ import { useLotteryData } from '@/hooks/useLotteryData';
 import { useWallet } from '@/hooks/useWallet';
 import { useAppSettings } from '@/context/AppSettingsContext';
 import { useDrawDate } from '@/hooks/useDrawDate';
-import { Wallet, Shuffle, TicketIcon, RefreshCw, Calendar, Plus, AlertTriangle } from 'lucide-react';
+import { Wallet, Shuffle, TicketIcon, RefreshCw, Calendar } from 'lucide-react';
 import WalletModal from './modals/WalletModal';
 import BuyConfirmationModal from './modals/BuyConfirmationModal';
 import TicketReconfirmationModal from './modals/TicketReconfirmationModal';
@@ -57,17 +57,10 @@ const BuyTickets = React.memo(function BuyTickets({
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [transactionHash, setTransactionHash] = useState('');
   
-  // Multiple ticket system - each ticket has unique numbers
-  const [tickets, setTickets] = useState<Array<{id: string, numbers: number[], lottoNumber: number | null}>>([
-    {id: `ticket-${Date.now()}`, numbers: [...DEFAULT_SELECTED_NUMBERS], lottoNumber: DEFAULT_LOTTO_NUMBER}
-  ]);
-  const [activeTicketIndex, setActiveTicketIndex] = useState(0);
-  
   const { 
     lotteryData, 
     formatUSD, 
     buyCustomTicket: buyTicket,
-    buyMultipleTicketsMutation,
     generateQuickPick: genQuickPick, 
     isBuyingTickets,
     seriesList,
@@ -115,9 +108,7 @@ const BuyTickets = React.memo(function BuyTickets({
   // This is the key to preventing flickering - we bypass all the data fetching processes when not connected
   const ticketPrice = !isConnected ? STABLE_TICKET_PRICE : (isDrawAvailable() ? parseFloat(rawTicketPrice || '0.01') : 0);
   const networkFee = NETWORK_FEE; // Estimated gas fee in ETH
-  const totalTicketsCount = tickets.length;
-  const totalTicketsPrice = ticketPrice * totalTicketsCount;
-  const totalCost = totalTicketsPrice + networkFee;
+  const totalCost = ticketPrice + networkFee;
   
   // Create stable series and draw name for non-connected state
   const stableSeriesName = "Beginner Series";
@@ -149,74 +140,7 @@ const BuyTickets = React.memo(function BuyTickets({
     // The component will re-render and get the new ticket price
   }, [selectedDrawId]);
 
-  // Sync active ticket with selected numbers
-  useEffect(() => {
-    if (tickets.length > 0 && activeTicketIndex < tickets.length) {
-      setSelectedNumbers(tickets[activeTicketIndex].numbers);
-      setSelectedLottoNumber(tickets[activeTicketIndex].lottoNumber);
-    }
-  }, [tickets, activeTicketIndex]);
-  
-  // Update active ticket when numbers change
-  useEffect(() => {
-    if (selectedNumbers.length === 5 && selectedLottoNumber !== null && tickets.length > 0) {
-      setTickets(prev => {
-        const newTickets = [...prev];
-        // Only update if the active ticket index is valid
-        if (activeTicketIndex < newTickets.length) {
-          newTickets[activeTicketIndex] = {
-            ...newTickets[activeTicketIndex],
-            numbers: [...selectedNumbers],
-            lottoNumber: selectedLottoNumber
-          };
-        }
-        return newTickets;
-      });
-    }
-  }, [selectedNumbers, selectedLottoNumber]);
-  
-  // Add a new ticket to the list
-  const addNewTicket = () => {
-    // Generate new unique ID
-    const newTicketId = `ticket-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
-    // Generate random numbers for the new ticket
-    const { numbers, lottoNumber } = isConnected 
-      ? genQuickPick() 
-      : { numbers: [...DEFAULT_SELECTED_NUMBERS], lottoNumber: DEFAULT_LOTTO_NUMBER };
-    
-    // Add the new ticket to the list
-    setTickets(prev => [...prev, { id: newTicketId, numbers, lottoNumber }]);
-    
-    // Switch to the new ticket
-    setActiveTicketIndex(tickets.length);
-  };
-  
-  // Remove a ticket from the list
-  const removeTicket = (index: number) => {
-    if (tickets.length <= 1) {
-      // Don't allow removing the last ticket
-      toast({
-        title: "Cannot Remove Ticket",
-        description: "You must have at least one ticket.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    setTickets(prev => {
-      const newTickets = [...prev];
-      newTickets.splice(index, 1);
-      return newTickets;
-    });
-    
-    // Adjust active ticket index if needed
-    if (index <= activeTicketIndex) {
-      setActiveTicketIndex(Math.max(0, activeTicketIndex - 1));
-    }
-  };
-  
-  // Handle quick pick generation for current ticket
+  // Handle quick pick generation
   const handleQuickPick = () => {
     if (!isConnected) {
       // Use stable, pre-defined numbers when no wallet is connected
@@ -360,34 +284,10 @@ const BuyTickets = React.memo(function BuyTickets({
     setShowReconfirmModal(true);
   };
   
-  // Generate multiple quick pick tickets when needed
-  const generateMultipleTickets = (count: number) => {
-    // Start with the currently selected ticket
-    const tickets: Array<{numbers: number[], lottoNumber: number}> = [
-      { numbers: [...selectedNumbers], lottoNumber: selectedLottoNumber || 1 }
-    ];
-    
-    // Generate additional tickets if needed
-    for (let i = 1; i < count; i++) {
-      const { numbers, lottoNumber } = genQuickPick();
-      tickets.push({ numbers, lottoNumber });
-    }
-    
-    return tickets;
-  };
-
   // Handle final confirmation and purchase
   const handleConfirmPurchase = async () => {
-    // Validate all tickets
-    for (const ticket of tickets) {
-      if (ticket.numbers.length !== 5 || ticket.lottoNumber === null) {
-        toast({
-          title: "Invalid Ticket",
-          description: "Each ticket must have 5 numbers and 1 LOTTO number selected.",
-          variant: "destructive"
-        });
-        return;
-      }
+    if (selectedNumbers.length !== 5 || selectedLottoNumber === null) {
+      return;
     }
     
     // Check if draws are available
@@ -416,57 +316,19 @@ const BuyTickets = React.memo(function BuyTickets({
     setShowReconfirmModal(false);
     setShowPendingModal(true);
     
-    let result;
-    
-    // Buy a single ticket or multiple tickets based on the tickets array
-    if (tickets.length === 1) {
-      // Single ticket purchase - use the existing function
-      const ticket = tickets[0];
-      result = await buyTicket(
-        ticket.numbers, 
-        ticket.lottoNumber || 1, // Fallback to 1 if null (should never happen due to validation)
-        selectedSeriesIndex,
-        selectedDrawId
-      );
-    } else {
-      // Multiple tickets purchase - prepare the format expected by the API
-      const ticketsForContract = tickets.map(ticket => ({
-        numbers: ticket.numbers,
-        lottoNumber: ticket.lottoNumber || 1 // Fallback to 1 if null (should never happen due to validation)
-      }));
-      
-      // Use the buyMultipleTicketsMutation directly
-      try {
-        result = await buyMultipleTicketsMutation.mutateAsync({
-          tickets: ticketsForContract,
-          seriesIndex: selectedSeriesIndex,
-          drawId: selectedDrawId
-        });
-      } catch (error) {
-        console.error('Error buying multiple tickets:', error);
-        toast({
-          title: "Purchase Failed",
-          description: "There was an error processing your transaction. Please try again.",
-          variant: "destructive"
-        });
-        setShowPendingModal(false);
-        return;
-      }
-    }
+    // Pass the selected draw ID to the buyCustomTicket function
+    const result = await buyTicket(
+      selectedNumbers, 
+      selectedLottoNumber,
+      selectedSeriesIndex,
+      selectedDrawId
+    );
     
     setShowPendingModal(false);
     
-    if (result && result.success && result.txHash) {
+    if (result.success && result.txHash) {
       setTransactionHash(result.txHash);
       setShowSuccessModal(true);
-      
-      // Reset to a single ticket after successful purchase
-      setTickets([{
-        id: `ticket-${Date.now()}`, 
-        numbers: [...DEFAULT_SELECTED_NUMBERS], 
-        lottoNumber: DEFAULT_LOTTO_NUMBER
-      }]);
-      setActiveTicketIndex(0);
     }
   };
   
@@ -608,125 +470,26 @@ const BuyTickets = React.memo(function BuyTickets({
           <div className="flex justify-between border-b border-white/10 pb-2">
             <span className="text-white/70">Ticket Price:</span>
             <span className="crypto-value text-white">
-              {ticketPrice} ETH
-              <span className="text-sm text-primary/80 block text-right">
-                {formatUSD(ticketPrice)}
-              </span>
+              {isDrawAvailable() && ticketPrice > 0 ? `${ticketPrice.toFixed(4)} ETH` : 'No Ticket Data'}
             </span>
           </div>
           <div className="flex justify-between border-b border-white/10 pb-2">
-            <span className="text-white/70">Number of Tickets:</span>
-            <span className="text-white font-medium">{tickets.length}</span>
-          </div>
-          
-          {/* Ticket Tabs */}
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-white/70">Your Tickets:</span>
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 px-2 py-0 rounded-md text-xs"
-                  onClick={addNewTicket}
-                  disabled={tickets.length >= 20} // Limit to 20 tickets
-                >
-                  <Plus className="h-3 w-3 mr-1" /> Add Ticket
-                </Button>
-              </div>
-            </div>
-            
-            {/* Ticket tabs */}
-            <div className="flex flex-wrap gap-2 pb-2">
-              {tickets.map((ticket, index) => (
-                <Button
-                  key={ticket.id}
-                  variant={activeTicketIndex === index ? "default" : "outline"}
-                  size="sm"
-                  className={`relative h-8 min-w-[3rem] rounded-md p-1 text-xs ${
-                    activeTicketIndex === index ? "bg-primary text-black" : "bg-black/50"
-                  }`}
-                  onClick={() => setActiveTicketIndex(index)}
-                >
-                  Ticket {index + 1}
-                  {tickets.length > 1 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="absolute -top-2 -right-2 h-5 w-5 p-0 rounded-full bg-red-600 hover:bg-red-700 text-white"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeTicket(index);
-                      }}
-                    >
-                      ×
-                    </Button>
-                  )}
-                </Button>
-              ))}
-            </div>
-            
-            {/* Active ticket details */}
-            <div className="bg-black/20 rounded-md p-3 text-sm">
-              <div className="flex justify-between mb-2">
-                <span className="text-white/70">Ticket {activeTicketIndex + 1} Numbers:</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-2 py-0 text-xs"
-                  onClick={handleQuickPick}
-                >
-                  <Shuffle className="h-3 w-3 mr-1" /> Quick Pick
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-1 mb-2">
-                {tickets[activeTicketIndex]?.numbers.sort((a, b) => a - b).map((num) => (
-                  <span key={num} className="inline-block h-6 w-6 rounded-full bg-primary/20 text-primary text-center text-xs leading-6 lotto-number">
-                    {num < 10 ? `0${num}` : num}
-                  </span>
-                ))}
-                <span className="inline-block h-6 px-2 rounded-full bg-accent/20 text-accent text-center text-xs leading-6 lotto-number">
-                  {tickets[activeTicketIndex]?.lottoNumber !== null
-                    ? (tickets[activeTicketIndex]?.lottoNumber || 0) < 10 
-                      ? `0${tickets[activeTicketIndex]?.lottoNumber}` 
-                      : tickets[activeTicketIndex]?.lottoNumber
-                    : '??'}
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="flex justify-between border-b border-white/10 pb-2">
-            <span className="text-white/70">Total Tickets Price:</span>
+            <span className="text-white/70">Network Fee (est.):</span>
             <span className="crypto-value text-white">
-              {totalTicketsPrice} ETH
-              <span className="text-sm text-primary/80 block text-right">
-                {formatUSD(totalTicketsPrice)}
-              </span>
+              {isDrawAvailable() && networkFee > 0 ? `${networkFee.toFixed(4)} ETH` : 'No Ticket Data'}
             </span>
           </div>
-          <div className="flex justify-between border-b border-white/10 pb-2">
-            <span className="text-white/70">Network Fee:</span>
-            <span className="crypto-value text-white">
-              ~{networkFee} ETH
-              <span className="text-sm text-primary/80 block text-right">
-                {formatUSD(networkFee)}
-              </span>
-            </span>
-          </div>
-          <div className="flex justify-between font-semibold">
-            <span className="text-white">Total Cost:</span>
-            <span className="crypto-value text-white">
-              {totalCost} ETH
-              <span className="text-sm text-primary/80 block text-right">
-                {formatUSD(totalCost)}
-              </span>
+          <div className="pt-2 mt-1 flex justify-between">
+            <span className="text-white font-bold">Total:</span>
+            <span className="crypto-value text-primary text-lg">
+              {isDrawAvailable() && totalCost > 0 ? `${totalCost.toFixed(4)} ETH` : 'No Ticket Data'}
             </span>
           </div>
         </div>
       </div>
     );
   };
-  
+
   // Render the how it works section
   const renderHowItWorks = () => {
     return (
@@ -761,7 +524,7 @@ const BuyTickets = React.memo(function BuyTickets({
               3
             </div>
             <div>
-              <p className="text-white font-medium">Wait for the draw to complete</p>
+              <p className="text-white font-medium">Wait for the lottery draw to complete</p>
             </div>
           </div>
           
@@ -770,32 +533,53 @@ const BuyTickets = React.memo(function BuyTickets({
               4
             </div>
             <div>
-              <p className="text-white font-medium">Check your results and claim any winnings</p>
+              <p className="text-white font-medium">Matching numbers win prizes automatically</p>
             </div>
           </div>
           
-          <div className="bg-secondary/30 rounded-lg p-4 mt-6 border border-primary/10">
-            <h4 className="text-primary font-bold text-lg mb-2">Prize Tiers</h4>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-white">Match 5 + LOTTO number:</span>
-                <span className="text-primary font-semibold crypto-value">Jackpot</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-white">Match 5 numbers:</span>
-                <span className="text-primary font-semibold crypto-value">25% of pool</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-white">Match 4 + LOTTO number:</span>
-                <span className="text-primary font-semibold crypto-value">5% of pool</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-white">Match 4 numbers:</span>
-                <span className="text-primary font-semibold crypto-value">2.5% of pool</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-white">Match 3 + LOTTO number:</span>
-                <span className="text-primary font-semibold crypto-value">1% of pool</span>
+          <div className="mt-8">
+            <div className="relative">
+              <div className="absolute -inset-1 bg-gradient-to-r from-primary/10 via-primary/30 to-primary/10 rounded-xl blur-sm"></div>
+              <div className="relative bg-black/40 backdrop-blur-sm border border-primary/20 rounded-lg p-4">
+                <h4 className="text-sm font-bold uppercase mb-3 text-primary">Prize Tiers</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm text-white/90">
+                  <div className="flex items-center">
+                    <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
+                    <span>5 + LOTTO: <span className="lotto-number">100%</span> Jackpot</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
+                    <span>5 Numbers: <span className="lotto-number">1%</span> Jackpot</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
+                    <span>4 + LOTTO: <span className="lotto-number">0.01%</span> Jackpot</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
+                    <span>4 Numbers: <span className="lotto-number">0.001%</span> Jackpot</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
+                    <span>3 + LOTTO: <span className="lotto-number">0.0001%</span> Jackpot</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
+                    <span>3 Numbers: <span className="crypto-value">10 ETH</span></span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
+                    <span>2 + LOTTO: <span className="crypto-value">8 ETH</span></span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
+                    <span>1 + LOTTO: <span className="crypto-value">3 ETH</span></span>
+                  </div>
+                  <div className="col-span-2 flex items-center">
+                    <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
+                    <span>LOTTO only: <span className="crypto-value">2 ETH</span></span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -811,21 +595,155 @@ const BuyTickets = React.memo(function BuyTickets({
       </h2>
       
       <div className="grid grid-cols-1 gap-8">
-        {/* CHOOSE YOUR LOTTERY NUMBERS Section - First */}
+        {/* Lottery Numbers Selection Section - Now First */}
         <div className="casino-card overflow-hidden">
           <div className="casino-card-header flex items-center justify-between py-4 px-6">
             <div className="flex items-center">
               <div className="text-sm uppercase tracking-widest font-bold text-primary mr-3">Choose Your Lottery Numbers</div>
             </div>
-            <Button
-              onClick={handleQuickPick}
-              variant="outline"
-              size="sm"
-              className="flex items-center text-xs border-primary/30 text-primary hover:text-white hover:bg-primary/20"
-            >
-              <Shuffle className="mr-1 h-3 w-3" /> Quick Pick
-            </Button>
+            <div className="flex items-center space-x-2">
+              <span className="w-2 h-2 bg-primary rounded-full animate-pulse"></span>
+              <span className="w-2 h-2 bg-primary/80 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></span>
+              <span className="w-2 h-2 bg-primary/60 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></span>
+            </div>
           </div>
+        
+          <div className="p-6 lg:p-8">
+            {/* Tabs for selection methods */}
+            <div className="flex border-b border-primary/20 mb-6">
+              <div className="py-3 px-6 cursor-pointer font-medium border-b-2 border-primary text-primary">
+                Quick Pick
+              </div>
+              <div 
+                className="py-3 px-6 cursor-pointer font-medium text-white/70 hover:text-white"
+                onClick={() => window.location.href = '/pick-numbers'}
+              >
+                Pick Your Own Numbers
+              </div>
+            </div>
+            
+            <div className="text-center mb-6">
+              <p className="text-white/80 mb-6">
+                Get a random selection of lottery numbers with just one click!
+              </p>
+              
+              <Button 
+                onClick={handleQuickPick}
+                className="mb-8 bg-gradient-to-r from-primary to-yellow-600 hover:from-yellow-600 hover:to-primary text-black font-bold rounded-lg py-5 h-14 text-lg transition-all shadow-lg btn-glow"
+              >
+                <Shuffle className="mr-2 h-5 w-5" />
+                Generate Quick Pick
+              </Button>
+            </div>
+            
+            {/* Display Selected Numbers */}
+            <div className="mb-6">
+              <h3 className="text-lg font-bold text-white mb-4">
+                Your Selected Numbers
+              </h3>
+              
+              {renderTicketSummary()}
+            </div>
+            
+            {/* Buy Button */}
+            {!isConnected ? (
+              <Button
+                onClick={() => setShowWalletModal(true)}
+                className="btn-glow w-full bg-gradient-to-r from-primary to-yellow-600 hover:from-yellow-600 hover:to-primary text-black font-bold rounded-lg py-5 h-14 text-lg transition-all shadow-lg"
+              >
+                <Wallet className="mr-2 h-5 w-5" />
+                Connect Wallet to Buy
+              </Button>
+            ) : (
+              <Button
+                onClick={handleBuyClick}
+                disabled={
+                  isBuyingTickets || 
+                  selectedNumbers.length !== 5 || 
+                  selectedLottoNumber === null ||
+                  !isDrawAvailable() ||
+                  isTimeRemainingZero()
+                }
+                className="btn-glow w-full bg-gradient-to-r from-primary to-yellow-600 hover:from-yellow-600 hover:to-primary text-black font-bold rounded-lg py-5 h-14 text-lg transition-all shadow-lg"
+              >
+                {isBuyingTickets ? 'Processing...' : 'Buy Ticket Now'}
+              </Button>
+            )}
+          </div>
+        </div>
+        
+        {/* How it Works Section - Now Second */}
+        <div id="how-it-works" className="casino-card p-0 relative mt-8">
+          <div className="casino-card-header bg-card/80 py-4 px-6 text-center">
+            <div className="text-sm uppercase tracking-widest font-bold text-primary">
+              How It Works
+            </div>
+          </div>
+          
+          <div className="p-6 pt-12 space-y-6">
+            <div className="flex items-start">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 border border-primary/50 flex items-center justify-center lotto-number mr-4 text-primary">
+                1
+              </div>
+              <div>
+                <p className="text-white font-medium">Choose 5 numbers from 1-70 and 1 LOTTO number from 1-30</p>
+              </div>
+            </div>
+            
+            <div className="flex items-start">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 border border-primary/50 flex items-center justify-center lotto-number mr-4 text-primary">
+                2
+              </div>
+              <div>
+                <p className="text-white font-medium">Purchase your ticket using ETH</p>
+              </div>
+            </div>
+            
+            <div className="flex items-start">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 border border-primary/50 flex items-center justify-center lotto-number mr-4 text-primary">
+                3
+              </div>
+              <div>
+                <p className="text-white font-medium">Wait for the draw to complete</p>
+              </div>
+            </div>
+            
+            <div className="flex items-start">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 border border-primary/50 flex items-center justify-center lotto-number mr-4 text-primary">
+                4
+              </div>
+              <div>
+                <p className="text-white font-medium">Check your results and claim any winnings</p>
+              </div>
+            </div>
+            
+            <div className="bg-secondary/30 rounded-lg p-4 mt-6 border border-primary/10">
+              <h4 className="text-primary font-bold text-lg mb-2">Prize Tiers</h4>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-white">Match 5 + LOTTO number:</span>
+                  <span className="text-primary font-semibold crypto-value">Jackpot</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white">Match 5 numbers:</span>
+                  <span className="text-primary font-semibold crypto-value">25% of pool</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white">Match 4 + LOTTO number:</span>
+                  <span className="text-primary font-semibold crypto-value">5% of pool</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white">Match 4 numbers:</span>
+                  <span className="text-primary font-semibold crypto-value">2.5% of pool</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white">Match 3 + LOTTO number:</span>
+                  <span className="text-primary font-semibold crypto-value">1% of pool</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
           
           <div className="p-6 lg:p-8">
             {/* Tabs for selection methods */}
@@ -885,19 +803,11 @@ const BuyTickets = React.memo(function BuyTickets({
                 }
                 className="btn-glow w-full bg-gradient-to-r from-primary to-yellow-600 hover:from-yellow-600 hover:to-primary text-black font-bold rounded-lg py-5 h-14 text-lg transition-all shadow-lg"
               >
-                {isBuyingTickets 
-                  ? 'Processing...' 
-                  : tickets.length > 1 
-                    ? `Buy ${tickets.length} Tickets Now` 
-                    : 'Buy Ticket Now'
-                }
+                {isBuyingTickets ? 'Processing...' : 'Buy Ticket Now'}
               </Button>
             )}
           </div>
         </div>
-        
-        {/* HOW IT WORKS Section - Now Second (moved below) */}
-        {renderHowItWorks()}
       </div>
       
       <WalletModal 
@@ -909,9 +819,9 @@ const BuyTickets = React.memo(function BuyTickets({
         open={showBuyConfirmModal}
         onClose={() => setShowBuyConfirmModal(false)}
         onConfirm={handleInitialConfirm}
-        tickets={tickets}
+        ticketCount={1}
         ticketPrice={ticketPrice}
-        totalTicketsPrice={totalTicketsPrice}
+        totalTicketsPrice={ticketPrice}
         networkFee={networkFee}
         totalCost={totalCost}
         selectedNumbers={selectedNumbers}
@@ -922,9 +832,9 @@ const BuyTickets = React.memo(function BuyTickets({
         open={showReconfirmModal}
         onClose={() => setShowReconfirmModal(false)}
         onConfirm={handleConfirmPurchase}
-        tickets={tickets}
+        ticketCount={1}
         ticketPrice={ticketPrice}
-        totalTicketsPrice={totalTicketsPrice}
+        totalTicketsPrice={ticketPrice}
         networkFee={networkFee}
         totalCost={totalCost}
         selectedNumbers={selectedNumbers}
@@ -942,8 +852,7 @@ const BuyTickets = React.memo(function BuyTickets({
       <TransactionSuccessModal
         open={showSuccessModal}
         onClose={() => setShowSuccessModal(false)}
-        ticketCount={tickets.length}
-        tickets={tickets}
+        ticketCount={1}
         totalCost={totalCost}
         transactionHash={transactionHash}
         selectedNumbers={selectedNumbers}

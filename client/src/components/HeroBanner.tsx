@@ -56,7 +56,23 @@ export default function HeroBanner({
   const scrollToBuyTickets = () => {
     const element = document.getElementById('buy-tickets');
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+      // Scroll to element with offset to ensure the header is visible
+      const headerOffset = 100; // Adjust this value as needed for your layout
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+      
+      // Add highlight class to make the section flash
+      element.classList.add('highlight-target');
+      
+      // Remove highlight class after animation is complete
+      setTimeout(() => {
+        element.classList.remove('highlight-target');
+      }, 1500);
+      
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
     }
     
     if (!isConnected) {
@@ -67,7 +83,23 @@ export default function HeroBanner({
   const scrollToHowItWorks = () => {
     const element = document.getElementById('how-it-works');
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+      // Scroll to element with offset to ensure the header is visible
+      const headerOffset = 100; // Adjust this value as needed for your layout
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+      
+      // Add highlight class to make the section flash
+      element.classList.add('highlight-target');
+      
+      // Remove highlight class after animation is complete
+      setTimeout(() => {
+        element.classList.remove('highlight-target');
+      }, 1500);
+      
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
     }
   };
   
@@ -118,69 +150,41 @@ export default function HeroBanner({
     }
   };
   
-  // Get the raw jackpot amount with handling for special cases
+  // Get raw jackpot amount in ETH directly from the contract
   const getJackpotAmountRaw = (): string => {
-    // Special case for Draw ID 1
-    if (selectedDrawId === 1) {
-      return '0.00064';
-    }
-    
-    // Special case for Series 1, Draw 2
-    if (selectedSeriesIndex === 1 && selectedDrawId === 2) {
-      return '0.00096';
-    }
-    
-    // Special case for Series 0, Draw 2
-    if (selectedSeriesIndex === 0 && selectedDrawId === 2) {
-      return '0.00080';
-    }
-    
-    // Special case for Series 1, Draw 3
-    if (selectedSeriesIndex === 1 && selectedDrawId === 3) {
-      return '0.00112';
-    }
-    
-    // Regular case - use lottery data if available
     if (isDrawAvailable()) {
-      return lotteryData?.jackpotAmount || '0';
+      // Always use the jackpot value directly from the contract's getJackpot function
+      const jackpotFromData = lotteryData?.jackpotAmount || '0';
+      return jackpotFromData;
     }
     
+    // If no lottery data is available, return zero
     return '0';
   };
   
   // Get formatted jackpot amount for display
   const getJackpotAmount = (): string => {
     const amount = getJackpotAmountRaw();
-    return parseFloat(amount).toFixed(5);
+    // If the contract returns a valid non-zero value, use it exactly as provided
+    if (parseFloat(amount) > 0) {
+      return parseFloat(amount).toFixed(5);
+    }
+    
+    // For empty/zero values, we still need to show something
+    // Return zero formatted to five decimal places
+    return '0.00000';
   };
   
-  // Get participant count with handling for special cases
+  // Get participant count directly from the contract using getTotalTicketsSold
   const getParticipantCount = (): string => {
-    // Special case for Draw ID 1
-    if (selectedDrawId === 1) {
-      return '8';
+    // Get the real-time data directly from the contract
+    if (isDrawAvailable()) {
+      // Use the participantCount from the lotteryData object which is populated using getTotalTicketsSold
+      const participants = lotteryData?.participantCount !== undefined ? lotteryData.participantCount : 0;
+      return participants.toString();
     }
     
-    // Special case for Series 1, Draw 2
-    if (selectedSeriesIndex === 1 && selectedDrawId === 2) {
-      return '6';
-    }
-    
-    // Special case for Series 0, Draw 2
-    if (selectedSeriesIndex === 0 && selectedDrawId === 2) {
-      return '5';
-    }
-    
-    // Special case for Series 1, Draw 3
-    if (selectedSeriesIndex === 1 && selectedDrawId === 3) {
-      return '7';
-    }
-    
-    // Regular case - use lottery data if available
-    if (isDrawAvailable() && lotteryData?.participantCount !== undefined) {
-      return lotteryData.participantCount.toString();
-    }
-    
+    // Return 0 if no draw is available
     return '0';
   };
   
@@ -284,7 +288,7 @@ export default function HeroBanner({
                           <SelectValue placeholder="Select series" />
                         </SelectTrigger>
                         <SelectContent className="border border-primary/30">
-                          {/* Use static fallback when seriesList is empty */}
+                          {/* Only show data from the blockchain */}
                           {(seriesList && seriesList.length > 0) ? (
                             seriesList.map((series) => (
                               <SelectItem key={series.index} value={series.index.toString()}>
@@ -292,21 +296,10 @@ export default function HeroBanner({
                               </SelectItem>
                             ))
                           ) : (
-                            // Static fallback options
-                            <>
-                              <SelectItem key="0" value="0">
-                                Beginner Series (Active)
-                              </SelectItem>
-                              <SelectItem key="1" value="1">
-                                Intermediate Series
-                              </SelectItem>
-                              <SelectItem key="2" value="2">
-                                Monthly Mega
-                              </SelectItem>
-                              <SelectItem key="3" value="3">
-                                Weekly Express
-                              </SelectItem>
-                            </>
+                            // No data message
+                            <SelectItem key="no-data" value="0" disabled>
+                              No Series Available
+                            </SelectItem>
                           )}
                         </SelectContent>
                       </Select>
@@ -325,7 +318,7 @@ export default function HeroBanner({
                           <SelectValue placeholder="Select draw" />
                         </SelectTrigger>
                         <SelectContent className="border border-primary/30">
-                          {/* Use seriesDraws if available, otherwise show static fallback */}
+                          {/* Only show draws from the blockchain */}
                           {(seriesDraws && seriesDraws.length > 0) ? (
                             seriesDraws.filter(draw => draw.drawId !== 0).map((draw) => (
                               <SelectItem key={draw.drawId} value={draw.drawId.toString()}>
@@ -333,18 +326,10 @@ export default function HeroBanner({
                               </SelectItem>
                             ))
                           ) : (
-                            // Static fallback options
-                            <>
-                              <SelectItem key="1" value="1">
-                                Draw #1 (Active)
-                              </SelectItem>
-                              <SelectItem key="2" value="2">
-                                Draw #2
-                              </SelectItem>
-                              <SelectItem key="3" value="3">
-                                Draw #3
-                              </SelectItem>
-                            </>
+                            // No data message
+                            <SelectItem key="no-draws" value="1" disabled>
+                              No Draws Available
+                            </SelectItem>
                           )}
                         </SelectContent>
                       </Select>
@@ -368,7 +353,7 @@ export default function HeroBanner({
                         </div>
                       </SelectTrigger>
                       <SelectContent className="border border-primary/30">
-                        {/* Use seriesDraws if available, otherwise show static fallback */}
+                        {/* Only show draws that are available from the contract */}
                         {(seriesDraws && seriesDraws.length > 0) ? (
                           seriesDraws.filter(draw => draw.drawId !== 0).map((draw) => (
                             <SelectItem key={draw.drawId} value={draw.drawId.toString()}>
@@ -376,18 +361,10 @@ export default function HeroBanner({
                             </SelectItem>
                           ))
                         ) : (
-                          // Static fallback options
-                          <>
-                            <SelectItem key="1" value="1">
-                              Draw #1 (04/22/25)
-                            </SelectItem>
-                            <SelectItem key="2" value="2">
-                              Draw #2 (04/23/25)
-                            </SelectItem>
-                            <SelectItem key="3" value="3">
-                              Draw #3 (04/24/25)
-                            </SelectItem>
-                          </>
+                          // No available draws
+                          <SelectItem key="no-draws" value="1" disabled>
+                            No draws available
+                          </SelectItem>
                         )}
                       </SelectContent>
                     </Select>
@@ -410,7 +387,7 @@ export default function HeroBanner({
                   <div className="relative bg-black/30 backdrop-blur-sm rounded-lg border border-primary/30 p-6">
                     <span className="text-xs font-mono uppercase tracking-wider text-primary/80">Current Jackpot</span>
                     <div className="flex items-baseline">
-                      <span className="text-4xl lg:text-6xl font-bold font-mono text-white animate-glow">
+                      <span className="text-4xl lg:text-6xl crypto-value animate-glow">
                         {getJackpotAmount()}
                       </span>
                       <span className="ml-2 text-xl bg-gradient-to-r from-primary to-yellow-400 text-transparent bg-clip-text font-bold">ETH</span>
@@ -426,38 +403,38 @@ export default function HeroBanner({
                   {isDrawAvailable() ? (
                     <div className="grid grid-cols-4 gap-2 font-mono">
                       <div className="bg-black/30 backdrop-blur-sm border border-primary/20 rounded-lg p-3 text-center">
-                        <div className="text-2xl font-bold text-white">{timeRemaining.days.toString().padStart(2, '0')}</div>
+                        <div className="text-2xl text-white lotto-number">{timeRemaining.days.toString().padStart(2, '0')}</div>
                         <div className="text-xs uppercase text-primary/70">Days</div>
                       </div>
                       <div className="bg-black/30 backdrop-blur-sm border border-primary/20 rounded-lg p-3 text-center">
-                        <div className="text-2xl font-bold text-white">{timeRemaining.hours.toString().padStart(2, '0')}</div>
+                        <div className="text-2xl text-white lotto-number">{timeRemaining.hours.toString().padStart(2, '0')}</div>
                         <div className="text-xs uppercase text-primary/70">Hours</div>
                       </div>
                       <div className="bg-black/30 backdrop-blur-sm border border-primary/20 rounded-lg p-3 text-center">
-                        <div className="text-2xl font-bold text-white">{timeRemaining.minutes.toString().padStart(2, '0')}</div>
+                        <div className="text-2xl text-white lotto-number">{timeRemaining.minutes.toString().padStart(2, '0')}</div>
                         <div className="text-xs uppercase text-primary/70">Mins</div>
                       </div>
                       <div className="bg-black/30 backdrop-blur-sm border border-primary/20 rounded-lg p-3 text-center">
-                        <div className="text-2xl font-bold text-white">{timeRemaining.seconds.toString().padStart(2, '0')}</div>
+                        <div className="text-2xl text-white lotto-number">{timeRemaining.seconds.toString().padStart(2, '0')}</div>
                         <div className="text-xs uppercase text-primary/70">Secs</div>
                       </div>
                     </div>
                   ) : (
                     <div className="grid grid-cols-4 gap-2 font-mono">
                       <div className="bg-black/30 backdrop-blur-sm border border-primary/20 rounded-lg p-3 text-center">
-                        <div className="text-2xl font-bold text-white">00</div>
+                        <div className="text-2xl text-white lotto-number">00</div>
                         <div className="text-xs uppercase text-primary/70">Days</div>
                       </div>
                       <div className="bg-black/30 backdrop-blur-sm border border-primary/20 rounded-lg p-3 text-center">
-                        <div className="text-2xl font-bold text-white">00</div>
+                        <div className="text-2xl text-white lotto-number">00</div>
                         <div className="text-xs uppercase text-primary/70">Hours</div>
                       </div>
                       <div className="bg-black/30 backdrop-blur-sm border border-primary/20 rounded-lg p-3 text-center">
-                        <div className="text-2xl font-bold text-white">00</div>
+                        <div className="text-2xl text-white lotto-number">00</div>
                         <div className="text-xs uppercase text-primary/70">Mins</div>
                       </div>
                       <div className="bg-black/30 backdrop-blur-sm border border-primary/20 rounded-lg p-3 text-center">
-                        <div className="text-2xl font-bold text-white">00</div>
+                        <div className="text-2xl text-white lotto-number">00</div>
                         <div className="text-xs uppercase text-primary/70">Secs</div>
                       </div>
                     </div>
@@ -467,7 +444,7 @@ export default function HeroBanner({
                 <div className="flex items-center justify-between bg-black/30 backdrop-blur-sm border border-primary/20 rounded-lg p-4">
                   <div>
                     <span className="text-xs font-mono uppercase tracking-wider text-primary/80">Participants</span>
-                    <div className="text-2xl font-bold mt-1 text-white">
+                    <div className="text-2xl mt-1 text-white lotto-number">
                       {getParticipantCount()}
                     </div>
                   </div>

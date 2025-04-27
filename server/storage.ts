@@ -3,6 +3,8 @@ import {
   lotteryRounds, type LotteryRound, type InsertLotteryRound,
   lotteryTickets, type LotteryTicket, type InsertLotteryTicket 
 } from "@shared/schema";
+import { db } from "./db";
+import { eq, desc, sql } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -26,205 +28,113 @@ export interface IStorage {
   getParticipantCountByRound(roundId: number): Promise<number>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private lotteryRounds: Map<number, LotteryRound>;
-  private lotteryTickets: Map<number, LotteryTicket>;
-  private userIdCounter: number;
-  private roundIdCounter: number;
-  private ticketIdCounter: number;
-
-  constructor() {
-    this.users = new Map();
-    this.lotteryRounds = new Map();
-    this.lotteryTickets = new Map();
-    this.userIdCounter = 1;
-    this.roundIdCounter = 1;
-    this.ticketIdCounter = 1;
-    
-    // Initialize with a current lottery round
-    const now = new Date();
-    const endTime = new Date();
-    endTime.setHours(endTime.getHours() + 24);
-    
-    this.createLotteryRound({
-      roundNumber: 42,
-      startTime: now,
-      endTime: endTime,
-      poolAmount: "3.457",
-      participantCount: 157,
-      isFinalized: false
-    });
-    
-    // Add some past rounds
-    const pastEndTime1 = new Date();
-    pastEndTime1.setDate(pastEndTime1.getDate() - 1);
-    const pastStartTime1 = new Date(pastEndTime1);
-    pastStartTime1.setHours(pastStartTime1.getHours() - 24);
-    
-    this.createLotteryRound({
-      roundNumber: 41,
-      startTime: pastStartTime1,
-      endTime: pastEndTime1,
-      poolAmount: "2.84",
-      winnerAddress: "0x8F3A547D887D",
-      prizeAmount: "1.988",
-      participantCount: 142,
-      isFinalized: true,
-      transactionHash: "0x7ae7b3b42f"
-    });
-    
-    const pastEndTime2 = new Date();
-    pastEndTime2.setDate(pastEndTime2.getDate() - 2);
-    const pastStartTime2 = new Date(pastEndTime2);
-    pastStartTime2.setHours(pastStartTime2.getHours() - 24);
-    
-    this.createLotteryRound({
-      roundNumber: 40,
-      startTime: pastStartTime2,
-      endTime: pastEndTime2,
-      poolAmount: "3.12",
-      winnerAddress: "0x3A2B7C8D554E",
-      prizeAmount: "2.184",
-      participantCount: 163,
-      isFinalized: true,
-      transactionHash: "0x8bd9c5e2f1"
-    });
-    
-    const pastEndTime3 = new Date();
-    pastEndTime3.setDate(pastEndTime3.getDate() - 3);
-    const pastStartTime3 = new Date(pastEndTime3);
-    pastStartTime3.setHours(pastStartTime3.getHours() - 24);
-    
-    this.createLotteryRound({
-      roundNumber: 39,
-      startTime: pastStartTime3,
-      endTime: pastEndTime3,
-      poolAmount: "2.96",
-      winnerAddress: "0x5C4E7F8D664C",
-      prizeAmount: "2.072",
-      participantCount: 151,
-      isFinalized: true,
-      transactionHash: "0x9fe8d2c1a0"
-    });
-    
-    // Add some sample participants to current round
-    const participantData = [
-      { address: "0x71C7656E976F", tickets: 5, txHash: "0xabc123" },
-      { address: "0x3A54F4F3312E", tickets: 10, txHash: "0xdef456" },
-      { address: "0x8B4ABD7F776A", tickets: 2, txHash: "0xghi789" },
-      { address: "0x5C4E7F8D664C", tickets: 3, txHash: "0xjkl012" },
-      { address: "0x2A1B3C4D887D", tickets: 15, txHash: "0xmno345" }
-    ];
-    
-    participantData.forEach((participant, index) => {
-      this.createLotteryTicket({
-        roundId: 1, // Current round ID
-        walletAddress: participant.address,
-        ticketCount: participant.tickets,
-        transactionHash: participant.txHash
-      });
-    });
-  }
-
-  // User operations
+export class DatabaseStorage implements IStorage {
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username
-    );
-  }
-  
-  async getUserByWalletAddress(walletAddress: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.walletAddress === walletAddress
-    );
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
   }
 
-  async createUser(userInsert: InsertUser): Promise<User> {
-    const id = this.userIdCounter++;
-    const user: User = { ...userInsert, id, createdAt: new Date() };
-    this.users.set(id, user);
+  async getUserByWalletAddress(walletAddress: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.walletAddress, walletAddress));
+    return user || undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
     return user;
   }
 
-  // Lottery Round operations
   async getLotteryRound(id: number): Promise<LotteryRound | undefined> {
-    return this.lotteryRounds.get(id);
+    const [round] = await db.select().from(lotteryRounds).where(eq(lotteryRounds.id, id));
+    return round || undefined;
   }
 
   async getCurrentLotteryRound(): Promise<LotteryRound | undefined> {
-    return Array.from(this.lotteryRounds.values()).find(
-      round => !round.isFinalized
-    );
+    const [currentRound] = await db.select().from(lotteryRounds).where(eq(lotteryRounds.isFinalized, false));
+    return currentRound || undefined;
   }
 
   async getLotteryRoundByNumber(roundNumber: number): Promise<LotteryRound | undefined> {
-    return Array.from(this.lotteryRounds.values()).find(
-      round => round.roundNumber === roundNumber
-    );
+    const [round] = await db.select().from(lotteryRounds).where(eq(lotteryRounds.roundNumber, roundNumber));
+    return round || undefined;
   }
 
-  async createLotteryRound(roundInsert: InsertLotteryRound): Promise<LotteryRound> {
-    const id = this.roundIdCounter++;
-    const round: LotteryRound = { ...roundInsert, id };
-    this.lotteryRounds.set(id, round);
-    return round;
+  async createLotteryRound(round: InsertLotteryRound): Promise<LotteryRound> {
+    const [newRound] = await db
+      .insert(lotteryRounds)
+      .values(round)
+      .returning();
+    return newRound;
   }
 
-  async updateLotteryRound(id: number, roundUpdate: Partial<LotteryRound>): Promise<LotteryRound | undefined> {
-    const round = this.lotteryRounds.get(id);
-    if (!round) return undefined;
-    
-    const updatedRound = { ...round, ...roundUpdate };
-    this.lotteryRounds.set(id, updatedRound);
-    return updatedRound;
+  async updateLotteryRound(id: number, round: Partial<LotteryRound>): Promise<LotteryRound | undefined> {
+    const [updatedRound] = await db
+      .update(lotteryRounds)
+      .set(round)
+      .where(eq(lotteryRounds.id, id))
+      .returning();
+    return updatedRound || undefined;
   }
 
   async getPastLotteryRounds(limit: number, offset: number): Promise<LotteryRound[]> {
-    return Array.from(this.lotteryRounds.values())
-      .filter(round => round.isFinalized)
-      .sort((a, b) => b.roundNumber - a.roundNumber)
-      .slice(offset, offset + limit);
+    return await db
+      .select()
+      .from(lotteryRounds)
+      .where(eq(lotteryRounds.isFinalized, true))
+      .orderBy(desc(lotteryRounds.roundNumber))
+      .limit(limit)
+      .offset(offset);
   }
 
-  // Lottery Ticket operations
-  async createLotteryTicket(ticketInsert: InsertLotteryTicket): Promise<LotteryTicket> {
-    const id = this.ticketIdCounter++;
-    const ticket: LotteryTicket = { ...ticketInsert, id, purchaseTime: new Date() };
-    this.lotteryTickets.set(id, ticket);
+  async createLotteryTicket(ticket: InsertLotteryTicket): Promise<LotteryTicket> {
+    const [newTicket] = await db
+      .insert(lotteryTickets)
+      .values(ticket)
+      .returning();
     
     // Update participant count for the round
-    const round = await this.getLotteryRound(ticketInsert.roundId);
-    if (round) {
-      await this.updateLotteryRound(round.id, {
-        participantCount: round.participantCount + 1
-      });
-    }
+    await db
+      .update(lotteryRounds)
+      .set({
+        participantCount: sql`${lotteryRounds.participantCount} + 1`
+      })
+      .where(eq(lotteryRounds.id, ticket.roundId));
     
-    return ticket;
+    return newTicket;
   }
 
   async getLotteryTicketsByRound(roundId: number): Promise<LotteryTicket[]> {
-    return Array.from(this.lotteryTickets.values())
-      .filter(ticket => ticket.roundId === roundId)
-      .sort((a, b) => b.purchaseTime.getTime() - a.purchaseTime.getTime());
+    return await db
+      .select()
+      .from(lotteryTickets)
+      .where(eq(lotteryTickets.roundId, roundId))
+      .orderBy(desc(lotteryTickets.purchaseTime));
   }
 
   async getLotteryTicketsByWalletAddress(walletAddress: string): Promise<LotteryTicket[]> {
-    return Array.from(this.lotteryTickets.values())
-      .filter(ticket => ticket.walletAddress === walletAddress)
-      .sort((a, b) => b.purchaseTime.getTime() - a.purchaseTime.getTime());
+    return await db
+      .select()
+      .from(lotteryTickets)
+      .where(eq(lotteryTickets.walletAddress, walletAddress))
+      .orderBy(desc(lotteryTickets.purchaseTime));
   }
   
   async getParticipantCountByRound(roundId: number): Promise<number> {
-    const tickets = await this.getLotteryTicketsByRound(roundId);
-    const uniqueAddresses = new Set(tickets.map(t => t.walletAddress));
-    return uniqueAddresses.size;
+    const result = await db
+      .select({ count: sql<number>`count(distinct ${lotteryTickets.walletAddress})` })
+      .from(lotteryTickets)
+      .where(eq(lotteryTickets.roundId, roundId));
+    
+    return result[0]?.count || 0;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

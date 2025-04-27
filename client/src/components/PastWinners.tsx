@@ -138,21 +138,8 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex }: PastWin
         
         console.log(`PastWinners - Refresh completed: Got ${fetchedWinners.length} winners for Series ${sharedSeriesIndex}, Draw ${effectiveDrawId}`);
         
-        // Special case for draw ID 1 in Beginner series (0)
-        if (effectiveDrawId === 1 && (sharedSeriesIndex === 0 || sharedSeriesIndex === undefined) && fetchedWinners.length === 0) {
-          console.log(`PastWinners - Using special winner for Draw #1 in refresh flow`);
-          const specialWinner: Winner = {
-            winnerAddress: '0x03C4bcC1599627e0f766069Ae70E40C62b5d6f1e',
-            amountWon: '0.0000064',
-            drawId: 1,
-            timestamp: Date.now(),
-            ticketNumbers: [{ 
-              numbers: [1, 2, 3, 4, 5], 
-              lottoNumber: 8 
-            }]
-          };
-          fetchedWinners = [specialWinner];
-        }
+        // No special cases - only show winners from the blockchain
+        // Draw #1 doesn't have winners yet, so we should display "Winner Yet To Be Declared"
         
         // Copy the winners to ensure type safety
         const newWinners: Winner[] = [...fetchedWinners];
@@ -254,33 +241,13 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex }: PastWin
         </Alert>
       )}
       
-      {/* Debug info */}
-      <div className="mb-2 p-2 bg-black/40 text-xs border border-primary/30 rounded text-white">
-        Debug: Winners count: {winners.length}, Draw completed: {isDrawCompleted ? 'Yes' : 'No'}, DrawId: {effectiveDrawId}, Series: {sharedSeriesIndex}
-      </div>
-      
       {!isLoading && winners.length === 0 ? (
         <Alert variant="default" className="mb-6">
           <div className="flex items-start gap-2">
-            {isDrawCompleted ? (
-              <Trophy className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-            ) : (
-              <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
-            )}
+            <Trophy className="h-5 w-5 flex-shrink-0 mt-0.5" />
             <AlertDescription className="flex-1">
-              {isDrawCompleted ? (
-                <>
-                  <span className="font-semibold">Draw #{effectiveDrawId} is complete</span>, but no winners were found in this draw. 
-                  This could happen if no tickets matched the winning numbers or if the winners data hasn't been recorded yet on the blockchain.
-                  {totalWinnersCount > 0 && (
-                    <p className="mt-1">There are {totalWinnersCount} winners in total across all draws.</p>
-                  )}
-                </>
-              ) : (
-                <>
-                  No past winners available for Draw #{effectiveDrawId}. Winners will appear once draws are completed.
-                </>
-              )}
+              <span className="font-semibold">Winner Yet To Be Declared</span> 
+              <p className="mt-1">This draw hasn't completed yet. Winners will be displayed here after the draw concludes.</p>
             </AlertDescription>
           </div>
         </Alert>
@@ -338,7 +305,7 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex }: PastWin
                            getPrizeTier(winner.amountWon) === 'major' ? 'Major Prize' : 'Prize'}
                         </Badge>
                       </div>
-                      <div className="font-mono text-lg font-bold text-primary">{winner.amountWon} ETH</div>
+                      <div className="crypto-value text-lg text-primary">{winner.amountWon} ETH</div>
                       <div className="text-sm text-white/60">≈ {formatUSD(winner.amountWon)}</div>
                     </div>
                     
@@ -349,14 +316,14 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex }: PastWin
                           {winner.ticketNumbers[0].numbers.map((num, i) => (
                             <span 
                               key={`number-${i}`} 
-                              className="inline-flex items-center justify-center w-6 h-6 text-xs font-semibold rounded-full bg-primary/20 text-primary border border-primary/40"
+                              className="inline-flex items-center justify-center w-6 h-6 text-xs lotto-number rounded-full bg-primary/20 text-primary border border-primary/40"
                             >
                               {num}
                             </span>
                           ))}
                           {winner.ticketNumbers[0].lottoNumber && (
                             <span 
-                              className="inline-flex items-center justify-center w-6 h-6 text-xs font-semibold rounded-full bg-accent/20 text-accent border border-accent/40"
+                              className="inline-flex items-center justify-center w-6 h-6 text-xs lotto-number rounded-full bg-accent/20 text-accent border border-accent/40"
                             >
                               {winner.ticketNumbers[0].lottoNumber}
                             </span>
@@ -373,7 +340,7 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex }: PastWin
                           {winner.winningNumbers.slice(0, 5).map((num, i) => (
                             <span 
                               key={`winning-number-${i}`} 
-                              className="inline-flex items-center justify-center w-6 h-6 text-xs font-semibold rounded-full bg-green-800/30 text-green-400 border border-green-500/40"
+                              className="inline-flex items-center justify-center w-6 h-6 text-xs lotto-number rounded-full bg-green-800/30 text-green-400 border border-green-500/40"
                             >
                               {num}
                             </span>
@@ -381,7 +348,7 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex }: PastWin
                           {/* Display lotto number (6th number) */}
                           {winner.winningNumbers.length >= 6 && (
                             <span 
-                              className="inline-flex items-center justify-center w-6 h-6 text-xs font-semibold rounded-full bg-yellow-800/30 text-yellow-400 border border-yellow-500/40"
+                              className="inline-flex items-center justify-center w-6 h-6 text-xs lotto-number rounded-full bg-yellow-800/30 text-yellow-400 border border-yellow-500/40"
                             >
                               {winner.winningNumbers[5]}
                             </span>

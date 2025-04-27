@@ -6,6 +6,7 @@ import {
   formatTimeRemaining, 
   generateQuickPick,
   buyLotteryTicket,
+  buyMultipleTickets,
   getSeriesList,
   getSeriesDraws,
   getTotalDrawsInSeries,
@@ -35,6 +36,13 @@ export function useLotteryData() {
         try {
           const selection = { seriesIndex: seriesIdx, drawId: undefined };
           localStorage.setItem('lottery_selection', JSON.stringify(selection));
+
+          // Need to wait for state update to complete before refetching
+          setTimeout(() => {
+            // Refresh series draws data
+            queryClient.invalidateQueries({ queryKey: ['seriesDraws', chainId, seriesIdx] });
+            console.log(`Invalidated query cache for series ${seriesIdx} draws`);
+          }, 0);
         } catch (e) {
           console.error("Failed to save selection to localStorage:", e);
         }
@@ -42,7 +50,7 @@ export function useLotteryData() {
         console.warn("Invalid series index provided:", seriesIdx);
       }
     }
-  }, [selectedSeriesIndex]);
+  }, [selectedSeriesIndex, chainId, queryClient]);
   const [selectedDrawId, setSelectedDrawIdInternal] = useState<number | undefined>(undefined);
   
   // Custom setter for selectedDrawId that also triggers a refetch of participants
@@ -96,14 +104,22 @@ export function useLotteryData() {
   const {
     data: seriesDraws,
     isLoading: isLoadingSeriesDraws,
-    error: seriesDrawsError
+    error: seriesDrawsError,
+    refetch: refetchSeriesDraws
   } = useQuery({
     queryKey: ['seriesDraws', chainId, selectedSeriesIndex],
     queryFn: async () => {
       if (!provider || !chainId || selectedSeriesIndex === undefined) return [];
-      return await getSeriesDraws(provider, chainId, selectedSeriesIndex);
+      console.log(`Fetching draws for series ${selectedSeriesIndex}`);
+      const draws = await getSeriesDraws(provider, chainId, selectedSeriesIndex);
+      console.log(`Got ${draws.length} draws for series ${selectedSeriesIndex}:`, draws);
+      return draws;
     },
     enabled: !!provider && !!chainId && selectedSeriesIndex !== undefined,
+    staleTime: 10000, // Consider data stale after 10 seconds
+    refetchOnMount: true, // Always refetch when component remounts
+    refetchOnWindowFocus: true, // Refetch when window regains focus
+    refetchOnReconnect: true // Refetch when connection is re-established
   });
   
   // Query for fetching lottery data from smart contract
@@ -245,7 +261,35 @@ export function useLotteryData() {
   });
   
   // This is now handled in ParticipantsList.tsx
-  const drawParticipants = [];
+  const drawParticipants: any[] = [];
+  
+  // Function to refresh series data
+  const refreshSeriesData = useCallback(async (seriesIdx?: number) => {
+    console.log(`Explicitly refreshing data for series ${seriesIdx !== undefined ? seriesIdx : 'all'}`);
+    
+    // Invalidate series list cache
+    queryClient.invalidateQueries({ queryKey: ['seriesList', chainId] });
+    
+    // If a specific series index is provided, also invalidate that series' draws
+    if (seriesIdx !== undefined) {
+      queryClient.invalidateQueries({ queryKey: ['seriesDraws', chainId, seriesIdx] });
+      queryClient.invalidateQueries({ queryKey: ['totalDrawsCount', chainId, seriesIdx] });
+    } else {
+      // If no specific series index is provided, invalidate all series-related queries
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const queryKey = query.queryKey;
+          return Array.isArray(queryKey) && 
+                 (queryKey[0] === 'seriesDraws' || queryKey[0] === 'totalDrawsCount');
+        }
+      });
+    }
+    
+    // Also refresh lottery data
+    await refetchLotteryData();
+    
+    return true;
+  }, [chainId, queryClient, refetchLotteryData]);
   
   // Enhanced refetch function that can accept an override draw ID
   const enhancedRefetchParticipants = useCallback(async (overrideDrawId?: number) => {
@@ -272,6 +316,17 @@ export function useLotteryData() {
       refetchDrawParticipants();
     }
   }, [selectedDrawId, refetchDrawParticipants]);
+  
+  // Force refetch series draws when selectedSeriesIndex changes
+  useEffect(() => {
+    if (selectedSeriesIndex !== undefined) {
+      console.log('useLotteryData - Series index changed, triggering draws refetch:', selectedSeriesIndex);
+      // Add a small delay to allow state updates to complete
+      setTimeout(() => {
+        refetchSeriesDraws();
+      }, 100);
+    }
+  }, [selectedSeriesIndex, refetchSeriesDraws]);
   
   // Query for fetching past winners from API
   const {
@@ -335,6 +390,62 @@ export function useLotteryData() {
       
       if (account) {
         queryClient.invalidateQueries({ queryKey: [`/api/lottery/my-tickets/${account}`] });
+      }
+    }
+  });
+  
+  // Mutation for buying multiple lottery tickets
+  const buyMultipleTicketsMutation = useMutation({
+    mutationFn: async ({ 
+      tickets, 
+      seriesIndex, 
+      drawId 
+    }: { 
+      tickets: { numbers: number[], lottoNumber: number }[], 
+      seriesIndex?: number, 
+      drawId?: number 
+    }) => {
+      if (!provider || !chainId) {
+        throw new Error('Wallet not connected');
+      }
+      
+      // Execute the blockchain transaction
+      const result = await buyMultipleTickets(
+        provider, 
+        chainId, 
+        tickets, 
+        seriesIndex, 
+        drawId
+      );
+      
+      if (!result.success || !result.txHash || !account) {
+        throw new Error('Transaction failed');
+      }
+      
+      // Record the purchase in the backend
+      if (lotteryData?.currentDraw) {
+        await apiRequest('POST', '/api/lottery/record-purchase', {
+          roundId: lotteryData.currentDraw,
+          walletAddress: account,
+          ticketCount: tickets.length, // Each transaction contains multiple tickets
+          transactionHash: result.txHash
+        });
+      }
+      
+      return { success: true, txHash: result.txHash, ticketCount: tickets.length };
+    },
+    onSuccess: () => {
+      // Invalidate and refetch relevant queries
+      queryClient.invalidateQueries({ queryKey: ['lotteryData'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/lottery/current'] });
+      
+      if (account) {
+        queryClient.invalidateQueries({ queryKey: [`/api/lottery/my-tickets/${account}`] });
+      }
+      
+      // Invalidate participants data
+      if (selectedDrawId) {
+        queryClient.invalidateQueries({ queryKey: ['drawParticipants', chainId, selectedSeriesIndex, selectedDrawId] });
       }
     }
   });
@@ -436,20 +547,64 @@ export function useLotteryData() {
     }
   }, []);
   
-  // For backward compatibility with existing UI components
-  const buyTickets = useCallback(async (ticketCount: number) => {
-    if (ticketCount !== 1) {
+  // Function to generate multiple quick picks and buy tickets in a single transaction
+  const buyMultipleQuickPickTickets = useCallback(async (
+    ticketCount: number,
+    seriesIdx?: number,
+    drawId?: number
+  ) => {
+    if (!isConnected) {
       toast({
-        title: "Multiple Tickets Not Supported",
-        description: "In the new contract, tickets must be purchased one at a time with specific numbers.",
+        title: "Wallet Not Connected",
+        description: "Please connect your wallet to buy tickets.",
         variant: "destructive"
       });
       return { success: false, txHash: null };
     }
     
-    // Buy a single quick pick ticket with the selected series and draw
-    return await buyQuickPickTicket(selectedSeriesIndex, selectedDrawId);
-  }, [buyQuickPickTicket, selectedSeriesIndex, selectedDrawId]);
+    // Validate ticket count
+    if (ticketCount <= 0 || ticketCount > 20) { // Limit to 20 tickets per transaction
+      toast({
+        title: "Invalid Ticket Count",
+        description: "You can buy between 1 and 20 tickets in a single transaction.",
+        variant: "destructive"
+      });
+      return { success: false, txHash: null };
+    }
+    
+    try {
+      // Generate multiple random tickets
+      const tickets = Array.from({ length: ticketCount }, () => generateQuickPick());
+      
+      // Buy tickets with those numbers
+      return await buyMultipleTicketsMutation.mutateAsync({
+        tickets,
+        seriesIndex: seriesIdx,
+        drawId: drawId
+      });
+    } catch (error) {
+      console.error('Error buying multiple quick pick tickets:', error);
+      return { success: false, txHash: null };
+    }
+  }, [buyMultipleTicketsMutation, isConnected]);
+  
+  // For backward compatibility with existing UI components
+  const buyTickets = useCallback(async (ticketCount: number) => {
+    if (ticketCount === 1) {
+      // Buy a single quick pick ticket with the selected series and draw
+      return await buyQuickPickTicket(selectedSeriesIndex, selectedDrawId);
+    } else if (ticketCount > 1) {
+      // Buy multiple quick pick tickets with the selected series and draw
+      return await buyMultipleQuickPickTickets(ticketCount, selectedSeriesIndex, selectedDrawId);
+    } else {
+      toast({
+        title: "Invalid Ticket Count",
+        description: "Please select at least one ticket to purchase.",
+        variant: "destructive"
+      });
+      return { success: false, txHash: null };
+    }
+  }, [buyQuickPickTicket, buyMultipleQuickPickTickets, selectedSeriesIndex, selectedDrawId]);
   
   // Initialize series selection when seriesList loads
   useEffect(() => {
@@ -699,13 +854,19 @@ export function useLotteryData() {
     // Actions
     buyTickets, // For backward compatibility
     buyQuickPickTicket,
+    buyMultipleQuickPickTickets,
+    buyMultipleTicketsMutation, // Direct access to the mutation
     buyCustomTicket,
     generateQuickPick,
-    isBuyingTickets: buyTicketMutation.isPending,
+    isBuyingTickets: buyTicketMutation.isPending || buyMultipleTicketsMutation.isPending,
+    
+    // Refresh functions
+    refreshSeriesData,
     
     // Utilities
     formatUSD,
     refetchLotteryData,
+    refetchSeriesDraws,
     areDrawsAvailable: isDrawAvailable, // Export the utility function (for backward compatibility)
     hasAvailableDraws: isDrawAvailable, // Export the enhanced utility function (for backward compatibility)
     getSelectedDrawTicketPrice // Export function to get the selected draw's ticket price

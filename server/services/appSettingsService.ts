@@ -16,7 +16,7 @@ export const getAppSettings = (): AppSettings => {
     if (!fs.existsSync(settingsFilePath)) {
       // If the file doesn't exist, create it with default settings
       const defaultSettings: AppSettings = {
-        showSeriesDropdown: true
+        showSeriesDropdown: false
       };
       fs.writeFileSync(settingsFilePath, JSON.stringify(defaultSettings, null, 2));
       return defaultSettings;
@@ -27,7 +27,7 @@ export const getAppSettings = (): AppSettings => {
   } catch (error) {
     console.error('Error reading app settings:', error);
     // Return default settings in case of error
-    return { showSeriesDropdown: true };
+    return { showSeriesDropdown: false };
   }
 };
 

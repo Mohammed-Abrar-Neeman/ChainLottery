@@ -5,11 +5,19 @@ import { useLocation } from 'wouter';
 import { CheckCircle, ExternalLink, TicketIcon } from 'lucide-react';
 import { useLotteryData } from '@/hooks/useLotteryData';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
+interface Ticket {
+  id: string;
+  numbers: number[];
+  lottoNumber: number | null;
+}
 
 interface TransactionSuccessModalProps {
   open: boolean;
   onClose: () => void;
   ticketCount: number;
+  tickets?: Ticket[];
   totalCost: number;
   transactionHash: string;
   selectedNumbers?: number[];
@@ -20,6 +28,7 @@ export default function TransactionSuccessModal({
   open,
   onClose,
   ticketCount,
+  tickets = [],
   totalCost,
   transactionHash,
   selectedNumbers = [],
@@ -27,6 +36,7 @@ export default function TransactionSuccessModal({
 }: TransactionSuccessModalProps) {
   const [, setLocation] = useLocation();
   const { formatUSD } = useLotteryData();
+  const hasMultipleTickets = tickets.length > 0;
   
   const handleViewTickets = () => {
     onClose();
@@ -35,17 +45,70 @@ export default function TransactionSuccessModal({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="glass rounded-2xl shadow-glass max-w-md w-full text-center">
+      <DialogContent className="glass rounded-2xl shadow-glass max-w-md w-full max-h-[90vh] overflow-y-auto text-center">
         <div className="flex flex-col items-center mb-6">
           <div className="w-16 h-16 bg-green-500 bg-opacity-20 rounded-full flex items-center justify-center mb-4">
             <CheckCircle className="h-8 w-8 text-green-500" />
           </div>
           <h3 className="text-xl font-bold">Transaction Successful!</h3>
-          <p className="text-gray-600 mt-2">Your lottery ticket has been purchased successfully.</p>
+          <p className="text-gray-600 mt-2">
+            {ticketCount > 1 
+              ? `Your ${ticketCount} lottery tickets have been purchased successfully.`
+              : 'Your lottery ticket has been purchased successfully.'
+            }
+          </p>
         </div>
         
-        {/* Display ticket numbers if provided */}
-        {selectedNumbers.length > 0 && (
+        {/* Display tickets */}
+        {hasMultipleTickets ? (
+          // Multiple tickets view
+          <div className="bg-gray-100 rounded-lg p-4 mb-4 border border-gray-200 text-left">
+            <div className="flex items-center gap-2 mb-3">
+              <TicketIcon className="h-5 w-5 text-primary" />
+              <h3 className="font-semibold">Your Lottery Tickets ({tickets.length})</h3>
+            </div>
+            
+            <ScrollArea className="h-60 pr-4">
+              <div className="space-y-3">
+                {tickets.map((ticket, index) => (
+                  <div key={ticket.id} className="bg-white/80 rounded p-3 border border-gray-200">
+                    <div className="text-sm font-medium mb-2">Ticket #{index + 1}</div>
+                    
+                    <div className="mb-2">
+                      <div className="text-xs text-gray-600 mb-1">Main Numbers:</div>
+                      <div className="flex gap-1 flex-wrap">
+                        {ticket.numbers.sort((a, b) => a - b).map((num) => (
+                          <Badge 
+                            key={num} 
+                            variant="default"
+                            className="bg-primary text-white h-6 w-6 rounded-full flex items-center justify-center text-xs lotto-number"
+                          >
+                            {num < 10 ? `0${num}` : num}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <div className="text-xs text-gray-600 mb-1">LOTTO Number:</div>
+                      <div className="flex">
+                        {ticket.lottoNumber && (
+                          <Badge 
+                            variant="default"
+                            className="bg-accent text-white h-6 w-6 rounded-full flex items-center justify-center text-xs lotto-number"
+                          >
+                            {ticket.lottoNumber < 10 ? `0${ticket.lottoNumber}` : ticket.lottoNumber}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+        ) : selectedNumbers.length > 0 && (
+          // Single ticket view (legacy support)
           <div className="bg-gray-100 rounded-lg p-4 mb-4 border border-gray-200 text-left">
             <div className="flex items-center gap-2 mb-3">
               <TicketIcon className="h-5 w-5 text-primary" />
@@ -59,7 +122,7 @@ export default function TransactionSuccessModal({
                   <Badge 
                     key={num} 
                     variant="default"
-                    className="bg-primary text-white h-8 w-8 rounded-full flex items-center justify-center font-mono"
+                    className="bg-primary text-white h-8 w-8 rounded-full flex items-center justify-center lotto-number"
                   >
                     {num < 10 ? `0${num}` : num}
                   </Badge>
@@ -73,7 +136,7 @@ export default function TransactionSuccessModal({
                 {selectedLottoNumber && (
                   <Badge 
                     variant="default"
-                    className="bg-accent text-white h-8 w-8 rounded-full flex items-center justify-center font-mono"
+                    className="bg-accent text-white h-8 w-8 rounded-full flex items-center justify-center lotto-number"
                   >
                     {selectedLottoNumber < 10 ? `0${selectedLottoNumber}` : selectedLottoNumber}
                   </Badge>
@@ -86,11 +149,11 @@ export default function TransactionSuccessModal({
         <div className="bg-gray-50 rounded-lg p-4 text-left mb-6">
           <div className="flex justify-between mb-2">
             <span className="text-gray-600">Tickets Purchased:</span>
-            <span className="font-mono font-semibold">{ticketCount}</span>
+            <span className="lotto-number">{ticketCount}</span>
           </div>
           <div className="flex justify-between mb-2">
             <span className="text-gray-600">Total Paid:</span>
-            <span className="font-mono">
+            <span className="crypto-value">
               {totalCost < 0.0001 ? totalCost.toFixed(6) : totalCost.toFixed(4)} ETH
             </span>
           </div>

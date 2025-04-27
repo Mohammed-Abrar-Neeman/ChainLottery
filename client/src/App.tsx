@@ -10,7 +10,9 @@ import History from "@/pages/History";
 import ScalableHistory from "@/pages/ScalableHistory";
 import FAQ from "@/pages/FAQ";
 import Admin from "@/pages/Admin";
+import ManualSelection from "@/pages/ManualSelection";
 import { AppSettingsProvider } from "./context/AppSettingsContext";
+import { WalletProvider } from "./context/WalletContext";
 
 function Router() {
   return (
@@ -22,6 +24,7 @@ function Router() {
       <Route path="/history-v2" component={ScalableHistory} />
       <Route path="/faq" component={FAQ} />
       <Route path="/admin" component={Admin} />
+      <Route path="/pick-numbers" component={ManualSelection} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>
@@ -31,12 +34,14 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AppSettingsProvider>
-        <Layout>
-          <Router />
-        </Layout>
-        <Toaster />
-      </AppSettingsProvider>
+      <WalletProvider>
+        <AppSettingsProvider>
+          <Layout>
+            <Router />
+          </Layout>
+          <Toaster />
+        </AppSettingsProvider>
+      </WalletProvider>
     </QueryClientProvider>
   );
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { TutorialModal } from '@/components/modals/TutorialModal';
 
 // Banner images with promotional content and fallback colors
 const bannerImages = [
@@ -52,6 +53,7 @@ export default function PromoBanner() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [autoplay, setAutoplay] = useState(true);
   const [imageLoadError, setImageLoadError] = useState<Record<number, boolean>>({});
+  const [tutorialOpen, setTutorialOpen] = useState(false);
 
   // Function to advance to the next slide
   const goToNextSlide = useCallback(() => {
@@ -137,7 +139,10 @@ export default function PromoBanner() {
             <p className="text-xl md:text-2xl text-white/90 mb-4 md:mb-8 max-w-xl leading-relaxed">
               {currentBanner.description}
             </p>
-            <Button className="mt-4 md:mt-6 w-48 md:w-56 h-14 md:h-16 text-lg md:text-xl bg-primary hover:bg-primary/90 font-semibold">
+            <Button 
+              className="mt-4 md:mt-6 w-48 md:w-56 h-14 md:h-16 text-lg md:text-xl bg-primary hover:bg-primary/90 font-semibold"
+              onClick={() => setTutorialOpen(true)}
+            >
               Learn More
             </Button>
           </div>
@@ -184,6 +189,12 @@ export default function PromoBanner() {
       >
         <ArrowRight className="h-6 w-6" />
       </Button>
+
+      {/* Tutorial Modal */}
+      <TutorialModal 
+        isOpen={tutorialOpen} 
+        onClose={() => setTutorialOpen(false)} 
+      />
     </div>
   );
 }

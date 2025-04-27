@@ -25,9 +25,9 @@ export const ACTIVE_CHAIN_ID = DEFAULT_CHAIN_ID;
 // Contract addresses for each network
 export const LOTTERY_CONTRACT_ADDRESSES: {[chainId: string]: string} = {
   '1': '',                                                   // Ethereum Mainnet (add address when deploying to mainnet)
-  '11155111': '0xc208cdb7e43a9e27ff293fa0ff8c98170bfebd92', // Sepolia Testnet (current development network)
+  '11155111': '0x80f6cad7adb5e8b5808d2d978c0d23d2a3787126', // Sepolia Testnet (current development network)
   '5': '',                                                   // Goerli Testnet
-  '1337': '0xc208cdb7e43a9e27ff293fa0ff8c98170bfebd92'      // Local development
+  '1337': '0x80f6cad7adb5e8b5808d2d978c0d23d2a3787126'      // Local development
 };
 
 // Current active lottery contract address based on the default chain

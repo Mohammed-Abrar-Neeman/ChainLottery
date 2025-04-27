@@ -3,7 +3,7 @@ import { useLotteryData } from '@/hooks/useLotteryData';
 import { useAppSettings } from '@/context/AppSettingsContext';
 import { useDrawDate } from '@/hooks/useDrawDate';
 import { formatAddress } from '@/lib/web3';
-import { ExternalLink, History as HistoryIcon, Award, Info as InfoIcon, Target, Filter, Calendar } from 'lucide-react';
+import { ExternalLink, History as HistoryIcon, Award, Info as InfoIcon, Target, Filter, Calendar, Database } from 'lucide-react';
 import {
   Tabs,
   TabsContent,
@@ -137,7 +137,9 @@ export default function History() {
     selectedSeriesIndex,
     selectedDrawId,
     setSelectedSeriesIndex,
-    setSelectedDrawId
+    setSelectedDrawId,
+    refreshSeriesData,
+    refetchSeriesDraws
   } = useLotteryData();
   
   const { settings } = useAppSettings();
@@ -146,33 +148,7 @@ export default function History() {
   // Use the contract draw data hook
   const { drawData, isLoading: isLoadingDrawData, fetchDrawData } = useContractDrawData();
   
-  // Instead of waiting for selections, add the hardcoded data immediately
-  // This runs only once when the component mounts
-  useEffect(() => {
-    console.log("Adding hardcoded Series 1, Draw 2 data to available draws");
-    
-    // Create the hardcoded data we need
-    const intermediateRound: RoundData = {
-      id: 102, // Use a different id to avoid conflicts with API data
-      roundNumber: 2,
-      endTime: new Date("2025-04-15T06:00:00.000Z"),
-      poolAmount: "0.00096",
-      participantCount: 6,
-      winnerAddress: "0x03C4bcC1599627e0f766069Ae70E40C62b5d6f1e",
-      prizeAmount: "0.5",
-      transactionHash: "0x" + "1".repeat(64),
-      seriesIndex: 1,
-      drawId: 2,
-      winningNumbers: [15, 25, 35, 45, 55, 21]
-    };
-    
-    // Add it directly as a "global" contract round so it's available for filtering
-    setHardcodedData([intermediateRound]);
-    
-    console.log("Added hardcoded Series 1, Draw 2 data:", intermediateRound);
-  }, []);
-  
-  // This local state stores our hardcoded data that should always be available
+  // No hardcoded data - all data must come from the blockchain
   const [hardcodedData, setHardcodedData] = useState<RoundData[]>([]);
   
   // Local state to store filtered winners by series and draw
@@ -193,12 +169,7 @@ export default function History() {
     console.log("Contract draw data:", drawData);
     console.log("Hardcoded data:", hardcodedData);
     
-    // Handle the specific case where we're looking for Series 1, Draw 2 
-    if (selectedSeriesIndex === 1 && selectedDrawId === 2) {
-      console.log("Direct match for Series 1, Draw 2 - using hardcoded data");
-      setFilteredRounds(hardcodedData);
-      return;
-    }
+    // No special cases for specific series/draws - all data must come from blockchain
     
     if (!pastWinners || (Array.isArray(pastWinners) && pastWinners.length === 0)) {
       if (drawData.length === 0 && hardcodedData.length === 0) {
@@ -306,38 +277,30 @@ export default function History() {
       // Show all rounds when All Series is selected
       const apiRounds = pastWinners as RoundData[] || [];
       
-      // Combine API, contract data and hardcoded data
-      const allRounds = [...processRawData(apiRounds), ...drawData, ...hardcodedData];
+      // Combine API and contract data only
+      const allRounds = [...processRawData(apiRounds), ...drawData];
       console.log('Showing all rounds after clearing series filter:', allRounds);
       setFilteredRounds(allRounds);
     } else {
       const seriesIndex = parseInt(value);
       if (!isNaN(seriesIndex)) {
         console.log(`Selected Series #${seriesIndex}`);
-        setSelectedSeriesIndex(seriesIndex);
-        // Reset draw selection when series changes
-        setSelectedDrawId(undefined);
         
-        // Special case for series 1 to include our hardcoded data
-        if (seriesIndex === 1) {
-          // Get all data including our hardcoded Series 1 data
-          const apiRounds = pastWinners as RoundData[] || [];
-          const combinedRounds = [...processRawData(apiRounds), ...drawData, ...hardcodedData];
-          
-          // Filter rounds by series
-          const filtered = combinedRounds.filter(round => round.seriesIndex === seriesIndex);
-          console.log(`Filtered by series #${seriesIndex}:`, filtered);
-          setFilteredRounds(filtered.length > 0 ? filtered : []);
-        } else {
-          // Regular case for other series
-          const apiRounds = pastWinners as RoundData[] || [];
-          const combinedRounds = [...processRawData(apiRounds), ...drawData];
-          
-          // Filter rounds by series
-          const filtered = combinedRounds.filter(round => round.seriesIndex === seriesIndex);
-          console.log(`Filtered by series #${seriesIndex}:`, filtered);
-          setFilteredRounds(filtered.length > 0 ? filtered : []);
-        }
+        // Set the selected series index
+        // This will automatically reset the draw selection
+        setSelectedSeriesIndex(seriesIndex);
+        
+        // Log status before filtering
+        console.log(`Checking for draws in series #${seriesIndex}...`);
+        
+        // Get data from the API and contract
+        const apiRounds = pastWinners as RoundData[] || [];
+        const combinedRounds = [...processRawData(apiRounds), ...drawData];
+        
+        // Filter rounds by series
+        const filtered = combinedRounds.filter(round => round.seriesIndex === seriesIndex);
+        console.log(`Filtered by series #${seriesIndex}:`, filtered);
+        setFilteredRounds(filtered.length > 0 ? filtered : []);
       }
     }
   };
@@ -350,30 +313,18 @@ export default function History() {
       
       // When "All Draws" is selected, filter only by series if one is selected
       if (selectedSeriesIndex !== undefined) {
-        // Special case for Series 1 to include our hardcoded data
-        if (selectedSeriesIndex === 1) {
-          // Get all data including our hardcoded Series 1 data
-          const apiRounds = pastWinners as RoundData[] || [];
-          const combinedRounds = [...processRawData(apiRounds), ...drawData, ...hardcodedData];
-          
-          // Filter by series only
-          const filtered = combinedRounds.filter(round => round.seriesIndex === selectedSeriesIndex);
-          console.log(`Filtering by series #${selectedSeriesIndex} after clearing draw filter:`, filtered);
-          setFilteredRounds(filtered.length > 0 ? filtered : []);
-        } else {
-          // Regular case for other series
-          const apiRounds = pastWinners as RoundData[] || [];
-          const combinedRounds = [...processRawData(apiRounds), ...drawData];
-          
-          // Filter by series only
-          const filtered = combinedRounds.filter(round => round.seriesIndex === selectedSeriesIndex);
-          console.log(`Filtering by series #${selectedSeriesIndex} after clearing draw filter:`, filtered);
-          setFilteredRounds(filtered.length > 0 ? filtered : []);
-        }
+        // Get data from API and contract
+        const apiRounds = pastWinners as RoundData[] || [];
+        const combinedRounds = [...processRawData(apiRounds), ...drawData];
+        
+        // Filter by series only
+        const filtered = combinedRounds.filter(round => round.seriesIndex === selectedSeriesIndex);
+        console.log(`Filtering by series #${selectedSeriesIndex} after clearing draw filter:`, filtered);
+        setFilteredRounds(filtered.length > 0 ? filtered : []);
       } else {
         // Show all rounds when no series is selected
         const apiRounds = pastWinners as RoundData[] || [];
-        const combinedRounds = [...processRawData(apiRounds), ...drawData, ...hardcodedData];
+        const combinedRounds = [...processRawData(apiRounds), ...drawData];
         console.log('Showing all rounds after clearing all filters:', combinedRounds);
         setFilteredRounds(combinedRounds);
       }
@@ -383,21 +334,11 @@ export default function History() {
         console.log(`Selected Draw #${drawId}`);
         setSelectedDrawId(drawId);
         
-        // For Series 1, Draw 2 - special direct handling
-        if (selectedSeriesIndex === 1 && drawId === 2) {
-          console.log("Direct match for Series 1, Draw 2 - using hardcoded data");
-          setFilteredRounds(hardcodedData);
-          return;
-        }
-        
-        // Force table refresh with selected draw
+        // Filter by both series and draw if a series is selected
         if (selectedSeriesIndex !== undefined) {
-          // Special case for Series 1 to include our hardcoded data
+          // Get data from API and contract
           const apiRounds = pastWinners as RoundData[] || [];
-          const useHardcoded = selectedSeriesIndex === 1;
-          const combinedRounds = useHardcoded 
-            ? [...processRawData(apiRounds), ...drawData, ...hardcodedData]
-            : [...processRawData(apiRounds), ...drawData];
+          const combinedRounds = [...processRawData(apiRounds), ...drawData];
           
           // Filter by both series and draw
           const filtered = combinedRounds.filter(round => {
@@ -416,9 +357,34 @@ export default function History() {
   if (filteredRounds.length === 0 && !isLoadingPastWinners) {
     return (
       <div className="mt-8">
-        <div className="flex items-center mb-6">
-          <HistoryIcon className="h-6 w-6 text-primary mr-2" />
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-amber-500 text-transparent bg-clip-text">Lottery History</h1>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center">
+            <HistoryIcon className="h-6 w-6 text-primary mr-2" />
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-amber-500 text-transparent bg-clip-text">Lottery History</h1>
+          </div>
+          <button
+            onClick={() => {
+              console.log('Manually refreshing series and draw data...');
+              refreshSeriesData(selectedSeriesIndex)
+                .then(() => {
+                  console.log('Data refreshed successfully');
+                  // Force a refetch of the series draws
+                  refetchSeriesDraws();
+                })
+                .catch((error: unknown) => {
+                  console.error('Error refreshing data:', error);
+                });
+            }}
+            className="text-primary hover:text-white text-sm flex items-center bg-black/40 border border-primary/30 py-1 px-3 rounded-md"
+          >
+            <svg className="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M21 3V8H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M3 16V21H8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M16 3.86C14.7781 3.29759 13.4354 3.00157 12.075 3C7.075 3 3.075 7 3.075 12C3.075 13.5 3.475 14.9 4.175 16.1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M8 20.14C9.22194 20.7024 10.5646 20.9984 11.925 21C16.925 21 20.925 17 20.925 12C20.925 10.5 20.525 9.1 19.825 7.9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Refresh Data
+          </button>
         </div>
         
         {/* Series and Draw Selection */}
@@ -445,7 +411,7 @@ export default function History() {
                         </SelectItem>
                       ))
                     ) : (
-                      <SelectItem value="0">Default Series</SelectItem>
+                      <SelectItem disabled value="no-series">No Series Available</SelectItem>
                     )}
                   </SelectContent>
                 </Select>
@@ -474,8 +440,18 @@ export default function History() {
                         </SelectItem>
                       ))
                     ) : (
-                      <SelectItem value="1">Draw #1</SelectItem>
+                      <SelectItem disabled value="no-draws">No Draws Available</SelectItem>
                     )}
+                    
+                    {/* Log series draws data for debugging */}
+                    {(() => {
+                      console.log("Rendering draw dropdown with seriesDraws:", {
+                        selectedSeriesIndex,
+                        seriesDraws: seriesDraws || [],
+                        hasDraws: seriesDraws && seriesDraws.length > 0
+                      });
+                      return null;
+                    })()}
                   </SelectContent>
                 </Select>
               )}
@@ -530,9 +506,34 @@ export default function History() {
   
   return (
     <div className="mt-8">
-      <div className="flex items-center mb-6">
-        <HistoryIcon className="h-6 w-6 text-primary mr-2" />
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-amber-500 text-transparent bg-clip-text">Lottery History</h1>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center">
+          <HistoryIcon className="h-6 w-6 text-primary mr-2" />
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-amber-500 text-transparent bg-clip-text">Lottery History</h1>
+        </div>
+        <button
+          onClick={() => {
+            console.log('Manually refreshing series and draw data...');
+            refreshSeriesData(selectedSeriesIndex)
+              .then(() => {
+                console.log('Data refreshed successfully');
+                // Force a refetch of the series draws
+                refetchSeriesDraws();
+              })
+              .catch((error: unknown) => {
+                console.error('Error refreshing data:', error);
+              });
+          }}
+          className="text-primary hover:text-white text-sm flex items-center bg-black/40 border border-primary/30 py-1 px-3 rounded-md"
+        >
+          <svg className="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M21 3V8H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M3 16V21H8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M16 3.86C14.7781 3.29759 13.4354 3.00157 12.075 3C7.075 3 3.075 7 3.075 12C3.075 13.5 3.475 14.9 4.175 16.1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M8 20.14C9.22194 20.7024 10.5646 20.9984 11.925 21C16.925 21 20.925 17 20.925 12C20.925 10.5 20.525 9.1 19.825 7.9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Refresh Data
+        </button>
       </div>
       
       {/* Series and Draw Selection */}
@@ -560,7 +561,7 @@ export default function History() {
                         </SelectItem>
                       ))
                     ) : (
-                      <SelectItem value="0">Default Series</SelectItem>
+                      <SelectItem disabled value="no-series">No Series Available</SelectItem>
                     )}
                   </SelectContent>
                 </Select>
@@ -600,7 +601,7 @@ export default function History() {
                       </SelectItem>
                     ))
                   ) : (
-                    <SelectItem value="1">Draw #1</SelectItem>
+                    <SelectItem disabled value="no-data">No draws available</SelectItem>
                   )}
                 </SelectContent>
               </Select>
@@ -668,139 +669,160 @@ export default function History() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-primary/10">
-                    {filteredRounds.map((round) => (
-                      <tr key={round.id} className="bg-black/20 hover:bg-black/30">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="font-mono text-sm font-semibold text-white">#{round.roundNumber}</span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          {round.seriesIndex !== undefined ? (
-                            <Badge variant="outline" className="bg-primary/10 border-primary/30 text-primary">
-                              Series #{round.seriesIndex}
-                            </Badge>
-                          ) : (
-                            <span className="text-white/60">Default</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-white/80">
-                          {formatDate(round.endTime)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap font-mono text-sm text-white">
-                          {round.poolAmount} ETH
-                          <div className="text-xs text-primary/80">
-                            ≈ {formatUSD(round.poolAmount)}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
-                          {round.participantCount}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap font-mono text-sm">
-                          <a 
-                            href={`https://sepolia.etherscan.io/address/${round.winnerAddress}`}
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-primary hover:text-white transition flex items-center"
-                          >
-                            {formatAddress(round.winnerAddress)}
-                          </a>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <a 
-                            href={`https://sepolia.etherscan.io/tx/${round.transactionHash}`}
-                            target="_blank" 
-                            rel="noopener noreferrer" 
-                            className="text-primary/60 hover:text-primary transition"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
+                    {filteredRounds.length > 0 ? (
+                      filteredRounds.map((round) => (
+                        <tr key={round.id} className="bg-black/20 hover:bg-black/30">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="font-mono text-sm font-semibold text-white">#{round.roundNumber}</span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            {round.seriesIndex !== undefined ? (
+                              <Badge variant="outline" className="bg-primary/10 border-primary/30 text-primary">
+                                Series #{round.seriesIndex}
+                              </Badge>
+                            ) : (
+                              <span className="text-white/60">Default</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-white/80">
+                            {formatDate(round.endTime)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap font-mono text-sm text-white">
+                            {round.poolAmount} ETH
+                            <div className="text-xs text-primary/80">
+                              ≈ {formatUSD(round.poolAmount)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
+                            {round.participantCount}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap font-mono text-sm">
+                            <a 
+                              href={`https://sepolia.etherscan.io/address/${round.winnerAddress}`}
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-primary hover:text-white transition flex items-center"
+                            >
+                              {formatAddress(round.winnerAddress)}
+                            </a>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <a 
+                              href={`https://sepolia.etherscan.io/tx/${round.transactionHash}`}
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="text-primary/60 hover:text-primary transition"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={7} className="text-center py-12 text-white/60">
+                          <Database className="h-12 w-12 mx-auto mb-4 text-primary/30" />
+                          <p className="text-lg mb-1">No Lottery History Available</p>
+                          <p className="text-sm">No past draws have been conducted on the blockchain.</p>
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
             </TabsContent>
             
             <TabsContent value="winners">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {filteredRounds.map((round) => (
-                  <div key={`winner-${round.id}`} className="casino-card pt-12 mt-6">
-                    <div className="casino-card-header flex justify-between items-center absolute inset-x-0 top-0 px-6 py-4 bg-black/40 border-b border-primary/20 rounded-t-xl">
-                      <div className="text-sm uppercase tracking-widest font-bold text-primary flex items-center">
-                        <Award className="h-4 w-4 mr-2" />
-                        {round.seriesIndex !== undefined && (
-                          <span className="mr-1">S{round.seriesIndex}</span>
-                        )}
-                        Round #{round.roundNumber}
+              {filteredRounds.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {filteredRounds.map((round) => (
+                    <div key={`winner-${round.id}`} className="casino-card pt-12 mt-6">
+                      <div className="casino-card-header flex justify-between items-center absolute inset-x-0 top-0 px-6 py-4 bg-black/40 border-b border-primary/20 rounded-t-xl">
+                        <div className="text-sm uppercase tracking-widest font-bold text-primary flex items-center">
+                          <Award className="h-4 w-4 mr-2" />
+                          {round.seriesIndex !== undefined && (
+                            <span className="mr-1">S{round.seriesIndex}</span>
+                          )}
+                          Round #{round.roundNumber}
+                        </div>
+                        <span className="text-sm font-mono text-white/70">{formatDate(round.endTime)}</span>
                       </div>
-                      <span className="text-sm font-mono text-white/70">{formatDate(round.endTime)}</span>
-                    </div>
-                    <div className="p-4 pt-6">
-                      {/* Winner */}
-                      <div className="mb-4">
-                        <div className="text-sm text-primary/80 uppercase tracking-wider font-medium mb-2">Winner</div>
-                        <div className="font-mono text-sm truncate">
+                      <div className="p-4 pt-6">
+                        {/* Winner */}
+                        <div className="mb-4">
+                          <div className="text-sm text-primary/80 uppercase tracking-wider font-medium mb-2">Winner</div>
+                          <div className="font-mono text-sm truncate">
+                            <a 
+                              href={`https://sepolia.etherscan.io/address/${round.winnerAddress}`}
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-white hover:text-primary transition"
+                            >
+                              {formatAddress(round.winnerAddress)}
+                            </a>
+                          </div>
+                          <div className="text-xs text-white/60 mt-1">
+                            Winning Ticket #<span className="lotto-number">{round.winningTicketIndex !== undefined ? round.winningTicketIndex : "N/A"}</span>
+                          </div>
+                        </div>
+                        
+                        {/* Winning Numbers */}
+                        {round.winningNumbers && (
+                          <div className="mb-4">
+                            <div className="text-sm text-primary/80 uppercase tracking-wider font-medium mb-2 flex items-center">
+                              <Target size={14} className="mr-2" /> Winning Numbers
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {round.winningNumbers.slice(0, 5).map((num, idx) => (
+                                <Badge key={idx} variant="outline" className="lotto-number bg-primary/10 border-primary/30 text-primary rounded-full">
+                                  {num.toString().padStart(2, '0')}
+                                </Badge>
+                              ))}
+                              {round.winningNumbers[5] && (
+                                <Badge key="lotto" variant="default" className="lotto-number bg-accent/10 text-accent border-accent/30 rounded-full">
+                                  {round.winningNumbers[5].toString().padStart(2, '0')}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Prize Amount */}
+                        <div className="mb-4">
+                          <div className="text-sm text-primary/80 uppercase tracking-wider font-medium mb-2">Prize Amount</div>
+                          <div className="crypto-value text-lg text-white">{round.prizeAmount} ETH</div>
+                          <div className="text-sm text-primary/70">≈ {formatUSD(round.prizeAmount)}</div>
+                        </div>
+                        
+                        {/* Footer */}
+                        <div className="flex justify-between text-sm mt-6 pt-4 border-t border-primary/10">
+                          <div>
+                            <span className="text-white/60">Tickets Sold:</span>
+                            <span className="lotto-number ml-1 text-white">{round.participantCount}</span>
+                          </div>
                           <a 
-                            href={`https://sepolia.etherscan.io/address/${round.winnerAddress}`}
+                            href={`https://sepolia.etherscan.io/tx/${round.transactionHash}`}
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="text-white hover:text-primary transition"
+                            className="text-primary/80 hover:text-primary transition flex items-center"
                           >
-                            {formatAddress(round.winnerAddress)}
+                            Explorer <ExternalLink className="ml-1 h-3 w-3" />
                           </a>
                         </div>
-                        <div className="text-xs text-white/60 mt-1">
-                          Winning Ticket #{round.winningTicketIndex !== undefined ? round.winningTicketIndex : "N/A"}
-                        </div>
-                      </div>
-                      
-                      {/* Winning Numbers */}
-                      {round.winningNumbers && (
-                        <div className="mb-4">
-                          <div className="text-sm text-primary/80 uppercase tracking-wider font-medium mb-2 flex items-center">
-                            <Target size={14} className="mr-2" /> Winning Numbers
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            {round.winningNumbers.slice(0, 5).map((num, idx) => (
-                              <Badge key={idx} variant="outline" className="font-mono bg-primary/10 border-primary/30 text-primary rounded-full">
-                                {num.toString().padStart(2, '0')}
-                              </Badge>
-                            ))}
-                            {round.winningNumbers[5] && (
-                              <Badge key="lotto" variant="default" className="font-mono bg-accent/10 text-accent border-accent/30 rounded-full">
-                                {round.winningNumbers[5].toString().padStart(2, '0')}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Prize Amount */}
-                      <div className="mb-4">
-                        <div className="text-sm text-primary/80 uppercase tracking-wider font-medium mb-2">Prize Amount</div>
-                        <div className="font-mono text-lg font-bold text-white">{round.prizeAmount} ETH</div>
-                        <div className="text-sm text-primary/70">≈ {formatUSD(round.prizeAmount)}</div>
-                      </div>
-                      
-                      {/* Footer */}
-                      <div className="flex justify-between text-sm mt-6 pt-4 border-t border-primary/10">
-                        <div>
-                          <span className="text-white/60">Tickets Sold:</span>
-                          <span className="font-mono ml-1 text-white">{round.participantCount}</span>
-                        </div>
-                        <a 
-                          href={`https://sepolia.etherscan.io/tx/${round.transactionHash}`}
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-primary/80 hover:text-primary transition flex items-center"
-                        >
-                          Explorer <ExternalLink className="ml-1 h-3 w-3" />
-                        </a>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-16">
+                  <Award className="h-16 w-16 mx-auto mb-4 text-primary/30" />
+                  <h3 className="text-xl font-bold text-white mb-2">No Winners Yet</h3>
+                  <p className="text-white/60 max-w-md mx-auto">
+                    No completed lottery draws have been found on the blockchain. 
+                    Winners will appear here once draws are completed.
+                  </p>
+                </div>
+              )}
             </TabsContent>
           </>
         )}

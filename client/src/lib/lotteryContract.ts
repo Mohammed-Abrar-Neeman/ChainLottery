@@ -400,13 +400,13 @@ export const getSeriesList = async (
   
   if (!provider || !chainId) {
     console.log("Provider or chainId not available for series list");
-    return [createDefaultSeries(0)]; // Return default series if no provider
+    return []; // Return empty array if no provider - no mock data
   }
   
   const contract = getLotteryContract(provider, chainId);
   if (!contract) {
     console.log("Contract not available for series list");
-    return [createDefaultSeries(0)]; // Return default series if no contract
+    return []; // Return empty array if no contract - no mock data
   }
   
   console.log("Contract instance created successfully:", contract.target);
@@ -475,15 +475,15 @@ export const getSeriesList = async (
       }
     } catch (allMethodsError) {
       console.error("All fallback methods failed:", allMethodsError);
-      // If we can't get the count, we'll create all 6 default series
-      console.log("Creating all 6 default series");
-      return Array.from({ length: 6 }, (_, i) => createDefaultSeries(i));
+      // If we can't get the count, return an empty array
+      console.log("No series data could be retrieved from the contract");
+      return [];
     }
     
-    // If no series, create all 6 default series so the UI isn't empty
+    // If no series, return empty array - no mock data
     if (count === 0) {
-      console.log("No series found in contract, creating all 6 default series");
-      return Array.from({ length: 6 }, (_, i) => createDefaultSeries(i));
+      console.log("No series found in contract, returning empty array");
+      return [];
     }
     
     // Get all series
@@ -524,37 +524,26 @@ export const getSeriesList = async (
         seriesList.push(series);
       } catch (e) {
         console.error(`Error fetching series ${i}:`, e);
-        // If we failed to get this series, add a default one so UI isn't empty
-        seriesList.push(createDefaultSeries(i));
+        // If we failed to get this series, skip it - no mock data
+        console.log(`Skipping series ${i} due to error`);
       }
     }
     
-    // If we somehow ended up with empty list, add all 6 default series
+    // If we somehow ended up with empty list, return empty array - no mock data
     if (seriesList.length === 0) {
-      console.log("No series could be retrieved, creating all 6 default series");
-      return Array.from({ length: 6 }, (_, i) => createDefaultSeries(i));
+      console.log("No series could be retrieved, returning empty array");
+      return [];
     }
     
-    // If we have fewer than 6 series, add the missing ones
-    if (seriesList.length < 6) {
-      console.log(`Only ${seriesList.length} series found, adding missing default series`);
-      // Find indices that are already in the list
-      const existingIndices = seriesList.map(s => s.index);
-      
-      // Add any missing indices up to 6
-      for (let i = 0; i < 6; i++) {
-        if (!existingIndices.includes(i)) {
-          seriesList.push(createDefaultSeries(i));
-        }
-      }
-    }
+    // Don't add missing series - only return what was actually found
+    // (removed code that added missing series)
     
     console.log("Final series list:", seriesList);
     return seriesList;
   } catch (error) {
     console.error("Error fetching series list:", error);
-    // Return all 6 default series in case of error
-    return Array.from({ length: 6 }, (_, i) => createDefaultSeries(i));
+    // Return empty array in case of error - no mock data
+    return [];
   }
 };
 
@@ -597,13 +586,13 @@ export const getSeriesDraws = async (
 ): Promise<LotteryDraw[]> => {
   if (!provider || !chainId) {
     console.log("Provider or chainId not available for series draws");
-    return [createDefaultDraw(1, seriesIndex)]; // Return default draw if no provider
+    return []; // Return empty array if no provider - no mock data
   }
   
   const contract = getLotteryContract(provider, chainId);
   if (!contract) {
     console.log("Contract not available for series draws");
-    return [createDefaultDraw(1, seriesIndex)]; // Return default draw if no contract
+    return []; // Return empty array if no contract - no mock data
   }
   
   try {
@@ -637,29 +626,16 @@ export const getSeriesDraws = async (
           }
         } catch (countError) {
           console.error("Error getting series draw count:", countError);
-          // If we can't get the count, return at least one default draw
-          return [createDefaultDraw(1, seriesIndex)];
+          // If we can't get the count, return empty array - no mock data
+          return [];
         }
       }
     }
     
-    // If there are no draws, create multiple default draws for this series
+    // If there are no draws, return empty array - no mock data
     if (drawIds.length === 0) {
-      console.log(`No draws found for series ${seriesIndex}, creating default draws`);
-      // Each series gets a different number of draws
-      const drawCount = 
-        seriesIndex === 0 ? 5 :  // Main Lottery has 5 draws
-        seriesIndex === 1 ? 3 :  // Special Jackpot has 3 draws
-        seriesIndex === 2 ? 2 :  // Monthly Mega has 2 draws
-        seriesIndex === 3 ? 6 :  // Weekly Express has 6 draws (most frequent)
-        seriesIndex === 4 ? 1 :  // Quarterly Rewards has 1 draw
-        seriesIndex === 5 ? 1 :  // Annual Championship has 1 draw
-        1;                       // Fallback for any other series
-      
-      // Generate multiple draws for this series
-      return Array.from({ length: drawCount }, (_, i) => 
-        createDefaultDraw(i + 1, seriesIndex)
-      );
+      console.log(`No draws found for series ${seriesIndex}, returning empty array`);
+      return [];
     }
     
     console.log("Series draws:", drawIds);
@@ -687,52 +663,25 @@ export const getSeriesDraws = async (
         return draw;
       } catch (e) {
         console.error(`Error fetching draw ${drawId}:`, e);
-        // Return default draw for this ID if we can't get it
-        return createDefaultDraw(drawId, seriesIndex);
+        // Return null instead of creating default draw
+        return null;
       }
     });
     
     const draws = await Promise.all(drawPromises);
     
-    // If somehow all draws are null, add multiple default draws
+    // If somehow all draws are null, return empty array - no mock data
     if (draws.length === 0) {
-      console.log(`No valid draws found for series ${seriesIndex}, creating default draws`);
-      
-      // Each series gets a different number of draws
-      const drawCount = 
-        seriesIndex === 0 ? 5 :  // Main Lottery has 5 draws
-        seriesIndex === 1 ? 3 :  // Special Jackpot has 3 draws
-        seriesIndex === 2 ? 2 :  // Monthly Mega has 2 draws
-        seriesIndex === 3 ? 6 :  // Weekly Express has 6 draws (most frequent)
-        seriesIndex === 4 ? 1 :  // Quarterly Rewards has 1 draw
-        seriesIndex === 5 ? 1 :  // Annual Championship has 1 draw
-        1;                       // Fallback for any other series
-      
-      // Generate multiple draws for this series
-      return Array.from({ length: drawCount }, (_, i) => 
-        createDefaultDraw(i + 1, seriesIndex)
-      );
+      console.log(`No valid draws found for series ${seriesIndex}, returning empty array`);
+      return [];
     }
     
     // Filter out any null values and cast to satisfy TypeScript
     return draws.filter((draw): draw is LotteryDraw => draw !== null);
   } catch (error) {
     console.error("Error fetching series draws:", error);
-    
-    // Each series gets a different number of draws
-    const drawCount = 
-      seriesIndex === 0 ? 5 :  // Main Lottery has 5 draws
-      seriesIndex === 1 ? 3 :  // Intermediate has 3 draws
-      seriesIndex === 2 ? 2 :  // Monthly Mega has 2 draws
-      seriesIndex === 3 ? 6 :  // Weekly Express has 6 draws (most frequent)
-      seriesIndex === 4 ? 1 :  // Quarterly Rewards has 1 draw
-      seriesIndex === 5 ? 1 :  // Annual Championship has 1 draw
-      1;                       // Fallback for any other series
-    
-    // Generate multiple draws for this series
-    return Array.from({ length: drawCount }, (_, i) => 
-      createDefaultDraw(i + 1, seriesIndex)
-    );
+    // Return empty array in case of error - no mock data
+    return [];
   }
 };
 
@@ -785,13 +734,13 @@ export const getDrawInfo = async (
 ): Promise<LotteryDraw | null> => {
   if (!provider || !chainId) {
     console.log("Provider or chainId not available for draw info");
-    return createDefaultDraw(drawId, seriesIndex || 0);
+    return null; // Return null if no provider - no mock data
   }
   
   const contract = getLotteryContract(provider, chainId);
   if (!contract) {
     console.log("Contract not available for draw info");
-    return createDefaultDraw(drawId, seriesIndex || 0);
+    return null; // Return null if no contract - no mock data
   }
   
   try {
@@ -816,8 +765,8 @@ export const getDrawInfo = async (
     return draw;
   } catch (error) {
     console.error(`Error fetching draw ${drawId}:`, error);
-    console.log(`Creating default draw for ID ${drawId} in series ${seriesIndex || 0}`);
-    return createDefaultDraw(drawId, seriesIndex || 0);
+    console.log(`Failed to get draw info for ID ${drawId} in series ${seriesIndex || 0}`);
+    return null; // Return null in case of error - no mock data
   }
 };
 
@@ -1041,6 +990,188 @@ export const getDrawParticipants = async (
   } catch (error) {
     console.error("Error fetching draw participants:", error);
     return { participants: [], counts: {} };
+  }
+};
+
+// Buy multiple lottery tickets with different number combinations
+export const buyMultipleTickets = async (
+  provider: ethers.BrowserProvider | null,
+  chainId: string,
+  tickets: { numbers: number[], lottoNumber: number }[],
+  seriesIndex?: number,
+  drawId?: number
+): Promise<{ success: boolean, txHash: string | null }> => {
+  const contract = await getLotteryContractWithSigner(provider, chainId);
+  if (!contract) {
+    toast({
+      title: "Purchase Failed",
+      description: "Could not connect to lottery contract.",
+      variant: "destructive"
+    });
+    return { success: false, txHash: null };
+  }
+  
+  try {
+    // Validate all tickets
+    for (const ticket of tickets) {
+      // Check that we have 5 numbers
+      if (ticket.numbers.length !== 5) {
+        throw new Error('Each ticket must have 5 numbers (1-70)');
+      }
+      
+      // Check that numbers are in range
+      for (let num of ticket.numbers) {
+        if (num < 1 || num > 70) {
+          throw new Error('Numbers must be between 1 and 70');
+        }
+      }
+      
+      // Check that LOTTO number is in range
+      if (ticket.lottoNumber < 1 || ticket.lottoNumber > 30) {
+        throw new Error('LOTTO number must be between 1 and 30');
+      }
+    }
+    
+    // Use the provided draw ID or fetch the current one
+    let currentDraw;
+    if (drawId !== undefined) {
+      currentDraw = drawId;
+    } else {
+      try {
+        currentDraw = await contract.drawId();
+      } catch (drawIdError) {
+        console.error('Error getting current draw ID:', drawIdError);
+        toast({
+          title: "Purchase Failed",
+          description: "Could not determine the current draw.",
+          variant: "destructive"
+        });
+        return { success: false, txHash: null };
+      }
+    }
+    
+    // Get the ticket price
+    let ticketPrice;
+    try {
+      const drawInfo = await contract.draws(currentDraw);
+      ticketPrice = drawInfo.ticketPrice;
+      console.log(`Ticket price for draw ${currentDraw}: ${ethers.formatEther(ticketPrice)} ETH`);
+    } catch (priceError) {
+      console.log('Error getting ticket price, trying direct method', priceError);
+      
+      // Try to get the ticket price directly from the contract
+      try {
+        ticketPrice = await contract.getTicketPrice(currentDraw);
+        console.log(`Ticket price from direct method for draw ${currentDraw}: ${ethers.formatEther(ticketPrice)} ETH`);
+      } catch (directError) {
+        console.error('Error getting ticket price from direct method:', directError);
+        toast({
+          title: "Purchase Failed",
+          description: "Could not determine the ticket price.",
+          variant: "destructive"
+        });
+        return { success: false, txHash: null };
+      }
+    }
+    
+    // Calculate total price (ticketPrice * number of tickets)
+    const totalPrice = BigInt(ticketPrice) * BigInt(tickets.length);
+    
+    // Show toast notification
+    toast({
+      title: "Transaction Pending",
+      description: `Please confirm the transaction to buy ${tickets.length} tickets in your wallet.`,
+      variant: "default"
+    });
+    
+    // Prepare arrays for contract call
+    const allNumbers = tickets.map(ticket => ticket.numbers);
+    const allLottoNumbers = tickets.map(ticket => ticket.lottoNumber);
+    
+    // Buy multiple tickets
+    let tx;
+    try {
+      tx = await contract.buyMultipleTickets(
+        currentDraw,
+        allNumbers,
+        allLottoNumbers, 
+        { 
+          value: totalPrice,
+          gasLimit: 500000 + (100000 * tickets.length) // Base gas + additional gas per ticket
+        }
+      );
+    } catch (buyError: any) {
+      console.error('Error initiating multiple ticket purchase:', buyError);
+      
+      let errorMessage = "Failed to initiate multiple ticket purchase.";
+      if (buyError?.message) {
+        // Handle specific errors
+        if (buyError.message.includes('insufficient funds')) {
+          errorMessage = "Insufficient funds in your wallet.";
+        } else if (buyError.message.includes('user rejected')) {
+          errorMessage = "Transaction rejected by user.";
+        } else if (buyError.message.includes('already ended')) {
+          errorMessage = "This lottery draw has already ended.";
+        } else if (buyError.message.includes('not started')) {
+          errorMessage = "This lottery draw has not started yet.";
+        } else {
+          errorMessage = buyError.message.split('(')[0].trim(); // Get only the first part of the error message
+        }
+      }
+      
+      toast({
+        title: "Purchase Failed",
+        description: errorMessage,
+        variant: "destructive"
+      });
+      
+      return { success: false, txHash: null };
+    }
+    
+    // Show processing notification
+    toast({
+      title: "Transaction Submitted",
+      description: `Your purchase of ${tickets.length} tickets is being processed.`,
+      variant: "default"
+    });
+    
+    // Wait for transaction to be mined
+    let receipt;
+    try {
+      receipt = await tx.wait();
+    } catch (confirmError) {
+      console.error('Error confirming transaction:', confirmError);
+      toast({
+        title: "Purchase Status Unknown",
+        description: "Your transaction was submitted, but we couldn't confirm if it was successful. Please check your wallet for transaction status.",
+        variant: "default"
+      });
+      return { success: false, txHash: tx.hash };
+    }
+    
+    // Show success notification
+    toast({
+      title: "Purchase Successful",
+      description: `Successfully purchased ${tickets.length} lottery tickets for Draw #${currentDraw}.`,
+      variant: "default"
+    });
+    
+    return { success: true, txHash: receipt.hash };
+  } catch (error) {
+    console.error('Error buying multiple lottery tickets:', error);
+    
+    let errorMessage = "Failed to purchase tickets.";
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    
+    toast({
+      title: "Purchase Failed",
+      description: errorMessage,
+      variant: "destructive"
+    });
+    
+    return { success: false, txHash: null };
   }
 };
 

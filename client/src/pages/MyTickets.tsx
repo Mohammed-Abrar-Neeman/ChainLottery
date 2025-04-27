@@ -48,9 +48,9 @@ export default function MyTickets() {
   const [claimingTicketId, setClaimingTicketId] = useState<string | null>(null);
   
   // Local state for dropdown values that won't be affected by global state updates
-  // Set default values for testing: Series 0, Draw 1
-  const [localSeriesIndex, setLocalSeriesIndex] = useState<number | undefined>(0);
-  const [localDrawId, setLocalDrawId] = useState<number | undefined>(1);
+  // Set defaults to undefined until we confirm data exists from smart contract
+  const [localSeriesIndex, setLocalSeriesIndex] = useState<number | undefined>(undefined);
+  const [localDrawId, setLocalDrawId] = useState<number | undefined>(undefined);
   
   // Format the date
   const formatDate = (timestamp: number) => {
@@ -442,7 +442,7 @@ export default function MyTickets() {
               <Label htmlFor="series-select" className="text-sm font-bold mb-2 block text-primary uppercase tracking-wider">Series</Label>
               <Select
                 disabled={false} // Always enable the dropdown
-                value={localSeriesIndex?.toString() || "0"} // Default to Series 0
+                value={localSeriesIndex?.toString() || undefined} // Don't default to any series if none available
                 onValueChange={(value) => {
                 const numValue = Number(value);
                 console.log("MyTickets - Series change:", { 
@@ -466,7 +466,7 @@ export default function MyTickets() {
                 <SelectValue placeholder="Select series" />
               </SelectTrigger>
               <SelectContent className="bg-black/90 border-primary/20">
-                {/* Use loaded series or default to static values */}
+                {/* Use loaded series or show no data message */}
                 {(seriesList && seriesList.length > 0) ? (
                   seriesList.map((series) => (
                     <SelectItem key={series.index} value={series.index.toString()}>
@@ -474,9 +474,9 @@ export default function MyTickets() {
                     </SelectItem>
                   ))
                 ) : (
-                  // Static fallback options
-                  <SelectItem key="0" value="0">
-                    Series 0: Main Series (Active)
+                  // No data available from smart contract
+                  <SelectItem disabled value="no-data">
+                    No Series Available
                   </SelectItem>
                 )}
               </SelectContent>
@@ -490,7 +490,7 @@ export default function MyTickets() {
             </Label>
             <Select
               disabled={false} // Always enable the dropdown for better user experience
-              value={localDrawId?.toString() || "1"} // Default to Draw 1
+              value={localDrawId?.toString() || undefined} // Don't default to any draw if none available
               onValueChange={(value) => {
                 const numValue = Number(value);
                 console.log("MyTickets - Draw change:", { 
@@ -582,22 +582,17 @@ export default function MyTickets() {
                 )}
               </SelectTrigger>
               <SelectContent className="bg-black/90 border-primary/20">
-                {/* Static fallback options when no draws are available */}
-                {(!seriesDraws || seriesDraws.length === 0) ? (
-                  <>
-                    <SelectItem key="1" value="1">
-                      Draw #1 (Active)
-                    </SelectItem>
-                    <SelectItem key="2" value="2">
-                      Draw #2
-                    </SelectItem>
-                  </>
+                {/* Check if draws are actually available from the smart contract */}
+                {(!seriesDraws || seriesDraws.length === 0 || !hasDrawsForSeries(localSeriesIndex || 0)) ? (
+                  <SelectItem disabled value="no-data">
+                    No Draws Available
+                  </SelectItem>
                 ) : (
                   // Dynamic options when draws are available
                   (() => {
                     // If no series is selected
                     if (localSeriesIndex === undefined) {
-                      return <SelectItem value="1">Draw #1 (Active)</SelectItem>;
+                      return <SelectItem disabled value="select-series">Please select a series first</SelectItem>;
                     }
                     
                     // Filter draws for the selected series
@@ -607,17 +602,12 @@ export default function MyTickets() {
                     
                     console.log("MyTickets - filtered draws for series", localSeriesIndex, ":", filteredDraws);
                     
-                    // If no draws found for this series, return defaults
+                    // If no draws found for this series, show No Data
                     if (filteredDraws.length === 0) {
                       return (
-                        <>
-                          <SelectItem key="1" value="1">
-                            Draw #1 (Active)
-                          </SelectItem>
-                          <SelectItem key="2" value="2">
-                            Draw #2
-                          </SelectItem>
-                        </>
+                        <SelectItem disabled value="no-data">
+                          No Data
+                        </SelectItem>
                       );
                     }
                     
@@ -720,9 +710,11 @@ export default function MyTickets() {
           </div>
           <h3 className="text-xl font-medium text-primary mb-2">No Tickets Found</h3>
           <p className="text-white/80 max-w-md mx-auto mb-6">
-            {localSeriesIndex !== undefined && localDrawId !== undefined ? 
-              `You haven't purchased any tickets for Draw #${localDrawId} in Series ${localSeriesIndex}.` : 
-              'Select a series and draw to view your tickets.'}
+            {(!seriesDraws || seriesDraws.length === 0) ? 
+              'No Data' : 
+              (localSeriesIndex !== undefined && localDrawId !== undefined ? 
+                `You haven't purchased any tickets for Draw #${localDrawId} in Series ${localSeriesIndex}.` : 
+                'Select a series and draw to view your tickets.')}
           </p>
           <Button 
             asChild
@@ -786,14 +778,14 @@ export default function MyTickets() {
                             {ticket.numbers.map((num, idx) => (
                               <span 
                                 key={idx}
-                                className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary border border-primary/30 text-xs font-medium"
+                                className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary border border-primary/30 text-xs lotto-number"
                               >
                                 {num.toString().padStart(2, '0')}
                               </span>
                             ))}
                           </div>
                           <span className="mx-2 text-white/50">+</span>
-                          <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-accent/10 text-accent border border-accent/30 text-xs font-medium">
+                          <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-accent/10 text-accent border border-accent/30 text-xs lotto-number">
                             {ticket.lottoNumber.toString().padStart(2, '0')}
                           </span>
                         </div>
@@ -823,7 +815,7 @@ export default function MyTickets() {
                             <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-amber-900/20 text-amber-400 border border-amber-500/30 mb-1">
                               Winner!
                             </span>
-                            <div className="text-xs text-primary font-mono font-medium">
+                            <div className="text-xs text-primary crypto-value">
                               {formatEther(ticket.amountWon)} ETH
                             </div>
                           </div>

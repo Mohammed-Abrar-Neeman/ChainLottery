@@ -11,7 +11,7 @@ export default function FAQSection() {
   const faqItems = [
     {
       question: "How does the lottery work?",
-      answer: "CryptoLotto is a decentralized lottery running on Ethereum. Each ticket costs 0.01 ETH. When you purchase tickets, your entry is recorded on the blockchain. At the end of each round (approximately 24 hours), a winner is selected randomly using Chainlink VRF (Verifiable Random Function), ensuring fairness and transparency. The winner automatically receives 70% of the pool, 20% goes to the next round's starting pot, and 10% goes to the treasury."
+      answer: "CryptoLotto is a decentralized lottery running on Ethereum. Each ticket costs <span class=\"crypto-value\">0.01 ETH</span>. When you purchase tickets, your entry is recorded on the blockchain. At the end of each round (approximately 24 hours), a winner is selected randomly using Chainlink VRF (Verifiable Random Function), ensuring fairness and transparency. The winner automatically receives <span class=\"lotto-number\">70%</span> of the pool, <span class=\"lotto-number\">20%</span> goes to the next round's starting pot, and <span class=\"lotto-number\">10%</span> goes to the treasury."
     },
     {
       question: "How do I know the lottery is fair?",
@@ -43,7 +43,7 @@ export default function FAQSection() {
                 {item.question}
               </AccordionTrigger>
               <AccordionContent className="mt-3 text-gray-600">
-                <p>{item.answer}</p>
+                <p dangerouslySetInnerHTML={{ __html: item.answer }}></p>
               </AccordionContent>
             </AccordionItem>
           ))}

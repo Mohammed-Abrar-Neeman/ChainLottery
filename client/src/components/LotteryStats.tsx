@@ -56,22 +56,22 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
   
   // Get the jackpot amount directly from the contract's reported value
   const getJackpotAmount = () => {
-    // If not connected, return a stable value to prevent flickering
+    // If not connected, return zero
     if (!isConnected) {
-      return "0.00064";
+      return "0.0";
     }
     // Use the value directly from the API response
-    return defaultLotteryData?.jackpotAmount || "0.00064";
+    return defaultLotteryData?.jackpotAmount || "0.0";
   };
   
   // Get the ticket price directly from the contract's reported value 
   const getTicketPrice = () => {
-    // If not connected, return a stable value to prevent flickering
+    // If not connected, return zero
     if (!isConnected) {
-      return "0.0001";
+      return "0.0";
     }
     // Use the value directly from the API response
-    return defaultLotteryData?.ticketPrice || "0.0001";
+    return defaultLotteryData?.ticketPrice || "0.0";
   };
   
   // Get the display round number based on the series and draw ID
@@ -113,13 +113,13 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
   
   // Get participants count for the SELECTED draw, not just the default draw
   const getParticipantCount = () => {
-    // If not connected, return a stable value
+    // If not connected, return zero
     if (!isConnected) {
-      return 8;
+      return 0;
     }
     // Simply use the participant count from the lottery data
     // Now that we're correctly calculating it in lotteryContract.ts
-    return defaultLotteryData?.participantCount || 8;
+    return defaultLotteryData?.participantCount || 0;
   };
   
   // Re-calculate values when selected draw changes
@@ -177,7 +177,7 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
             </div>
             <h3 className="ml-4 text-xl font-semibold">Ticket Price</h3>
           </div>
-          <p className="font-mono text-3xl font-bold">
+          <p className="crypto-value text-3xl">
             {ticketPrice && parseFloat(ticketPrice) > 0 ? 
               `${parseFloat(ticketPrice).toFixed(5)} ETH` : 'No Data'}
           </p>
@@ -194,7 +194,7 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
             </div>
             <h3 className="ml-4 text-xl font-semibold">Total Value</h3>
           </div>
-          <p className="font-mono text-3xl font-bold">
+          <p className="crypto-value text-3xl">
             {jackpotAmount && parseFloat(jackpotAmount) > 0 ? 
               `${parseFloat(jackpotAmount).toFixed(5)} ETH` : 'No Data'}
           </p>
@@ -211,7 +211,7 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
             </div>
             <h3 className="ml-4 text-xl font-semibold">Players</h3>
           </div>
-          <p className="font-mono text-3xl font-bold">
+          <p className="lotto-number text-3xl">
             {participantCount > 0 ? participantCount : 'No Data'}
           </p>
           <p className="text-gray-600 text-sm">Unique participants</p>
@@ -224,8 +224,11 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
             </div>
             <h3 className="ml-4 text-xl font-semibold">Round</h3>
           </div>
-          <p className="font-mono text-3xl font-bold">
-            {currentRound > 0 ? `#${currentRound}` : 'No Data'}
+          <p className="lotto-number text-3xl">
+            {/* Check if there's actual draw data from the smart contract */}
+            {(isConnected && isDrawAvailable() && seriesDraws && seriesDraws.length > 0 && currentRound > 0) 
+              ? `#${currentRound}` 
+              : 'No Data'}
           </p>
           <p className="text-gray-600 text-sm">
             {!isConnected 
