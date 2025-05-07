@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   getLotteryData, 
@@ -18,9 +18,14 @@ import {
 import { apiRequest } from '@/lib/queryClient';
 import { useWallet } from '@/hooks/useWallet';
 import { toast } from '@/hooks/use-toast';
+import { ethers } from 'ethers';
 
 export function useLotteryData() {
-  const { provider, chainId, account, isConnected } = useWallet();
+  const { provider: walletProvider, chainId: walletChainId, account, isConnected } = useWallet();
+  // Fallback to public provider if wallet is not connected
+  const fallbackProvider = useMemo(() => new ethers.JsonRpcProvider("https://ethereum-sepolia.publicnode.com"), []);
+  const provider = walletProvider || fallbackProvider;
+  const chainId = walletChainId || '11155111'; // Default to Sepolia chainId
   const queryClient = useQueryClient();
   const [selectedSeriesIndex, setSelectedSeriesIndexInternal] = useState<number | undefined>(undefined);
   
@@ -85,6 +90,10 @@ export function useLotteryData() {
       return await getSeriesList(provider, chainId);
     },
     enabled: !!provider && !!chainId,
+    staleTime: 60000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
   });
   
   // Query to check if a series has any draws
@@ -98,6 +107,10 @@ export function useLotteryData() {
       return await getTotalDrawsInSeries(provider, chainId, selectedSeriesIndex);
     },
     enabled: !!provider && !!chainId && selectedSeriesIndex !== undefined,
+    staleTime: 60000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
   });
   
   // Query for fetching draws in the selected series
@@ -110,16 +123,14 @@ export function useLotteryData() {
     queryKey: ['seriesDraws', chainId, selectedSeriesIndex],
     queryFn: async () => {
       if (!provider || !chainId || selectedSeriesIndex === undefined) return [];
-      console.log(`Fetching draws for series ${selectedSeriesIndex}`);
       const draws = await getSeriesDraws(provider, chainId, selectedSeriesIndex);
-      console.log(`Got ${draws.length} draws for series ${selectedSeriesIndex}:`, draws);
       return draws;
     },
     enabled: !!provider && !!chainId && selectedSeriesIndex !== undefined,
-    staleTime: 10000, // Consider data stale after 10 seconds
-    refetchOnMount: true, // Always refetch when component remounts
-    refetchOnWindowFocus: true, // Refetch when window regains focus
-    refetchOnReconnect: true // Refetch when connection is re-established
+    staleTime: 60000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
   });
   
   // Query for fetching lottery data from smart contract
@@ -135,7 +146,11 @@ export function useLotteryData() {
       return await getLotteryData(provider, chainId, selectedSeriesIndex, selectedDrawId);
     },
     enabled: !!provider && !!chainId,
-    refetchInterval: 30000 // Refetch every 30 seconds
+    staleTime: 60000, // Increase stale time to 1 minute
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+    refetchInterval: 60000 // Reduce refetch interval to 1 minute
   });
   
   // Real-time time remaining calculation based on endTimestamp from contract
@@ -223,6 +238,10 @@ export function useLotteryData() {
   } = useQuery({
     queryKey: ['/api/lottery/current'],
     enabled: true,
+    staleTime: 60000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
   });
   
   // Query for fetching participant list from API for the current round
@@ -233,6 +252,10 @@ export function useLotteryData() {
   } = useQuery({
     queryKey: ['/api/lottery/1/participants'], // Use 1 as a temporary ID (first round)
     enabled: true, // Always enable this for now since the round ID is hardcoded
+    staleTime: 60000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
   });
   
   // Query for fetching draw-specific participants directly from blockchain
@@ -245,19 +268,16 @@ export function useLotteryData() {
     queryKey: ['drawParticipants', chainId, selectedSeriesIndex, selectedDrawId],
     queryFn: async () => {
       if (!provider || !chainId) return { participants: [], counts: {} };
-      
-      // Use selectedDrawId if available, otherwise use default Draw 1
       const drawIdToUse = selectedDrawId !== undefined ? selectedDrawId : 1;
-      console.log(`Fetching participants for draw ID: ${drawIdToUse}`);
-      
       const result = await getDrawParticipants(provider, chainId, drawIdToUse, selectedSeriesIndex);
-      console.log("Draw participants data from blockchain:", result);
       return result;
     },
     enabled: !!provider && !!chainId,
-    refetchInterval: 60000, // Refetch every minute
-    // Don't cache results so we always get fresh data
-    staleTime: 0
+    staleTime: 60000, // Increase stale time to 1 minute
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+    refetchInterval: 120000 // Reduce refetch interval to 2 minutes
   });
   
   // This is now handled in ParticipantsList.tsx
@@ -309,14 +329,6 @@ export function useLotteryData() {
     return await refetchDrawParticipants();
   }, [selectedDrawId, refetchDrawParticipants, setSelectedDrawId]);
   
-  // Force refetch participants data when selectedDrawId changes
-  useEffect(() => {
-    if (selectedDrawId !== undefined) {
-      console.log('useLotteryData - Draw ID changed, triggering participants refetch:', selectedDrawId);
-      refetchDrawParticipants();
-    }
-  }, [selectedDrawId, refetchDrawParticipants]);
-  
   // Force refetch series draws when selectedSeriesIndex changes
   useEffect(() => {
     if (selectedSeriesIndex !== undefined) {
@@ -336,6 +348,10 @@ export function useLotteryData() {
   } = useQuery({
     queryKey: ['/api/lottery/history'],
     enabled: true,
+    staleTime: 60000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
   });
   
   // Mutation for buying lottery ticket
@@ -351,27 +367,22 @@ export function useLotteryData() {
       seriesIndex?: number, 
       drawId?: number 
     }) => {
-      if (!provider || !chainId) {
+      if (!walletProvider || !chainId) {
         throw new Error('Wallet not connected');
       }
-      
       // Execute the blockchain transaction
       const result = await buyLotteryTicket(
-        provider, 
+        walletProvider, 
         chainId, 
         numbers, 
         lottoNumber, 
         seriesIndex, 
         drawId
       );
-      
       if (!result.success || !result.txHash || !account) {
         throw new Error('Transaction failed');
       }
-      
       // Record the purchase in the backend
-      // Note: in a production app, we'd want to listen for events from the smart contract
-      // rather than recording purchases manually
       if (lotteryData?.currentDraw) {
         await apiRequest('POST', '/api/lottery/record-purchase', {
           roundId: lotteryData.currentDraw,
@@ -380,14 +391,12 @@ export function useLotteryData() {
           transactionHash: result.txHash
         });
       }
-      
       return { success: true, txHash: result.txHash, numbers, lottoNumber };
     },
     onSuccess: () => {
       // Invalidate and refetch relevant queries
       queryClient.invalidateQueries({ queryKey: ['lotteryData'] });
       queryClient.invalidateQueries({ queryKey: ['/api/lottery/current'] });
-      
       if (account) {
         queryClient.invalidateQueries({ queryKey: [`/api/lottery/my-tickets/${account}`] });
       }
@@ -405,23 +414,20 @@ export function useLotteryData() {
       seriesIndex?: number, 
       drawId?: number 
     }) => {
-      if (!provider || !chainId) {
+      if (!walletProvider || !chainId) {
         throw new Error('Wallet not connected');
       }
-      
       // Execute the blockchain transaction
       const result = await buyMultipleTickets(
-        provider, 
+        walletProvider, 
         chainId, 
         tickets, 
         seriesIndex, 
         drawId
       );
-      
       if (!result.success || !result.txHash || !account) {
         throw new Error('Transaction failed');
       }
-      
       // Record the purchase in the backend
       if (lotteryData?.currentDraw) {
         await apiRequest('POST', '/api/lottery/record-purchase', {
@@ -431,18 +437,15 @@ export function useLotteryData() {
           transactionHash: result.txHash
         });
       }
-      
       return { success: true, txHash: result.txHash, ticketCount: tickets.length };
     },
     onSuccess: () => {
       // Invalidate and refetch relevant queries
       queryClient.invalidateQueries({ queryKey: ['lotteryData'] });
       queryClient.invalidateQueries({ queryKey: ['/api/lottery/current'] });
-      
       if (account) {
         queryClient.invalidateQueries({ queryKey: [`/api/lottery/my-tickets/${account}`] });
       }
-      
       // Invalidate participants data
       if (selectedDrawId) {
         queryClient.invalidateQueries({ queryKey: ['drawParticipants', chainId, selectedSeriesIndex, selectedDrawId] });
@@ -609,45 +612,30 @@ export function useLotteryData() {
   // Initialize series selection when seriesList loads
   useEffect(() => {
     if (!seriesList || seriesList.length === 0) {
-      return; // Wait until we have series data
+      return;
     }
-    
-    console.log("Initializing lottery selections...");
-    
-    // Function to load saved selection from localStorage
-    const loadFromLocalStorage = () => {
+    // Only initialize if we don't have a selection yet
+    if (selectedSeriesIndex === undefined) {
+      // Try to get selection from localStorage first
+      let savedSeriesIndex: number | undefined = undefined;
       try {
         const savedSelection = localStorage.getItem('lottery_selection');
         if (savedSelection) {
           const { seriesIndex } = JSON.parse(savedSelection);
           if (seriesIndex !== undefined && seriesList.some(s => s.index === seriesIndex)) {
-            console.log("Using saved series index from localStorage:", seriesIndex);
-            return seriesIndex;
+            savedSeriesIndex = seriesIndex;
           }
         }
       } catch (e) {
-        console.error("Error loading from localStorage:", e);
+        // ignore
       }
-      return undefined;
-    };
-    
-    // Only initialize if we don't have a selection yet
-    if (selectedSeriesIndex === undefined) {
-      // Try to get selection from localStorage first
-      const savedSeriesIndex = loadFromLocalStorage();
-      
-      if (savedSeriesIndex !== undefined) {
-        // Use saved selection
+      if (savedSeriesIndex !== undefined && savedSeriesIndex !== selectedSeriesIndex) {
         setSelectedSeriesIndexInternal(savedSeriesIndex);
       } else {
-        // Otherwise select a default
         const activeSeries = seriesList.find(series => series.active);
-        if (activeSeries) {
-          console.log("Selecting first active series:", activeSeries.index);
-          setSelectedSeriesIndexInternal(activeSeries.index);
-        } else if (seriesList.length > 0) {
-          console.log("No active series, selecting last series:", seriesList[seriesList.length - 1].index);
-          setSelectedSeriesIndexInternal(seriesList[seriesList.length - 1].index);
+        const defaultIndex = activeSeries ? activeSeries.index : seriesList[seriesList.length - 1].index;
+        if (defaultIndex !== selectedSeriesIndex) {
+          setSelectedSeriesIndexInternal(defaultIndex);
         }
       }
     }
@@ -655,76 +643,64 @@ export function useLotteryData() {
   
   // Initialize or reset draw selection when seriesDraws or totalDrawsCount changes
   useEffect(() => {
-    console.log("Draw initialization effect running with:", { 
-      hasSeriesDraws: !!seriesDraws && seriesDraws.length > 0,
-      selectedDrawId,
-      totalDrawsCount,
-      selectedSeriesIndex
-    });
-    
-    // If there are no draws in this series, reset the selectedDrawId
-    if ((totalDrawsCount !== undefined && totalDrawsCount <= 0) || 
-        !seriesDraws || seriesDraws.length === 0) {
-      console.log("No draws available in this series, resetting selection");
-      setSelectedDrawIdInternal(undefined);
+    if ((totalDrawsCount !== undefined && totalDrawsCount <= 0) || !seriesDraws || seriesDraws.length === 0) {
+      if (selectedDrawId !== undefined) setSelectedDrawIdInternal(undefined);
       return;
     }
-    
-    // Only initialize if we have draws and no selection yet
     if (seriesDraws && seriesDraws.length > 0 && selectedDrawId === undefined) {
-      console.log("Initializing draw selection for series", selectedSeriesIndex);
-      
-      // Function to try loading from localStorage
-      const loadDrawIdFromLocalStorage = () => {
-        try {
-          const savedSelection = localStorage.getItem('lottery_selection');
-          if (savedSelection) {
-            const { drawId, seriesIndex } = JSON.parse(savedSelection);
-            // Only use saved drawId if it's for the current series
-            if (seriesIndex === selectedSeriesIndex && 
-                drawId !== undefined && 
-                seriesDraws.some(d => d.drawId === drawId)) {
-              console.log("Using saved draw ID from localStorage:", drawId);
-              return drawId;
-            }
+      let savedDrawId: number | undefined = undefined;
+      try {
+        const savedSelection = localStorage.getItem('lottery_selection');
+        if (savedSelection) {
+          const { drawId, seriesIndex } = JSON.parse(savedSelection);
+          if (seriesIndex === selectedSeriesIndex && drawId !== undefined && seriesDraws.some(d => d.drawId === drawId)) {
+            savedDrawId = drawId;
           }
-        } catch (e) {
-          console.error("Error loading draw ID from localStorage:", e);
         }
-        return undefined;
-      };
-      
-      // Try to use saved draw ID first
-      const savedDrawId = loadDrawIdFromLocalStorage();
-      
-      if (savedDrawId !== undefined) {
-        // Use saved selection
+      } catch (e) {}
+      if (savedDrawId !== undefined && savedDrawId !== selectedDrawId) {
         setSelectedDrawIdInternal(savedDrawId);
       } else {
-        // CHECK FOR DRAW #1 FIRST
         const draw1 = seriesDraws.find(draw => draw.drawId === 1);
-        if (draw1) {
-          // Always prioritize Draw #1 if it exists
-          console.log("Prioritizing Draw #1");
+        if (draw1 && selectedDrawId !== 1) {
           setSelectedDrawIdInternal(1);
         } else {
-          // Find the active/ongoing draw or select the newest one
           const activeDraws = seriesDraws.filter(draw => !draw.completed);
           if (activeDraws.length > 0) {
-            // Sort by drawId ascending (oldest first - Draw #1 if it exists)
             const oldestActiveDraw = activeDraws.sort((a, b) => a.drawId - b.drawId)[0];
-            console.log("Selecting oldest active draw:", oldestActiveDraw.drawId);
-            setSelectedDrawIdInternal(oldestActiveDraw.drawId);
+            if (selectedDrawId !== oldestActiveDraw.drawId) setSelectedDrawIdInternal(oldestActiveDraw.drawId);
           } else {
-            // If no active draws, get the oldest completed one
             const oldestDraw = seriesDraws.sort((a, b) => a.drawId - b.drawId)[0];
-            console.log("No active draws, selecting oldest completed draw:", oldestDraw.drawId);
-            setSelectedDrawIdInternal(oldestDraw.drawId);
+            if (selectedDrawId !== oldestDraw.drawId) setSelectedDrawIdInternal(oldestDraw.drawId);
           }
         }
       }
     }
   }, [seriesDraws, selectedDrawId, totalDrawsCount, selectedSeriesIndex]);
+  
+  // Memoize ticket price calculation
+  const ticketPriceFromFunction = useMemo(() => {
+    if (!seriesDraws || !selectedDrawId) return '0';
+    const selectedDraw = seriesDraws.find(draw => draw.drawId === selectedDrawId);
+    return selectedDraw ? selectedDraw.ticketPrice : '0';
+  }, [seriesDraws, selectedDrawId]);
+  
+  // Memoize updated lottery data
+  const updatedLotteryData = useMemo(() => {
+    if (!lotteryData) return {
+      jackpotAmount: "0",
+      ticketPrice: "0",
+      currentDraw: 0,
+      timeRemaining: 0,
+      participants: [],
+      participantCount: 0,
+      seriesIndex: selectedSeriesIndex || 0
+    };
+    return {
+      ...lotteryData,
+      ticketPrice: lotteryData.ticketPrice || ticketPriceFromFunction
+    };
+  }, [lotteryData, ticketPriceFromFunction, selectedSeriesIndex]);
   
   // Utility function to check if draws are available
   const isDrawAvailable = useCallback(() => {
@@ -780,47 +756,11 @@ export function useLotteryData() {
     return "0";
   }, [isDrawAvailable, seriesDraws, selectedDrawId]);
   
-  // Get empty lottery data for when no draws are available
-  const emptyLotteryData: LotteryData = {
-    jackpotAmount: "0",
-    ticketPrice: "0",
-    currentDraw: 0,
-    timeRemaining: 0,
-    participants: [],
-    participantCount: 0,
-    seriesIndex: selectedSeriesIndex || 0
-  };
-  
-  // Reset time remaining when no draws are available
-  const emptyTimeRemaining = { days: 0, hours: 0, minutes: 0, seconds: 0 };
-  
-  // Create an updated lottery data with the selected draw's ticket price
-  const ticketPriceFromFunction = getSelectedDrawTicketPrice();
-  console.log('useLotteryData - Updating lottery data:', {
-    lotteryData,
-    ticketPriceFromFunction,
-    selectedDrawId,
-    lotteryDataTicketPrice: lotteryData?.ticketPrice,
-    lotteryDataJackpotAmount: lotteryData?.jackpotAmount,
-    participantCount: lotteryData?.participantCount,
-    updatingWithoutDrawAvailableCheck: true
-  });
-  
-  // Always use the actual contract data regardless of draw availability status
-  const updatedLotteryData = lotteryData ? {
-    ...lotteryData,
-    // Override ticketPrice with the price from the selected draw
-    ticketPrice: lotteryData.ticketPrice || ticketPriceFromFunction
-  } : emptyLotteryData;
-
   return {
-    // Lottery data - reset to empty values when no draws are available, and include selected draw's ticket price
     lotteryData: updatedLotteryData,
     isLoadingLotteryData,
     lotteryError,
-    timeRemaining: timeRemaining || emptyTimeRemaining,
-    
-    // Series and draws data
+    timeRemaining: timeRemaining || { days: 0, hours: 0, minutes: 0, seconds: 0 },
     seriesList,
     isLoadingSeriesList,
     seriesDraws,
@@ -829,46 +769,35 @@ export function useLotteryData() {
     isLoadingTotalDrawsCount,
     selectedSeriesIndex,
     selectedDrawId,
-    
-    // Selection functions
     setSelectedSeriesIndex,
     setSelectedDrawId,
-    
-    // Legacy data - always use actual data from blockchain
-    currentLottery: currentLottery,
+    currentLottery,
     isLoadingCurrentLottery,
     currentLotteryError,
     participants: participants || [],
     isLoadingParticipants,
     participantsError,
-    // Draw-specific participants data from blockchain
     drawParticipants: drawParticipants || [],
     isLoadingDrawParticipants,
     drawParticipantsError,
     refetchDrawParticipants,
-    enhancedRefetchParticipants, // Add our enhanced refetch function that accepts an override draw ID
+    enhancedRefetchParticipants,
     pastWinners,
     isLoadingPastWinners,
     pastWinnersError,
-    
-    // Actions
-    buyTickets, // For backward compatibility
+    buyTickets,
     buyQuickPickTicket,
     buyMultipleQuickPickTickets,
-    buyMultipleTicketsMutation, // Direct access to the mutation
+    buyMultipleTicketsMutation,
     buyCustomTicket,
     generateQuickPick,
     isBuyingTickets: buyTicketMutation.isPending || buyMultipleTicketsMutation.isPending,
-    
-    // Refresh functions
     refreshSeriesData,
-    
-    // Utilities
     formatUSD,
     refetchLotteryData,
     refetchSeriesDraws,
-    areDrawsAvailable: isDrawAvailable, // Export the utility function (for backward compatibility)
-    hasAvailableDraws: isDrawAvailable, // Export the enhanced utility function (for backward compatibility)
-    getSelectedDrawTicketPrice // Export function to get the selected draw's ticket price
+    areDrawsAvailable: isDrawAvailable,
+    hasAvailableDraws: isDrawAvailable,
+    getSelectedDrawTicketPrice: () => ticketPriceFromFunction
   };
 }

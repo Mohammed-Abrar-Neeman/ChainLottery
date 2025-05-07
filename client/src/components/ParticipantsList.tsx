@@ -4,7 +4,7 @@ import { ethers } from 'ethers';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { formatAddress } from '@/lib/utils';
-import { getLotteryContract, getDrawParticipants } from '@/lib/lotteryContract';
+import { getLotteryContract, getDrawParticipants, Participant } from '@/lib/lotteryContract';
 import { useWallet } from '@/hooks/useWallet';
 import { getLotteryAddress } from '@shared/contracts';
 import { lotteryABI } from '@shared/lotteryABI';
@@ -60,8 +60,8 @@ interface Ticket {
 }
 
 interface ContractData {
-  tickets: Ticket[];
-  participantCount: number;
+  participants: Participant[];
+  counts: { [key: string]: number };
 }
 
 export default function ParticipantsList({ sharedSeriesIndex, sharedDrawId }: ParticipantsListProps) {
@@ -97,192 +97,33 @@ export default function ParticipantsList({ sharedSeriesIndex, sharedDrawId }: Pa
   const [isContractDataAvailable, setIsContractDataAvailable] = useState(false);
 
   // Custom contract read implementation using React Query
-  const { data: contractData, error, isLoading, refetch: refetchParticipants } = useQuery({
-    queryKey: ['participants', effectiveDrawId, sharedSeriesIndex],
-    queryFn: async (): Promise<ContractData> => {
-      try {
-        console.log(`FORCE FETCH: Getting participants for draw ID ${effectiveDrawId} in series ${sharedSeriesIndex}`);
-        
-        // Start with the assumption that no data is available
-        // This is critical - we'll only set to true if we can confirm data exists
-        setIsContractDataAvailable(false);
-        
-        // We now use effectiveDrawId which will never be undefined, but still guard series index
-        if (sharedSeriesIndex === undefined) {
-          console.log("Series Index is undefined - no data available");
-          throw new Error("Series Index is undefined");
-        }
-        
-        // Use a fallback provider if needed - we don't want this to fail due to wallet connection
-        const activeProvider = provider || new ethers.JsonRpcProvider("https://ethereum-sepolia.publicnode.com");
-        const activeChainId = chainId || "11155111"; // Sepolia testnet as fallback
-        
-        console.log(`Using provider: ${!!activeProvider}, chainId: ${activeChainId}`);
-        
-        // Direct implementation to query the contract
-        const contractAddress = getLotteryAddress(activeChainId);
-        
-        // Check if the contract exists by verifying its code at the address
-        const contractCode = await activeProvider.getCode(contractAddress);
-        if (contractCode === '0x' || contractCode === '0x0') {
-          console.log(`No contract deployed at ${contractAddress}`);
-          return { tickets: [], participantCount: 0 };
-        }
-        
-        const contract = new ethers.Contract(contractAddress, lotteryABI, activeProvider);
-        
-        if (!contract) {
-          console.log("Failed to create contract instance");
-          throw new Error("Failed to create contract instance");
-        }
-        
-        console.log(`Created contract instance for ${contractAddress}`);
-        
-        // Get ticket count from contract
-        console.log(`Getting ticket count for draw ${effectiveDrawId}...`);
-        
-        try {
-          // First try to check if this draw actually exists in the contract
-          let drawExists = false;
-          
-          try {
-            // Check if the draw exists by calling drawExists function
-            drawExists = await contract.drawExists(Number(effectiveDrawId));
-            console.log(`Draw #${effectiveDrawId} exists check result: ${drawExists}`);
-            
-            if (!drawExists) {
-              console.log(`Draw #${effectiveDrawId} does not exist in the contract`);
-              return { tickets: [], participantCount: 0 };
-            }
-          } catch (error) {
-            // If the drawExists function doesn't exist or fails, try another approach
-            console.log("Draw existence check failed, trying alternative methods");
-            
-            try {
-              // Try to get the current draw number as an alternative check
-              const currentDraw = await contract.getCurrentDraw();
-              console.log(`Current draw from contract: ${currentDraw}`);
-              
-              // If our effectiveDrawId is greater than the current draw, it doesn't exist
-              if (Number(effectiveDrawId) > Number(currentDraw)) {
-                console.log(`Draw #${effectiveDrawId} > current draw ${currentDraw}, so it doesn't exist`);
-                return { tickets: [], participantCount: 0 };
-              }
-              
-              // If we get here, the draw might exist
-              drawExists = true;
-            } catch (error) {
-              console.log("Failed to get current draw, will try to get ticket count directly");
-              // We'll continue and try the ticket count method
-            }
-          }
-          
-          // At this point we need to verify if tickets exist
-          try {
-            const totalTickets = await contract.getTotalTicketsSold(Number(effectiveDrawId));
-            const ticketCount = Number(totalTickets);
-            console.log(`Contract returned ${ticketCount} tickets for draw ${effectiveDrawId}`);
-            
-            // If we successfully got the ticket count, that confirms draw exists
-            // But we only mark data as available if we actually have tickets
-            if (ticketCount > 0) {
-              setIsContractDataAvailable(true);
-              
-              // Fetch all tickets directly
-              console.log(`Fetching ${ticketCount} tickets for draw ${effectiveDrawId}...`);
-              const tickets: Ticket[] = [];
-              
-              // Limit to a reasonable number to avoid excessive RPC calls
-              const maxTicketsToFetch = Math.min(ticketCount, 50);
-              
-              for (let i = 0; i < maxTicketsToFetch; i++) {
-                try {
-                  const ticketDetails = await contract.getTicketDetails(Number(effectiveDrawId), i);
-                  
-                  if (!ticketDetails || !ticketDetails.buyer) {
-                    continue;
-                  }
-                  
-                  const walletAddress = ticketDetails.buyer;
-                  const numbers = Array.isArray(ticketDetails.numbers) 
-                    ? ticketDetails.numbers.map((n: any) => Number(n)) 
-                    : [];
-                  
-                  const lottoNumber = ticketDetails.lottoNumber !== undefined 
-                    ? Number(ticketDetails.lottoNumber) 
-                    : null;
-                    
-                  const timestamp = ticketDetails.buyTime 
-                    ? Number(ticketDetails.buyTime) * 1000 
-                    : Date.now();
-                  
-                  // Create ticket object
-                  const ticket: Ticket = {
-                    walletAddress,
-                    numbers,
-                    lottoNumber,
-                    timestamp,
-                    ticketId: `${effectiveDrawId}-${i}`
-                  };
-                  
-                  tickets.push(ticket);
-                } catch (error) {
-                  console.error(`Error getting ticket ${i} details:`, error);
-                }
-              }
-              
-              console.log(`Successfully loaded ${tickets.length}/${ticketCount} tickets for draw ${effectiveDrawId}`);
-              return { tickets, participantCount: ticketCount };
-            } else {
-              console.log(`No tickets found for draw ${effectiveDrawId}`);
-              
-              // No tickets but draw exists - we can conditionally mark as available
-              // based on whether we confirmed the draw exists earlier
-              if (drawExists) {
-                console.log("Draw exists but has no tickets - marking as available but empty");
-                setIsContractDataAvailable(true);
-              } else {
-                console.log("Draw existence uncertain and no tickets - marking as unavailable");
-              }
-              
-              return { tickets: [], participantCount: 0 };
-            }
-          } catch (error) {
-            console.error("Error getting total tickets sold:", error);
-            return { tickets: [], participantCount: 0 };
-          }
-        } catch (e) {
-          console.error("Error fetching ticket data:", e);
-          
-          // If we get an error like "cannot estimate gas", "no such method", or other contract-related errors,
-          // it likely means the draw doesn't exist in the smart contract
-          const errorMessage = e instanceof Error ? e.message || "" : String(e);
-          console.log(`Error message: ${errorMessage}`);
-          
-          if (
-            errorMessage.includes("cannot estimate gas") || 
-            errorMessage.includes("no such method") ||
-            errorMessage.includes("execution reverted") ||
-            errorMessage.includes("invalid opcode") ||
-            errorMessage.includes("invalid draw") ||
-            errorMessage.includes("nonexistent token")
-          ) {
-            console.log("Contract error suggests draw doesn't exist");
-          }
-          
-          throw new Error("Failed to fetch ticket data from the blockchain. Please try again.");
-        }
-      } catch (error: any) {
-        console.error("Error in participant data retrieval:", error.message || error);
-        throw error;
+  const { data: contractData, error, isLoading, refetch: refetchParticipants } = useQuery<ContractData>({
+    queryKey: ['drawParticipants', chainId, sharedSeriesIndex, effectiveDrawId],
+    queryFn: async () => {
+      let usedProvider: ethers.Provider | null = provider;
+      let usedChainId = chainId;
+      if (!usedProvider) {
+        usedProvider = new ethers.JsonRpcProvider("https://sepolia.infura.io/v3/9112e69058b4492c85a2d630b5d371c0");
+        usedChainId = "11155111"; // Sepolia chainId as string
       }
+      if (!usedChainId || sharedSeriesIndex === undefined) {
+        return { participants: [], counts: {} };
+      }
+      const result = await getDrawParticipants(usedProvider, usedChainId, effectiveDrawId, sharedSeriesIndex);
+      return {
+        participants: result.participants.map(p => ({
+          ...p,
+          ticketId: p.ticketId || `${effectiveDrawId}-${p.walletAddress}`
+        })),
+        counts: result.counts
+      };
     },
-    enabled: sharedSeriesIndex !== undefined,
-    staleTime: 30000,
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    retry: 2,
-    retryDelay: (attemptIndex) => Math.min(1000 * (2 ** attemptIndex), 10000)
+    enabled: true, // Always enabled to fetch data without wallet connection
+    staleTime: 60000, // Increase stale time to 1 minute
+    refetchOnMount: false, // Disable refetch on mount
+    refetchOnWindowFocus: false, // Disable refetch on window focus
+    retry: 1, // Reduce retry attempts
+    retryDelay: 1000 // Fixed retry delay
   });
   
   // Manual refresh function for the refresh button
@@ -347,9 +188,20 @@ export default function ParticipantsList({ sharedSeriesIndex, sharedDrawId }: Pa
     return false; // No winners displayed unless they come directly from the contract
   };
   
+  // Process participants data
+  const processParticipants = (data: ContractData) => {
+    return data.participants.map((p: Participant) => ({
+      ...p,
+      numbers: (p.numbers || []).map((num: number, index: number) => ({
+        value: num,
+        position: index + 1
+      }))
+    }));
+  };
+  
   // Destructure data with fallbacks
-  const tickets = contractData?.tickets || [];
-  const participantCount = contractData?.participantCount || 0;
+  const participants = contractData?.participants || [];
+  const participantCount = contractData?.counts[effectiveDrawId.toString()] || 0;
   
   // Show improved error state with casino styling
   if (error) {
@@ -450,7 +302,7 @@ export default function ParticipantsList({ sharedSeriesIndex, sharedDrawId }: Pa
   }
   
   // Show empty state when no tickets are found
-  if (!tickets || tickets.length === 0) {
+  if (!participants || participants.length === 0) {
     return (
       <section className="mx-auto max-w-7xl px-4 py-6">
         <div className="casino-card p-6">
@@ -538,46 +390,30 @@ export default function ParticipantsList({ sharedSeriesIndex, sharedDrawId }: Pa
         </div>
         
         <p className="text-md mb-4 font-medium text-white/80">
-          Currently showing <span className="lotto-number">{tickets.length}</span> tickets from <span className="lotto-number">{new Set(tickets.map(p => p.walletAddress)).size}</span> participants
+          Currently showing <span className="lotto-number">{participants.length}</span> tickets from <span className="lotto-number">{new Set(participants.map(p => p.walletAddress)).size}</span> participants
         </p>
         
         {/* Display participant data here */}
-        {tickets.length > 0 ? (
+        {participants.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {tickets.map((ticket) => (
+            {participants.map((ticket) => (
               <div key={ticket.ticketId} className="bg-black/30 backdrop-blur-sm border border-primary/30 rounded-lg p-4 transition-all hover:border-primary/60">
                 <div className="flex justify-between items-center mb-2">
-                  <div className="text-sm font-mono text-primary">
-                    Ticket #{ticket.ticketId}
-                  </div>
-                  <div className="text-xs text-white/60">
-                    {formatTimestamp(ticket.timestamp)}
-                  </div>
+                  <span className="text-sm text-white/60">Ticket #{ticket.ticketId}</span>
+                  <span className="text-sm text-white/60">{formatAddress(ticket.walletAddress)}</span>
                 </div>
-                
-                <div className="mb-3">
-                  <div className="text-xs text-white/70 mb-1">Wallet Address</div>
-                  <div className="font-mono text-sm truncate text-white/90">
-                    {formatAddress(ticket.walletAddress)}
-                  </div>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {(ticket.numbers || []).map((num, index) => (
+                    <div key={index} className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center border border-primary/30">
+                      <span className="text-sm font-mono text-white">{num.toString().padStart(2, '0')}</span>
+                    </div>
+                  ))}
                 </div>
-                
-                <div>
-                  <div className="text-xs text-white/70 mb-1">Selected Numbers</div>
-                  <div className="flex flex-wrap gap-2">
-                    {ticket.numbers.map((num, index) => (
-                      <div key={index} className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center border border-primary/30">
-                        <span className="text-sm font-mono text-white">{num.toString().padStart(2, '0')}</span>
-                      </div>
-                    ))}
-                    
-                    {ticket.lottoNumber !== null && (
-                      <div className="w-8 h-8 rounded-full bg-primary/30 flex items-center justify-center border border-primary">
-                        <span className="text-sm font-mono text-white">{ticket.lottoNumber.toString().padStart(2, '0')}</span>
-                      </div>
-                    )}
+                {ticket.lottoNumber !== undefined && (
+                  <div className="text-sm text-white/60">
+                    Lotto Number: {ticket.lottoNumber}
                   </div>
-                </div>
+                )}
               </div>
             ))}
           </div>

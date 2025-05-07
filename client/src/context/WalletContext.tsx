@@ -21,6 +21,7 @@ interface WalletContextType {
   connect: (providerType: ProviderType) => Promise<boolean>;
   disconnect: () => void;
   switchNetwork: (chainId: string) => Promise<boolean>;
+  isWrongNetwork: boolean;
 }
 
 // Create the context
@@ -37,38 +38,6 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   const [chainId, setChainId] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const { toast } = useToast();
-
-  // Initial check for existing connection
-  useEffect(() => {
-    const checkExistingConnection = async () => {
-      const ethereum = getEthereum();
-      if (!ethereum) return;
-
-      try {
-        // Create provider
-        const newProvider = createProvider(ethereum);
-        if (!newProvider) return;
-          
-        // Check if already connected
-        const accounts = await getAccounts(newProvider);
-        
-        if (accounts.length > 0) {
-          console.log('Found existing wallet connection:', accounts[0]);
-          
-          setProvider(newProvider);
-          setAccount(accounts[0]);
-          
-          // Get chain ID
-          const network = await newProvider.getNetwork();
-          setChainId(network.chainId.toString());
-        }
-      } catch (error) {
-        console.error('Error checking existing connection:', error);
-      }
-    };
-
-    checkExistingConnection();
-  }, []);
 
   // Set up event listeners when provider is available
   useEffect(() => {
@@ -203,6 +172,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   };
 
   // Context value
+  const isWrongNetwork = !!account && chainId !== '11155111';
   const contextValue: WalletContextType = {
     isConnected: !!account,
     isConnecting,
@@ -211,7 +181,8 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     provider,
     connect,
     disconnect,
-    switchNetwork
+    switchNetwork,
+    isWrongNetwork
   };
 
   return (

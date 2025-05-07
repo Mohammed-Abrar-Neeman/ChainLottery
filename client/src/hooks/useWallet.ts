@@ -11,13 +11,15 @@ interface UseWalletReturn {
   connect: (providerType: ProviderType) => Promise<boolean>;
   disconnect: () => void;
   switchNetwork: (chainId: string) => Promise<boolean>;
+  isWrongNetwork: boolean;
 }
 
 export function useWallet(): UseWalletReturn {
-  // Use the wallet context instead of managing state directly
-  const walletContext = useWalletContext();
-  
-  return walletContext;
+  const context = useWalletContext();
+  if (!context) {
+    throw new Error('useWallet must be used within a WalletProvider');
+  }
+  return context as UseWalletReturn;
 }
 
 // Export useWallet as useWeb3 as an alias for backward compatibility

@@ -100,6 +100,8 @@ export default function Home() {
   
   // When our home state changes, update the lottery data state
   useEffect(() => {
+    const updates = [];
+    
     // Only update if the values are different and not undefined
     if (homeSeriesIndex !== undefined && homeSeriesIndex !== selectedSeriesIndex) {
       console.log("Home - Updating lottery data series index from home:", { 
@@ -107,9 +109,7 @@ export default function Home() {
         to: homeSeriesIndex 
       });
       setLotteryDataSeriesIndex(homeSeriesIndex);
-      
-      // Force refresh when series changes
-      setRefreshTrigger(prev => prev + 1);
+      updates.push('series');
     }
     
     if (homeDrawId !== undefined && homeDrawId !== selectedDrawId) {
@@ -117,17 +117,18 @@ export default function Home() {
         from: selectedDrawId, 
         to: homeDrawId 
       });
-      // Update the draw ID without triggering additional updates
       setLotteryDataDrawId(homeDrawId);
-      
-      // Important: Force refetch of participants data when draw ID changes
-      console.log("Home - Refetching participants data for draw ID:", homeDrawId);
-      
-      // The refetch is now direct with no timeout to ensure immediate data update
-      refetchDrawParticipants();
-      
-      // Force refresh when draw changes
+      updates.push('draw');
+    }
+    
+    // Only trigger refresh if we actually made updates
+    if (updates.length > 0) {
       setRefreshTrigger(prev => prev + 1);
+      
+      // Only refetch participants if draw ID changed
+      if (updates.includes('draw')) {
+        refetchDrawParticipants();
+      }
     }
   }, [homeSeriesIndex, homeDrawId, selectedDrawId, selectedSeriesIndex, setLotteryDataSeriesIndex, setLotteryDataDrawId, refetchDrawParticipants]);
   

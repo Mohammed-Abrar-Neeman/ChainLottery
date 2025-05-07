@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Dispatch, SetStateAction, useRef } from 'react';
+import React, { useState, useEffect, Dispatch, SetStateAction, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useLotteryData } from '@/hooks/useLotteryData';
@@ -89,27 +89,21 @@ const BuyTickets = React.memo(function BuyTickets({
   const { getDrawDate } = useDrawDate();
   const { toast } = useToast();
   
-  // Create a function to get the current ticket price
-  const getCurrentTicketPrice = () => {
+  // Memoize the current ticket price to avoid recalculating on every render
+  const rawTicketPrice = useMemo(() => {
     const price = getSelectedDrawTicketPrice();
-    console.log('BuyTickets - Getting current ticket price:', {
-      price,
+    return price;
+  }, [getSelectedDrawTicketPrice, selectedDrawId, sharedDrawId]);
+
+  // Only log when ticket price changes
+  useEffect(() => {
+    console.log('BuyTickets - Ticket Price:', {
+      rawPrice: rawTicketPrice,
+      parsedPrice: isDrawAvailable() ? parseFloat(rawTicketPrice || '0.01') : 0,
       selectedDrawId,
       sharedDrawId
     });
-    return price;
-  };
-  
-  // Get the current ticket price from the selected draw
-  const rawTicketPrice = getCurrentTicketPrice();
-  
-  // Debug output for ticket price
-  console.log('BuyTickets - Ticket Price:', {
-    rawPrice: rawTicketPrice,
-    parsedPrice: isDrawAvailable() ? parseFloat(rawTicketPrice || '0.01') : 0,
-    selectedDrawId,
-    sharedDrawId
-  });
+  }, [rawTicketPrice, selectedDrawId, sharedDrawId, isDrawAvailable]);
   
   // Use completely stable values when wallet is not connected to prevent flickering
   // This is the key to preventing flickering - we bypass all the data fetching processes when not connected
@@ -125,22 +119,16 @@ const BuyTickets = React.memo(function BuyTickets({
   
   // Sync local state with shared state when provided and connected
   useEffect(() => {
-    if (!isConnected) return; // Skip syncing when wallet is not connected to prevent flickering
-    
-    // If sharedSeriesIndex is provided, update local state
+    if (!isConnected) return;
+
     if (sharedSeriesIndex !== undefined && sharedSeriesIndex !== selectedSeriesIndex) {
-      console.log("BuyTickets - Updating series index from shared state:", 
-        { old: selectedSeriesIndex, new: sharedSeriesIndex });
       setSelectedSeriesIndex(sharedSeriesIndex);
     }
-    
-    // If sharedDrawId is provided, update local state
     if (sharedDrawId !== undefined && sharedDrawId !== selectedDrawId) {
-      console.log("BuyTickets - Updating draw ID from shared state:", 
-        { old: selectedDrawId, new: sharedDrawId });
       setSelectedDrawId(sharedDrawId);
     }
-  }, [isConnected, sharedSeriesIndex, sharedDrawId, selectedSeriesIndex, selectedDrawId, setSelectedSeriesIndex, setSelectedDrawId]);
+    // Only run this effect when the shared values or connection status change
+  }, [isConnected, sharedSeriesIndex, sharedDrawId]);
   
   // Force a re-render when selectedDrawId changes
   useEffect(() => {
@@ -152,28 +140,39 @@ const BuyTickets = React.memo(function BuyTickets({
   // Sync active ticket with selected numbers
   useEffect(() => {
     if (tickets.length > 0 && activeTicketIndex < tickets.length) {
-      setSelectedNumbers(tickets[activeTicketIndex].numbers);
-      setSelectedLottoNumber(tickets[activeTicketIndex].lottoNumber);
+      const ticket = tickets[activeTicketIndex];
+      if (
+        JSON.stringify(selectedNumbers) !== JSON.stringify(ticket.numbers) ||
+        selectedLottoNumber !== ticket.lottoNumber
+      ) {
+        setSelectedNumbers(ticket.numbers);
+        setSelectedLottoNumber(ticket.lottoNumber);
+      }
     }
   }, [tickets, activeTicketIndex]);
   
   // Update active ticket when numbers change
   useEffect(() => {
     if (selectedNumbers.length === 5 && selectedLottoNumber !== null && tickets.length > 0) {
-      setTickets(prev => {
-        const newTickets = [...prev];
-        // Only update if the active ticket index is valid
-        if (activeTicketIndex < newTickets.length) {
-          newTickets[activeTicketIndex] = {
-            ...newTickets[activeTicketIndex],
-            numbers: [...selectedNumbers],
-            lottoNumber: selectedLottoNumber
-          };
-        }
-        return newTickets;
-      });
+      const currentTicket = tickets[activeTicketIndex];
+      if (
+        JSON.stringify(currentTicket.numbers) !== JSON.stringify(selectedNumbers) ||
+        currentTicket.lottoNumber !== selectedLottoNumber
+      ) {
+        setTickets(prev => {
+          const newTickets = [...prev];
+          if (activeTicketIndex < newTickets.length) {
+            newTickets[activeTicketIndex] = {
+              ...newTickets[activeTicketIndex],
+              numbers: [...selectedNumbers],
+              lottoNumber: selectedLottoNumber
+            };
+          }
+          return newTickets;
+        });
+      }
     }
-  }, [selectedNumbers, selectedLottoNumber]);
+  }, [selectedNumbers, selectedLottoNumber, activeTicketIndex, tickets]);
   
   // Add a new ticket to the list
   const addNewTicket = () => {
@@ -809,7 +808,6 @@ const BuyTickets = React.memo(function BuyTickets({
       <h2 className="text-3xl font-bold mb-6 bg-gradient-to-r from-primary to-yellow-500 text-transparent bg-clip-text">
         Pick Your Lucky Numbers
       </h2>
-      
       <div className="grid grid-cols-1 gap-8">
         {/* CHOOSE YOUR LOTTERY NUMBERS Section - First */}
         <div className="casino-card overflow-hidden">
@@ -826,7 +824,6 @@ const BuyTickets = React.memo(function BuyTickets({
               <Shuffle className="mr-1 h-3 w-3" /> Quick Pick
             </Button>
           </div>
-          
           <div className="p-6 lg:p-8">
             {/* Tabs for selection methods */}
             <div className="flex border-b border-primary/20 mb-6">
@@ -840,12 +837,10 @@ const BuyTickets = React.memo(function BuyTickets({
                 Pick Your Own Numbers
               </div>
             </div>
-            
             <div className="text-center mb-6">
               <p className="text-white/80 mb-6">
                 Get a random selection of lottery numbers with just one click!
               </p>
-              
               <Button 
                 onClick={handleQuickPick}
                 className="mb-8 bg-gradient-to-r from-primary to-yellow-600 hover:from-yellow-600 hover:to-primary text-black font-bold rounded-lg py-5 h-14 text-lg transition-all shadow-lg btn-glow"
@@ -854,16 +849,13 @@ const BuyTickets = React.memo(function BuyTickets({
                 Generate Quick Pick
               </Button>
             </div>
-            
             {/* Display Selected Numbers */}
             <div className="mb-6">
               <h3 className="text-lg font-bold text-white mb-4">
                 Your Selected Numbers
               </h3>
-              
               {renderTicketSummary()}
             </div>
-            
             {/* Buy Button */}
             {!isConnected ? (
               <Button
@@ -895,16 +887,13 @@ const BuyTickets = React.memo(function BuyTickets({
             )}
           </div>
         </div>
-        
         {/* HOW IT WORKS Section - Now Second (moved below) */}
         {renderHowItWorks()}
       </div>
-      
       <WalletModal 
         open={showWalletModal} 
         onClose={() => setShowWalletModal(false)} 
       />
-      
       <BuyConfirmationModal
         open={showBuyConfirmModal}
         onClose={() => setShowBuyConfirmModal(false)}
@@ -917,7 +906,6 @@ const BuyTickets = React.memo(function BuyTickets({
         selectedNumbers={selectedNumbers}
         selectedLottoNumber={selectedLottoNumber}
       />
-      
       <TicketReconfirmationModal
         open={showReconfirmModal}
         onClose={() => setShowReconfirmModal(false)}
@@ -932,13 +920,11 @@ const BuyTickets = React.memo(function BuyTickets({
         seriesName={!isConnected ? stableSeriesName : (selectedSeriesIndex !== undefined ? seriesList?.find(s => s.index === selectedSeriesIndex)?.name : "")}
         drawId={!isConnected ? stableDrawId : selectedDrawId}
       />
-      
       <TransactionPendingModal
         open={showPendingModal}
         onClose={() => setShowPendingModal(false)}
         transactionHash={transactionHash}
       />
-      
       <TransactionSuccessModal
         open={showSuccessModal}
         onClose={() => setShowSuccessModal(false)}

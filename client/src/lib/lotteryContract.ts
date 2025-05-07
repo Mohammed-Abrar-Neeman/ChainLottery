@@ -6,7 +6,7 @@ import { parseEther } from '@/lib/web3';
 
 // Contract interface setup
 export const getLotteryContract = (
-  provider: ethers.BrowserProvider | null,
+  provider: ethers.Provider | null,
   chainId: string
 ): ethers.Contract | null => {
   if (!provider) return null;
@@ -29,7 +29,7 @@ export const getLotteryContract = (
 
 // Get all series data from the contract
 export const getAllSeriesData = async (
-  provider: ethers.BrowserProvider | null,
+  provider: ethers.Provider | null,
   chainId: string
 ): Promise<{ index: number; name: string }[]> => {
   if (!provider) return [];
@@ -90,7 +90,7 @@ export const getLotteryContractWithSigner = async (
 
 // Get current lottery data (jackpot, ticket price, time remaining, etc.)
 export const getLotteryData = async (
-  provider: ethers.BrowserProvider | null,
+  provider: ethers.Provider | null,
   chainId: string,
   seriesIndex?: number, // Optional series index parameter
   drawId?: number // Optional draw ID to fetch specific draw
@@ -393,7 +393,7 @@ export const getLotteryData = async (
 
 // Get all lottery series
 export const getSeriesList = async (
-  provider: ethers.BrowserProvider | null,
+  provider: ethers.Provider | null,
   chainId: string
 ): Promise<LotterySeries[]> => {
   console.log("getSeriesList called with chainId:", chainId);
@@ -580,7 +580,7 @@ const createDefaultSeries = (index: number): LotterySeries => {
 
 // Get draws for a specific series
 export const getSeriesDraws = async (
-  provider: ethers.BrowserProvider | null,
+  provider: ethers.Provider | null,
   chainId: string,
   seriesIndex: number
 ): Promise<LotteryDraw[]> => {
@@ -727,7 +727,7 @@ const createDefaultDraw = (drawId: number, seriesIndex: number): LotteryDraw => 
 
 // Get details for a specific draw
 export const getDrawInfo = async (
-  provider: ethers.BrowserProvider | null,
+  provider: ethers.Provider | null,
   chainId: string,
   drawId: number,
   seriesIndex?: number
@@ -792,7 +792,7 @@ export const generateQuickPick = (): { numbers: number[], lottoNumber: number } 
 
 // Get draw participants and transactions
 export const getDrawParticipants = async (
-  provider: ethers.BrowserProvider | null,
+  provider: ethers.Provider | null,
   chainId: string,
   drawId: number,
   seriesIndex?: number
@@ -1353,7 +1353,7 @@ export const buyLotteryTicket = async (
 
 // Get total draws count in a series
 export const getTotalDrawsInSeries = async (
-  provider: ethers.BrowserProvider | null,
+  provider: ethers.Provider | null,
   chainId: string,
   seriesIndex: number
 ): Promise<number> => {
@@ -1392,7 +1392,7 @@ export const formatTimeRemaining = (seconds: number): { days: number, hours: num
 
 // Get winners for a specific draw
 export const getDrawWinners = async (
-  provider: ethers.BrowserProvider | null,
+  provider: ethers.Provider | null,
   chainId: string,
   drawId: number,
   seriesIndex?: number
@@ -1543,7 +1543,7 @@ export const getDrawWinners = async (
 
 // Get total number of winners across all draws or for a specific draw
 export const getTotalWinners = async (
-  provider: ethers.BrowserProvider | null,
+  provider: ethers.Provider | null,
   chainId: string,
   drawId?: number
 ): Promise<number> => {

@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { useWallet } from '@/hooks/useWallet';
 import { X } from 'lucide-react';
+import metamaskLogo from '@/assets/metamask-fox.svg';
 
 interface WalletModalProps {
   open: boolean;
@@ -53,12 +54,12 @@ export default function WalletModal({ open, onClose }: WalletModalProps) {
           >
             <div className="flex items-center">
               <img 
-                src="https://raw.githubusercontent.com/MetaMask/brand-resources/master/SVG/metamask-fox.svg" 
-                alt="MetaMask" 
-                className="h-10 w-10 mr-4"
+                src={metamaskLogo}
+                alt="MetaMask Logo" 
+                className="h-10 w-10 mr-4 bg-white rounded-full border border-gray-200 object-contain"
               />
-              <div className="text-left">
-                <h4 className="font-semibold">MetaMask</h4>
+              <div className="text-center">
+                <h4 className="font-semibold" style={{ fontFamily: 'Inter, Arial, sans-serif' }}>MetaMask</h4>
                 <p className="text-sm text-gray-500">Connect using browser wallet</p>
               </div>
             </div>
@@ -84,12 +85,13 @@ export default function WalletModal({ open, onClose }: WalletModalProps) {
           >
             <div className="flex items-center">
               <img 
-                src="https://seeklogo.com/images/W/walletconnect-logo-EE83B50C97-seeklogo.com.png" 
-                alt="WalletConnect" 
-                className="h-10 w-10 mr-4"
+                src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.7.8/assets/walletconnect-logo.svg" 
+                alt="WalletConnect Logo" 
+                className="h-10 w-10 mr-4 bg-white rounded-full border border-gray-200 object-contain"
+                onError={(e) => { e.currentTarget.src = 'https://seeklogo.com/images/W/walletconnect-logo-EE83B50C97-seeklogo.com.png'; }}
               />
-              <div className="text-left">
-                <h4 className="font-semibold">WalletConnect</h4>
+              <div className="text-center">
+                <h4 className="font-semibold" style={{ fontFamily: 'Inter, Arial, sans-serif' }}>WalletConnect</h4>
                 <p className="text-sm text-gray-500">Connect using mobile wallet</p>
               </div>
             </div>
@@ -115,12 +117,13 @@ export default function WalletModal({ open, onClose }: WalletModalProps) {
           >
             <div className="flex items-center">
               <img 
-                src="https://upload.wikimedia.org/wikipedia/commons/1/1a/Coinbase_logo.svg" 
-                alt="Coinbase Wallet" 
-                className="h-10 w-10 mr-4"
+                src="https://avatars.githubusercontent.com/u/1885080?s=200&v=4" 
+                alt="Coinbase Wallet Logo" 
+                className="h-10 w-10 mr-4 bg-white rounded-full border border-gray-200 object-contain"
+                onError={(e) => { e.currentTarget.src = 'https://upload.wikimedia.org/wikipedia/commons/1/1a/Coinbase_logo.svg'; }}
               />
-              <div className="text-left">
-                <h4 className="font-semibold">Coinbase Wallet</h4>
+              <div className="text-center">
+                <h4 className="font-semibold" style={{ fontFamily: 'Inter, Arial, sans-serif' }}>Coinbase Wallet</h4>
                 <p className="text-sm text-gray-500">Connect using Coinbase Wallet</p>
               </div>
             </div>

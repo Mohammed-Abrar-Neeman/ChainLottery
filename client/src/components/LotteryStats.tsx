@@ -56,69 +56,38 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
   
   // Get the jackpot amount directly from the contract's reported value
   const getJackpotAmount = () => {
-    // If not connected, return zero
-    if (!isConnected) {
-      return "0.0";
-    }
-    // Use the value directly from the API response
     return defaultLotteryData?.jackpotAmount || "0.0";
   };
   
   // Get the ticket price directly from the contract's reported value 
   const getTicketPrice = () => {
-    // If not connected, return zero
-    if (!isConnected) {
-      return "0.0";
-    }
-    // Use the value directly from the API response
     return defaultLotteryData?.ticketPrice || "0.0";
   };
   
   // Get the display round number based on the series and draw ID
   const getCurrentRound = () => {
-    // If not connected, return a stable value
-    if (!isConnected || !selectedDrawId) {
+    if (!selectedDrawId) {
       return 1;
     }
-    
     // For each series, assign a consistent round number for display purposes
-    // This fixes the "Round for the same draw id" issue by showing a consistent
-    // round number regardless of the actual drawId value
-    
-    // Each series has its own round numbering that starts from 1
     if (selectedSeriesIndex === 0) {
-      // Beginner Series (series 0)
-      return selectedDrawId; // For this series, draw ID matches round number
+      return selectedDrawId;
     } else if (selectedSeriesIndex === 1) {
-      // Intermediate Series (series 1) 
-      // Here the draw ID is 2, but we display it as round 1 within this series
       return 1;
     } else if (selectedSeriesIndex === 2) {
-      // Monthly Mega Series (series 2)
       return selectedDrawId;
     } else if (selectedSeriesIndex === 3) {
-      // Weekly Express Series (series 3)
       return selectedDrawId;
     } else if (selectedSeriesIndex === 4) {
-      // Quarterly Rewards Series (series 4)
       return selectedDrawId;
     } else if (selectedSeriesIndex === 5) {
-      // Annual Championship Series (series 5)
       return selectedDrawId;
     }
-    
-    // Default fallback
     return selectedDrawId;
   };
   
   // Get participants count for the SELECTED draw, not just the default draw
   const getParticipantCount = () => {
-    // If not connected, return zero
-    if (!isConnected) {
-      return 0;
-    }
-    // Simply use the participant count from the lottery data
-    // Now that we're correctly calculating it in lotteryContract.ts
     return defaultLotteryData?.participantCount || 0;
   };
   
@@ -226,18 +195,16 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
           </div>
           <p className="lotto-number text-3xl">
             {/* Check if there's actual draw data from the smart contract */}
-            {(isConnected && isDrawAvailable() && seriesDraws && seriesDraws.length > 0 && currentRound > 0) 
+            {(isDrawAvailable() && seriesDraws && seriesDraws.length > 0 && currentRound > 0) 
               ? `#${currentRound}` 
               : 'No Data'}
           </p>
           <p className="text-gray-600 text-sm">
-            {!isConnected 
-              ? `Ends in ${formatTimeRemaining()}`
-              : timeRemaining && timeRemaining.days === 0 && timeRemaining.hours === 0 && timeRemaining.minutes === 0 
-                ? 'Draw completed' 
-                : timeRemaining && (timeRemaining.days > 0 || timeRemaining.hours > 0 || timeRemaining.minutes > 0)
-                  ? `Ends in ${formatTimeRemaining()}`
-                  : 'Time unavailable'}
+            {timeRemaining && timeRemaining.days === 0 && timeRemaining.hours === 0 && timeRemaining.minutes === 0 
+              ? 'Draw completed' 
+              : timeRemaining && (timeRemaining.days > 0 || timeRemaining.hours > 0 || timeRemaining.minutes > 0)
+                ? `Ends in ${formatTimeRemaining()}`
+                : 'Time unavailable'}
           </p>
         </div>
       </div>
