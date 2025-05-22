@@ -142,30 +142,21 @@ export default function Header() {
             <Link href="/">
               <div className="flex items-center cursor-pointer">
                 <div className="relative animate-glow">
-                  <svg 
-                    className="h-12 w-12 mr-3"
-                    viewBox="0 0 40 40" 
-                    fill="none" 
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <circle cx="20" cy="20" r="20" fill="url(#logoGradient)" />
-                    <path d="M12 20L20 12L28 20L20 28L12 20Z" fill="#FFF" />
-                    <path d="M16 20L20 16L24 20L20 24L16 20Z" fill="#111827" />
-                    
-                    {/* Define gradient */}
-                    <defs>
-                      <linearGradient id="logoGradient" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-                        <stop offset="0%" stopColor="#FFC851" />
-                        <stop offset="100%" stopColor="#FF8C51" />
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                </div>
-                <div>
-                  <h1 className="text-3xl font-bold bg-gradient-to-r from-primary via-yellow-500 to-amber-500 text-transparent bg-clip-text">
-                    CryptoLotto
-                  </h1>
-                  <div className="text-xs text-primary/80 font-mono -mt-1">BLOCKCHAIN LOTTERY</div>
+                  <Link href="/">
+                    <div className="flex items-center cursor-pointer">
+                      <img 
+                        src="/images/lottologo.jpeg" 
+                        alt="Company Logo" 
+                        className="h-12 w-12 mr-3" 
+                      />
+                      <div>
+                        <h1 className="text-3xl font-bold bg-gradient-to-r from-primary via-yellow-500 to-amber-500 text-transparent bg-clip-text">
+                          CryptoLotto
+                        </h1>
+                        <div className="text-xs text-primary/80 font-mono -mt-1">BLOCKCHAIN LOTTERY</div>
+                      </div>
+                    </div>
+                  </Link>
                 </div>
               </div>
             </Link>
