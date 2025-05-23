@@ -2,6 +2,7 @@ import React from 'react';
 import Header from './Header';
 import Footer from './Footer';
 import PromoBanner from './PromoBanner';
+import ContextProvider from '@/context' 
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -9,6 +10,7 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   return (
+    <ContextProvider cookies={null}>
     <div className="min-h-screen flex flex-col">
       <Header />
       <PromoBanner />
@@ -17,5 +19,6 @@ export default function Layout({ children }: LayoutProps) {
       </main>
       <Footer />
     </div>
+    </ContextProvider>
   );
 }

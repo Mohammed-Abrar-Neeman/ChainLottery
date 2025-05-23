@@ -33,36 +33,36 @@ function Router() {
   );
 }
 
-function WrongNetworkBanner({ onClose }: { onClose: () => void }) {
-  return (
-    <div style={{ background: '#ffcc00', color: '#222', padding: '12px', textAlign: 'center', position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1001 }}>
-      <strong>Wrong Network:</strong> Please switch your wallet to <b>Sepolia Testnet</b>.
-      <button style={{ marginLeft: 16, background: 'none', border: 'none', fontWeight: 'bold', cursor: 'pointer' }} onClick={onClose}>Dismiss</button>
-    </div>
-  );
-}
+// function WrongNetworkBanner({ onClose }: { onClose: () => void }) {
+//   return (
+//     <div style={{ background: '#ffcc00', color: '#222', padding: '12px', textAlign: 'center', position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1001 }}>
+//       <strong>Wrong Network:</strong> Please switch your wallet to <b>Sepolia Testnet</b>.
+//       <button style={{ marginLeft: 16, background: 'none', border: 'none', fontWeight: 'bold', cursor: 'pointer' }} onClick={onClose}>Dismiss</button>
+//     </div>
+//   );
+// }
 
-function WrongNetworkModal() {
-  return (
-    <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.7)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: '#222', color: '#fff', padding: 32, borderRadius: 12, boxShadow: '0 2px 24px #000', maxWidth: 400, textAlign: 'center' }}>
-        <h2 style={{ fontSize: 28, marginBottom: 16 }}>Wrong Network</h2>
-        <p style={{ fontSize: 18, marginBottom: 24 }}>Please switch your wallet to <b>Sepolia Testnet</b> to use the app.</p>
-      </div>
-    </div>
-  );
-}
+// function WrongNetworkModal() {
+//   return (
+//     <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.7)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+//       <div style={{ background: '#222', color: '#fff', padding: 32, borderRadius: 12, boxShadow: '0 2px 24px #000', maxWidth: 400, textAlign: 'center' }}>
+//         <h2 style={{ fontSize: 28, marginBottom: 16 }}>Wrong Network</h2>
+//         <p style={{ fontSize: 18, marginBottom: 24 }}>Please switch your wallet to <b>Sepolia Testnet</b> to use the app.</p>
+//       </div>
+//     </div>
+//   );
+// }
 
 function AppContent() {
   const { isWrongNetwork } = useWallet();
   const [showBanner, setShowBanner] = useState(true);
 
-  if (isWrongNetwork) {
-    return <>
-      {showBanner && <WrongNetworkBanner onClose={() => setShowBanner(false)} />}
-      <WrongNetworkModal />
-    </>;
-  }
+  // if (isWrongNetwork) {
+  //   return <>
+  //     {showBanner && <WrongNetworkBanner onClose={() => setShowBanner(false)} />}
+  //     <WrongNetworkModal />
+  //   </>;
+  // }
 
   return (
     <Layout>

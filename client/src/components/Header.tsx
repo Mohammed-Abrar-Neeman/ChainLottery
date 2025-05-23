@@ -206,9 +206,9 @@ export default function Header() {
               </div>
             </Link>
           </nav>
-          
+          <appkit-button/>
           {/* Wallet Connection */}
-          <div className="hidden lg:block">
+          {/* <div className="hidden lg:block">
             {isConnected ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -256,7 +256,7 @@ export default function Header() {
                 Connect Wallet
               </Button>
             )}
-          </div>
+          </div> */}
         </div>
       </div>
       
