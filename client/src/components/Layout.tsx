@@ -10,7 +10,6 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   return (
-    <ContextProvider cookies={null}>
     <div className="min-h-screen flex flex-col">
       <Header />
       <PromoBanner />
@@ -19,6 +18,5 @@ export default function Layout({ children }: LayoutProps) {
       </main>
       <Footer />
     </div>
-    </ContextProvider>
   );
 }

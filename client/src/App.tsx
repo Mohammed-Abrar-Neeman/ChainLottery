@@ -12,9 +12,9 @@ import FAQ from "@/pages/FAQ";
 import Admin from "@/pages/Admin";
 import ManualSelection from "@/pages/ManualSelection";
 import { AppSettingsProvider } from "./context/AppSettingsContext";
-import { WalletProvider } from "./context/WalletContext";
-import { useWallet } from './hooks/useWallet';
 import { useState } from 'react';
+import { useWallet } from './hooks/useWallet';
+import { WalletProvider } from "./context/WalletContext";
 
 function Router() {
   return (
@@ -73,14 +73,12 @@ function AppContent() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <WalletProvider>
+    <WalletProvider cookies={null}>
         <AppSettingsProvider>
           <AppContent />
           <Toaster />
         </AppSettingsProvider>
-      </WalletProvider>
-    </QueryClientProvider>
+    </WalletProvider>
   );
 }
 

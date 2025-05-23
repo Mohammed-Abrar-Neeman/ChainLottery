@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
 import { ProviderType } from '@/lib/web3';
-import { useWalletContext } from '@/context/WalletContext';
+import { useAccount, useDisconnect } from 'wagmi';
 
 interface UseWalletReturn {
   isConnected: boolean;
@@ -15,11 +15,20 @@ interface UseWalletReturn {
 }
 
 export function useWallet(): UseWalletReturn {
-  const context = useWalletContext();
-  if (!context) {
-    throw new Error('useWallet must be used within a WalletProvider');
-  }
-  return context as UseWalletReturn;
+  const { address, isConnected, chainId } = useAccount();
+  const { disconnect } = useDisconnect();
+
+  return {
+    isConnected,
+    account: address ?? null,
+    chainId: chainId ? chainId.toString() : null,
+    disconnect,
+    isWrongNetwork: chainId !== 11155111,
+    isConnecting: false,
+    provider: null,
+    connect: async () => false,
+    switchNetwork: async () => false
+  };
 }
 
 // Export useWallet as useWeb3 as an alias for backward compatibility
