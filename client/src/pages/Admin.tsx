@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -11,6 +11,12 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { useAppSettings } from '@/context/AppSettingsContext';
+import { useAppKitProvider, useAppKitAccount } from "@reown/appkit/react";
+import { BrowserProvider, Contract } from "ethers";
+import LotteryABI from '@/abi/Lottery.json';
+
+// Contract address - replace with your deployed contract address
+const LOTTERY_CONTRACT_ADDRESS = '0x204f5777A911090572633De22b2571d6Bb89308d';
 
 export default function Admin() {
   // Initialize toast
@@ -19,9 +25,50 @@ export default function Admin() {
   
   // Basic state management
   const [activeTab, setActiveTab] = useState('series');
-  const [isAdmin, setIsAdmin] = useState(true); // Mock admin status
-  const [isLoading, setIsLoading] = useState(false);
-  
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // AppKit hooks
+  const { address, isConnected } = useAppKitAccount();
+  const { walletProvider } = useAppKitProvider("eip155");
+
+  // Check admin status
+  const checkAdminStatus = async () => {
+    if (!isConnected || !address || !walletProvider) {
+      setIsAdmin(false);
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const ethersProvider = new BrowserProvider(walletProvider);
+      const signer = await ethersProvider.getSigner();
+      const lotteryContract = new Contract(
+        LOTTERY_CONTRACT_ADDRESS,
+        LotteryABI,
+        signer
+      );
+
+      const adminAddress = await lotteryContract.admin();
+      setIsAdmin(adminAddress.toLowerCase() === address.toLowerCase());
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+      setIsAdmin(false);
+      toast({
+        title: "Error",
+        description: "Failed to check admin status. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Effect to check admin status when connection changes
+  useEffect(() => {
+    checkAdminStatus();
+  }, [isConnected, address, walletProvider]);
+
   // Draw form state
   const [ticketPrice, setTicketPrice] = useState('0.01');
   const [initialJackpot, setInitialJackpot] = useState('0.1');
@@ -119,6 +166,27 @@ export default function Admin() {
     );
   }
   
+  // Show connect wallet message if not connected
+  if (!isConnected) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-3xl font-bold">Admin Panel</h1>
+            <p className="text-gray-500 mt-1">Access Restricted</p>
+          </div>
+        </div>
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Wallet Not Connected</AlertTitle>
+          <AlertDescription>
+            Please connect your wallet to access the admin panel.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+  
   // Show access denied if not admin
   if (!isAdmin) {
     return (
@@ -133,7 +201,7 @@ export default function Admin() {
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Access Denied</AlertTitle>
           <AlertDescription>
-            You do not have permission to access this page.
+            You do not have permission to access this page. Only the contract admin can access this panel.
           </AlertDescription>
         </Alert>
       </div>
