@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
-import { useWallet } from '@/hooks/useWallet';
+import { useAccount, useDisconnect, usePublicClient, useWalletClient } from 'wagmi';
+import { BrowserProvider } from 'ethers';
 import { useAdmin } from '@/hooks/useAdmin';
 import { formatAddress } from '@/lib/web3';
 import { getLotteryContract } from '@/lib/lotteryContract';
@@ -20,7 +21,10 @@ export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const { isConnected, account, disconnect, provider } = useWallet();
+  const { address, isConnected } = useAccount();
+  const { disconnect } = useDisconnect();
+  const publicClient = usePublicClient();
+  const { data: walletClient } = useWalletClient();
   const { isAdmin } = useAdmin();
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
@@ -56,7 +60,7 @@ export default function Header() {
     
     // DIRECT CHECK 2: Is it the admin wallet?
     try {
-      if (!provider || !account) {
+      if (!walletClient || !address) {
         toast({
           title: "Wallet Error",
           description: "Error accessing wallet. Please try again.",
@@ -66,9 +70,20 @@ export default function Header() {
         return;
       }
       
+      // Create ethers provider from wallet client
+      const provider = new BrowserProvider(walletClient);
+      
       // Get network and contract information
-      const network = await provider.getNetwork();
-      const chainId = network.chainId.toString();
+      if (!publicClient) {
+        toast({
+          title: "Network Error",
+          description: "Could not access network information. Please try again.",
+          variant: "destructive",
+          duration: 3000
+        });
+        return;
+      }
+      const chainId = publicClient.chain.id.toString();
       const contract = getLotteryContract(provider, chainId);
       
       if (!contract) {
@@ -83,7 +98,7 @@ export default function Header() {
       
       // Get admin address directly from contract
       const adminAddress = await contract.admin();
-      const isCurrentAdmin = adminAddress.toLowerCase() === account.toLowerCase();
+      const isCurrentAdmin = adminAddress.toLowerCase() === address.toLowerCase();
       
       if (!isCurrentAdmin) {
         toast({
@@ -208,14 +223,14 @@ export default function Header() {
           </nav>
           <appkit-button/>
           {/* Wallet Connection */}
-          {/* <div className="hidden lg:block">
+          <div className="hidden lg:block">
             {isConnected ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="btn-glow bg-card/60 border border-primary/30 rounded-full px-4 py-2 text-white">
                     <div className="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></div>
                     <span className="truncate-address font-mono text-sm">
-                      {account ? formatAddress(account) : ''}
+                      {address ? formatAddress(address) : ''}
                     </span>
                   </Button>
                 </DropdownMenuTrigger>
@@ -242,7 +257,7 @@ export default function Header() {
                     </>
                   )}
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={disconnect} className="cursor-pointer">
+                  <DropdownMenuItem onClick={() => disconnect()} className="cursor-pointer">
                     Disconnect
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -256,7 +271,7 @@ export default function Header() {
                 Connect Wallet
               </Button>
             )}
-          </div> */}
+          </div>
         </div>
       </div>
       
@@ -305,11 +320,11 @@ export default function Header() {
                 <div className="flex items-center justify-between text-white mb-3">
                   <div className="flex items-center">
                     <div className="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></div>
-                    <span className="font-mono text-sm">{account ? formatAddress(account) : ''}</span>
+                    <span className="font-mono text-sm">{address ? formatAddress(address) : ''}</span>
                   </div>
                 </div>
                 <Button 
-                  onClick={disconnect} 
+                  onClick={() => disconnect()} 
                   variant="outline"
                   className="w-full border-primary/30 text-white hover:bg-white/10"
                 >

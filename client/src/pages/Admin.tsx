@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAppSettings } from '@/context/AppSettingsContext';
 import { Redirect } from 'wouter';
-import { useWallet } from '@/hooks/useWallet';
+import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
+import { BrowserProvider } from 'ethers';
 import { useAdmin, SeriesInfo } from '@/hooks/useAdmin';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,13 +16,17 @@ import { AlertCircle, KeyRound, ChevronRight, Lock, Unlock, RefreshCw, CheckCirc
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
+import { getLotteryContract, getLotteryContractWithSigner } from '@/lib/lotteryContract';
 
 export default function Admin() {
-  const { isConnected, account } = useWallet();
+  const { address, isConnected } = useAccount();
+  const publicClient = usePublicClient();
+  const { data: walletClient } = useWalletClient();
   const { settings, updateShowSeriesDropdown } = useAppSettings();
+  const [isAdminLoading, setIsAdminLoading] = useState(true);
   const { 
     isAdmin, 
-    isAdminLoading, 
+    isAdminLoading: adminHookLoading, 
     adminError, 
     twoFactorState, 
     twoFactorSecret,
@@ -363,7 +368,38 @@ export default function Admin() {
   // Handle creating a new series
   const handleCreateNewSeries = async () => {
     try {
-      if (!isAdmin) {
+      if (!walletClient || !address || !publicClient) {
+        toast({
+          title: "Wallet Error",
+          description: "Error accessing wallet. Please try again.",
+          variant: "destructive",
+          duration: 3000,
+        });
+        return;
+      }
+
+      // Create ethers provider from wallet client
+      const provider = new BrowserProvider(walletClient);
+      
+      // Get network and contract information
+      const chainId = publicClient.chain.id.toString();
+      const contract = getLotteryContract(provider, chainId);
+      
+      if (!contract) {
+        toast({
+          title: "Contract Error",
+          description: "Could not access lottery contract. Please ensure you're on the correct network.",
+          variant: "destructive",
+          duration: 3000,
+        });
+        return;
+      }
+      
+      // Get admin address directly from contract
+      const adminAddress = await contract.admin();
+      const isCurrentAdmin = adminAddress.toLowerCase() === address.toLowerCase();
+      
+      if (!isCurrentAdmin) {
         toast({
           title: "Access Denied",
           description: "You must be an admin to create a new series",
@@ -385,7 +421,20 @@ export default function Admin() {
       }
       
       setCreatingNewSeries(true);
-      await createNewSeries(newSeriesName);
+
+      // Get contract with signer
+      const contractWithSigner = await getLotteryContractWithSigner(provider, chainId);
+      if (!contractWithSigner) {
+        throw new Error("Failed to get contract with signer");
+      }
+
+      // Call the newSeries function on the contract
+      console.log(`Creating new series: ${newSeriesName}`);
+      const tx = await contractWithSigner.newSeries(newSeriesName);
+      
+      // Wait for transaction to be mined
+      await tx.wait();
+      
       setCreatingNewSeries(false);
       
       toast({
@@ -398,6 +447,9 @@ export default function Admin() {
       
       // Reset form
       setNewSeriesName('');
+
+      // Refresh series list
+      refreshSeriesList();
     } catch (error) {
       console.error('Error creating new series:', error);
       setCreatingNewSeries(false);
@@ -429,16 +481,18 @@ export default function Admin() {
       const drawTime = now + (drawTimeHours * 60 * 60); // Add hours in seconds
       
       setStartingNewDraw(true);
-      await startNewXDraw(ticketPrice, initialJackpot, drawTime, seriesIndex);
+      const success = await startNewXDraw(ticketPrice, initialJackpot, drawTime, seriesIndex);
       setStartingNewDraw(false);
       
-      toast({
-        title: "Time-Based Draw Started",
-        description: `New time-based lottery draw started with ticket price ${ticketPrice} ETH and initial jackpot ${initialJackpot} ETH`,
-        variant: "success",
-        duration: 5000,
-        icon: <CheckCircle className="h-5 w-5 text-green-500" />,
-      });
+      if (success) {
+        toast({
+          title: "Time-Based Draw Started",
+          description: `New time-based lottery draw started with ticket price ${ticketPrice} ETH and initial jackpot ${initialJackpot} ETH`,
+          variant: "success",
+          duration: 5000,
+          icon: <CheckCircle className="h-5 w-5 text-green-500" />,
+        });
+      }
     } catch (error) {
       console.error('Error starting time-based draw:', error);
       setStartingNewDraw(false);
@@ -565,17 +619,11 @@ export default function Admin() {
   // Simple wallet watchdog - store initial admin wallet and redirect on wallet change
   // Added delay to ensure admin status is properly synced
   useEffect(() => {
-    console.log("Admin page loaded - checking wallet status", {isConnected, isAdmin, account});
+    console.log("Admin page loaded - checking wallet status", {isConnected, address});
     
     // Add a small delay to ensure wallet state is synchronized
-    const timer = setTimeout(() => {
-      // Step 1: If still loading admin status, wait for it
-      if (isAdminLoading) {
-        console.log("Admin status still loading, waiting...");
-        return;
-      }
-      
-      // Step 2: Check if wallet is connected at all 
+    const timer = setTimeout(async () => {
+      // Step 1: Check if wallet is connected at all 
       if (!isConnected) {
         console.log("Wallet not connected, redirecting to home");
         toast({
@@ -588,53 +636,85 @@ export default function Admin() {
         return;
       }
       
-      // Step 3: Check if wallet is admin
-      if (!isAdmin) {
-        console.log("Not admin wallet, redirecting to home");
+      // Step 2: Check if wallet is admin
+      try {
+        if (!walletClient || !address || !publicClient) {
+          console.log("Missing wallet or network information");
+          toast({
+            title: "Wallet Error",
+            description: "Error accessing wallet. Please try again.",
+            variant: "destructive",
+            duration: 3000
+          });
+          setShouldRedirect(true);
+          return;
+        }
+
+        // Create ethers provider from wallet client
+        const provider = new BrowserProvider(walletClient);
+        
+        // Get network and contract information
+        const chainId = publicClient.chain.id.toString();
+        const contract = getLotteryContract(provider, chainId);
+        
+        if (!contract) {
+          console.log("Could not access contract");
+          toast({
+            title: "Contract Error",
+            description: "Could not access lottery contract. Please ensure you're on the correct network.",
+            variant: "destructive",
+            duration: 3000
+          });
+          setShouldRedirect(true);
+          return;
+        }
+        
+        // Get admin address directly from contract
+        const adminAddress = await contract.admin();
+        const isCurrentAdmin = adminAddress.toLowerCase() === address.toLowerCase();
+        
+        if (!isCurrentAdmin) {
+          console.log("Not admin wallet, redirecting to home");
+          toast({
+            title: "Access Denied",
+            description: "This wallet doesn't have admin privileges. Please connect with the admin wallet.",
+            variant: "destructive",
+            duration: 3000
+          });
+          setShouldRedirect(true);
+          return;
+        }
+
+        // If we get here, we're an admin
+        setIsAdminLoading(false);
+        
+        // Store initial admin wallet for watchdog if not already done
+        if (!initialAdminAccount && address) {
+          console.log("Setting initial admin wallet:", address);
+          setInitialAdminAccount(address);
+        }
+        
+        // Show a toast notification for admin access
+        if (!hasShownVerificationToast) {
+          toast({
+            title: "Admin Access Granted",
+            description: `Your wallet (${address?.slice(0, 6)}...${address?.slice(-4)}) has been verified as the contract admin.`,
+            variant: "default",
+            duration: 3000,
+            icon: <CheckCircle className="h-5 w-5 text-green-500" />,
+          });
+          setHasShownVerificationToast(true);
+        }
+      } catch (error) {
+        console.error("Error verifying admin access:", error);
         toast({
-          title: "Access Denied",
-          description: "This wallet doesn't have admin privileges. Please connect with the admin wallet.",
+          title: "Error",
+          description: "Error checking admin status. Please try again.",
           variant: "destructive",
           duration: 3000
         });
         setShouldRedirect(true);
         return;
-      }
-      
-      // Step 4: Store initial admin wallet for watchdog if not already done
-      if (!initialAdminAccount && account) {
-        console.log("Setting initial admin wallet:", account);
-        setInitialAdminAccount(account);
-      }
-      
-      // Step 5: Watchdog - Check if wallet was changed after initial admin access
-      if (initialAdminAccount && account && initialAdminAccount.toLowerCase() !== account.toLowerCase()) {
-        console.log("Wallet changed from admin wallet, redirecting to home");
-        toast({
-          title: "Wallet Changed",
-          description: "Your wallet has changed from the admin wallet. Redirecting to home page.",
-          variant: "default",
-          duration: 3000
-        });
-        setShouldRedirect(true);
-        return;
-      }
-      
-      // We now use wallet-based auth only, only set the tab to 'draws' on first login
-      if (!initialAdminAccount) {
-        setActiveTab('draws');
-      }
-      
-      // Show a toast notification for admin access
-      if (!hasShownVerificationToast) {
-        toast({
-          title: "Admin Access Granted",
-          description: `Your wallet (${account?.slice(0, 6)}...${account?.slice(-4)}) has been verified as the contract admin.`,
-          variant: "default",
-          duration: 3000,
-          icon: <CheckCircle className="h-5 w-5 text-green-500" />,
-        });
-        setHasShownVerificationToast(true);
       }
     }, 300); // Small delay to ensure proper wallet state synchronization
     
@@ -648,7 +728,7 @@ export default function Admin() {
         clearTwoFactorState();
       }
     };
-  }, [isConnected, isAdmin, isAdminLoading, account, initialAdminAccount, twoFactorState, toast, clearTwoFactorState, hasShownVerificationToast]);
+  }, [isConnected, address, initialAdminAccount, toast, clearTwoFactorState, hasShownVerificationToast, walletClient, publicClient]);
   
   // Load series data when admin component mounts and when admin status changes
   useEffect(() => {
@@ -668,9 +748,6 @@ export default function Admin() {
     }
   };
   
-  // Show an alert if not connected or not admin (without redirecting)
-  // REMOVING DUPLICATE EFFECT - This was causing double toast messages
-  
   // Show loading if checking admin status
   if (isAdminLoading) {
     return (
@@ -687,17 +764,13 @@ export default function Admin() {
     );
   }
   
-  // Add debug logging to understand the current state
-  console.log("Admin component render state:", { isConnected, isAdmin, isAdminLoading });
-  
   // Implement the redirect to home page
   if (shouldRedirect) {
     return <Redirect to="/" />;
   }
   
-  // If wallet is not connected or not admin, show minimal content 
-  // (this should rarely be seen as the redirect will take over)
-  if (!isConnected || !isAdmin) {
+  // If wallet is not connected, show minimal content
+  if (!isConnected) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-6">
@@ -710,7 +783,7 @@ export default function Admin() {
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Access Denied</AlertTitle>
           <AlertDescription>
-            You do not have admin privileges. Please connect with the admin wallet to access this page.
+            Please connect your wallet to access admin features.
           </AlertDescription>
         </Alert>
       </div>
@@ -725,622 +798,583 @@ export default function Admin() {
           <p className="text-gray-500 mt-1">Lottery Management System</p>
         </div>
         <div className="flex items-center space-x-2">
-          {isAdmin ? (
-            <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 px-3 py-1">
-              <Lock className="mr-1 h-3 w-3" /> Admin Access
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200 px-3 py-1">
-              <Unlock className="mr-1 h-3 w-3" /> No Admin Access
-            </Badge>
-          )}
-          {/* Removed 2FA badge, using wallet-based authentication only */}
+          <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 px-3 py-1">
+            <Lock className="mr-1 h-3 w-3" /> Admin Access
+          </Badge>
         </div>
       </div>
       
-      {!isConnected && (
-        <Alert className="mb-6 bg-yellow-50 border-yellow-200 text-yellow-800">
-          <AlertCircle className="h-4 w-4 text-yellow-800" />
-          <AlertTitle>Wallet Not Connected</AlertTitle>
-          <AlertDescription>
-            For production use, you'll need to connect a wallet with admin privileges to access this page.
-            Development mode is currently enabled for testing.
-          </AlertDescription>
-        </Alert>
-      )}
-      
-      {isAdminLoading ? (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex justify-center items-center py-8">
-              <RefreshCw className="animate-spin h-8 w-8 text-primary" />
-              <span className="ml-2">Checking admin status...</span>
-            </div>
-          </CardContent>
-        </Card>
-      ) : !isAdmin ? (
-        <Alert variant="destructive" className="mb-6">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Access Denied</AlertTitle>
-          <AlertDescription>
-            You do not have admin privileges. Please connect with the admin wallet to access this page.
-          </AlertDescription>
-        </Alert>
-      ) : (
-        <Tabs defaultValue="series" value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-5 mb-6">
-            <TabsTrigger value="complete">Complete Draw</TabsTrigger>
-            <TabsTrigger value="block-hash">Complete w/ Hash</TabsTrigger>
-            <TabsTrigger value="block-gap">Block Gap</TabsTrigger>
-            <TabsTrigger value="series">Manage Series</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-          </TabsList>
-          
-          {/* Admin success notification is now shown as a toast only */}
-          
-          <TabsContent value="complete">
-            {(
-              <Card>
+      <Tabs defaultValue="series" value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid grid-cols-5 mb-6">
+          <TabsTrigger value="complete">Complete Draw</TabsTrigger>
+          <TabsTrigger value="block-hash">Complete w/ Hash</TabsTrigger>
+          <TabsTrigger value="block-gap">Block Gap</TabsTrigger>
+          <TabsTrigger value="series">Manage Series</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="complete">
+          {(
+            <Card>
+            <CardHeader>
+              <CardTitle>Complete Draw Manually</CardTitle>
+              <CardDescription>
+                Manually set the winning numbers for a completed draw.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 h-[320px] overflow-y-auto">
+              <div className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="drawId">Draw ID</Label>
+                  <Input 
+                    id="drawId" 
+                    type="number"
+                    min="1"
+                    value={drawId} 
+                    onChange={(e) => setDrawId(e.target.value)}
+                  />
+                  <p className="text-sm text-gray-500">
+                    The ID of the draw to complete
+                  </p>
+                </div>
+                
+                <div>
+                  <Label className="mb-2 block">Winning Numbers (1-70)</Label>
+                  <div className="grid grid-cols-5 gap-2">
+                    {winningNumbers.slice(0, 5).map((num, i) => (
+                      <Input 
+                        key={i}
+                        type="number"
+                        min="1"
+                        max="70"
+                        value={num}
+                        onChange={(e) => handleWinningNumberChange(i, e.target.value)}
+                        placeholder={`Number ${i+1}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+                
+                <div>
+                  <Label htmlFor="lottoNumber" className="mb-2 block">LOTTO Number (1-30)</Label>
+                  <Input 
+                    id="lottoNumber"
+                    type="number"
+                    min="1"
+                    max="30"
+                    value={winningNumbers[5]}
+                    onChange={(e) => handleWinningNumberChange(5, e.target.value)}
+                    placeholder="LOTTO Number"
+                    className="max-w-[150px]"
+                  />
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button 
+                className="w-full" 
+                onClick={handleCompleteDraw}
+                disabled={completingDraw}
+              >
+                {completingDraw ? 'Completing Draw...' : 'Complete Draw'}
+              </Button>
+            </CardFooter>
+          </Card>
+          )}
+        </TabsContent>
+
+        {/* Complete Draw with Block Hash Tab */}
+        <TabsContent value="block-hash">
+          <Card>
+            <CardHeader>
+              <CardTitle>Complete Draw with Block Hash</CardTitle>
+              <CardDescription>
+                Complete a draw using a specific block hash for random number generation.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 h-[250px] overflow-y-auto">
+              <div className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="blockHashDrawId">Draw ID</Label>
+                  <Input 
+                    id="blockHashDrawId" 
+                    type="number"
+                    min="1"
+                    value={drawId} 
+                    onChange={(e) => setDrawId(e.target.value)}
+                  />
+                  <p className="text-sm text-gray-500">
+                    The ID of the draw to complete
+                  </p>
+                </div>
+                
+                <div className="grid gap-2">
+                  <Label htmlFor="blockHash">Block Hash</Label>
+                  <Input 
+                    id="blockHash" 
+                    type="text"
+                    placeholder="0x..."
+                    value={blockHash} 
+                    onChange={(e) => setBlockHash(e.target.value)}
+                  />
+                  <p className="text-sm text-gray-500">
+                    The Ethereum block hash to use for random number generation (starts with 0x)
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button 
+                className="w-full" 
+                onClick={handleCompleteDrawWithHash}
+                disabled={completingDrawWithHash}
+              >
+                {completingDrawWithHash ? 'Completing Draw...' : 'Complete Draw with Block Hash'}
+              </Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+
+        {/* Block Gap Settings Tab */}
+        <TabsContent value="block-gap">
+          <Card>
+            <CardHeader>
+              <CardTitle>Update Block Gap</CardTitle>
+              <CardDescription>
+                Update the gap between the current block and the future block used for random number generation.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 h-[200px] overflow-y-auto">
+              <div className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="blockGap">Block Gap</Label>
+                  <Input 
+                    id="blockGap" 
+                    type="number"
+                    min="1"
+                    value={blockGap} 
+                    onChange={(e) => setBlockGap(parseInt(e.target.value))}
+                  />
+                  <p className="text-sm text-gray-500">
+                    The number of blocks in the future to use for random number generation
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button 
+                className="w-full" 
+                onClick={handleUpdateBlockGap}
+                disabled={updatingBlockGap}
+              >
+                {updatingBlockGap ? 'Updating Block Gap...' : 'Update Block Gap'}
+              </Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+
+        {/* Series Management Tab */}
+        {/* Settings Tab */}
+        <TabsContent value="settings">
+          <Card>
+            <CardHeader>
+              <CardTitle>UI Settings</CardTitle>
+              <CardDescription>
+                Configure display options for the lottery interface
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="show-series" className="font-medium">Show Series Dropdown</Label>
+                    <p className="text-sm text-muted-foreground">
+                      When disabled, users will only see the selected draw date instead of series selection
+                    </p>
+                  </div>
+                  <Switch 
+                    id="show-series" 
+                    className="ml-4"
+                    checked={settings.showSeriesDropdown}
+                    onCheckedChange={async (checked) => {
+                      try {
+                        // Update the setting via context
+                        await updateShowSeriesDropdown(checked);
+                        console.log("Series dropdown visibility changed to:", checked);
+                        
+                        // Show toast notification
+                        toast({
+                          title: "Setting Updated",
+                          description: `Series dropdown will now be ${checked ? 'shown' : 'hidden'} to users`,
+                          duration: 3000,
+                        });
+                      } catch (error) {
+                        console.error("Error updating series dropdown setting:", error);
+                        toast({
+                          title: "Error",
+                          description: "Failed to update setting. Please try again.",
+                          variant: "destructive",
+                          duration: 3000,
+                        });
+                      }
+                    }}
+                  />
+                </div>
+                
+                <div className="mt-6 p-4 bg-card/80 border rounded-md">
+                  <p className="text-sm font-medium mb-2">Preview</p>
+                  <div className="flex flex-col md:flex-row gap-4 border border-dashed border-muted-foreground/50 p-4 rounded-md">
+                    <div className="md:w-1/2">
+                      <p className="text-sm text-muted-foreground mb-1">
+                        With Series Dropdown {settings.showSeriesDropdown ? "(Current)" : ""}
+                      </p>
+                      <div className="space-y-2 border p-3 rounded-md">
+                        <Label className="text-xs">Series</Label>
+                        <div className="h-9 bg-input rounded-md flex items-center px-3 text-sm">
+                          Beginner Series
+                        </div>
+                        <Label className="text-xs">Draw</Label>
+                        <div className="h-9 bg-input rounded-md flex items-center px-3 text-sm">
+                          Draw #1
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="md:w-1/2">
+                      <p className="text-sm text-muted-foreground mb-1">
+                        Without Series Dropdown {!settings.showSeriesDropdown ? "(Current)" : ""}
+                      </p>
+                      <div className="space-y-2 border p-3 rounded-md">
+                        <Label className="text-xs">Current Draw</Label>
+                        <div className="h-9 bg-input rounded-md flex items-center px-3 text-sm font-medium">
+                          Draw #1 (04/22/25)
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-end border-t pt-6">
+              <p className="text-sm text-muted-foreground">
+                Settings are automatically saved when changed
+              </p>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="series">
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Left column - Create New Series */}
+            <Card>
               <CardHeader>
-                <CardTitle>Complete Draw Manually</CardTitle>
+                <CardTitle>Create New Series</CardTitle>
                 <CardDescription>
-                  Manually set the winning numbers for a completed draw.
+                  Create a new lottery series with the specified name.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4 h-[320px] overflow-y-auto">
+              <CardContent className="space-y-4 h-[300px] overflow-y-auto">
                 <div className="grid gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="drawId">Draw ID</Label>
+                    <Label htmlFor="seriesName">Series Name</Label>
                     <Input 
-                      id="drawId" 
-                      type="number"
-                      min="1"
-                      value={drawId} 
-                      onChange={(e) => setDrawId(e.target.value)}
+                      id="seriesName" 
+                      type="text"
+                      placeholder="e.g., Weekly Special, Monthly Jackpot"
+                      value={newSeriesName} 
+                      onChange={(e) => setNewSeriesName(e.target.value)}
                     />
                     <p className="text-sm text-gray-500">
-                      The ID of the draw to complete
+                      A descriptive name for the new lottery series
                     </p>
                   </div>
                   
-                  <div>
-                    <Label className="mb-2 block">Winning Numbers (1-70)</Label>
-                    <div className="grid grid-cols-5 gap-2">
-                      {winningNumbers.slice(0, 5).map((num, i) => (
-                        <Input 
-                          key={i}
-                          type="number"
-                          min="1"
-                          max="70"
-                          value={num}
-                          onChange={(e) => handleWinningNumberChange(i, e.target.value)}
-                          placeholder={`Number ${i+1}`}
-                        />
+                  <div className="mt-4">
+                    <p className="text-sm text-gray-500">
+                      Enter a name for your new lottery series. Each series can have multiple draws with different parameters.
+                    </p>
+                    <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-800 text-sm">
+                      <span className="font-medium">Note:</span> Series are permanent and cannot be deleted once created.
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button 
+                  className="w-full" 
+                  onClick={handleCreateNewSeries}
+                  disabled={creatingNewSeries}
+                >
+                  {creatingNewSeries ? 'Creating Series...' : 'Create New Series'}
+                </Button>
+              </CardFooter>
+            </Card>
+            
+            {/* Right column - Current Series List */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Current Series</CardTitle>
+                <CardDescription>
+                  List of all available lottery series.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="h-[300px] overflow-y-auto">
+                <div className="space-y-2">
+                  <div className="flex justify-between mb-2">
+                    <span className="font-medium">Series List</span>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={refreshSeriesList}
+                      title="Refresh series list"
+                      disabled={seriesLoading}
+                    >
+                      {seriesLoading ? (
+                        <RefreshCw className="animate-spin h-4 w-4" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  
+                  {seriesLoading && seriesList.length === 0 ? (
+                    <div className="flex justify-center items-center py-12">
+                      <RefreshCw className="animate-spin h-8 w-8 text-primary mr-2" />
+                      <span>Loading series data...</span>
+                    </div>
+                  ) : seriesList.length === 0 ? (
+                    <div className="text-center py-8 border border-dashed rounded-md border-gray-300">
+                      <p className="text-gray-500">No series data available</p>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="mt-2"
+                        onClick={refreshSeriesList}
+                        disabled={seriesLoading}
+                      >
+                        {seriesLoading ? (
+                          <RefreshCw className="animate-spin h-4 w-4 mr-1" />
+                        ) : (
+                          <RefreshCw className="h-4 w-4 mr-1" />
+                        )}
+                        Refresh
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="border rounded-md divide-y relative">
+                      {seriesLoading && (
+                        <div className="absolute inset-0 bg-white/50 dark:bg-black/50 flex items-center justify-center z-10">
+                          <RefreshCw className="animate-spin h-6 w-6 text-primary" />
+                        </div>
+                      )}
+                      {seriesList.map((series) => (
+                        <div key={series.index} className="p-3 flex justify-between items-center">
+                          <div>
+                            <span className="font-medium">{series.name}</span>
+                            <div className="text-sm text-gray-500">Series #{series.index}</div>
+                          </div>
+                          <Badge variant="outline" className="ml-2">
+                            {series.index === 0 ? 'Default' : ''}
+                          </Badge>
+                        </div>
                       ))}
                     </div>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="lottoNumber" className="mb-2 block">LOTTO Number (1-30)</Label>
-                    <Input 
-                      id="lottoNumber"
-                      type="number"
-                      min="1"
-                      max="30"
-                      value={winningNumbers[5]}
-                      onChange={(e) => handleWinningNumberChange(5, e.target.value)}
-                      placeholder="LOTTO Number"
-                      className="max-w-[150px]"
-                    />
-                  </div>
+                  )}
                 </div>
               </CardContent>
-              <CardFooter>
-                <Button 
-                  className="w-full" 
-                  onClick={handleCompleteDraw}
-                  disabled={completingDraw}
-                >
-                  {completingDraw ? 'Completing Draw...' : 'Complete Draw'}
-                </Button>
-              </CardFooter>
             </Card>
-            )}
-          </TabsContent>
-
-          {/* Complete Draw with Block Hash Tab */}
-          <TabsContent value="block-hash">
+          </div>
+          
+          <div className="mt-4">
             <Card>
               <CardHeader>
-                <CardTitle>Complete Draw with Block Hash</CardTitle>
+                <CardTitle>Start New Time-Based Draw</CardTitle>
                 <CardDescription>
-                  Complete a draw using a specific block hash for random number generation.
+                  Start a new time-based draw in a specific series.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4 h-[250px] overflow-y-auto">
-                <div className="grid gap-4">
+              <CardContent className="space-y-4 h-[250px]">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="blockHashDrawId">Draw ID</Label>
+                    <Label htmlFor="timeDrawTicketPrice">Ticket Price (ETH)</Label>
                     <Input 
-                      id="blockHashDrawId" 
-                      type="number"
-                      min="1"
-                      value={drawId} 
-                      onChange={(e) => setDrawId(e.target.value)}
+                      id="timeDrawTicketPrice" 
+                      type="number" 
+                      step="0.001"
+                      min="0.001"
+                      value={ticketPrice} 
+                      onChange={(e) => setTicketPrice(e.target.value)}
                     />
-                    <p className="text-sm text-gray-500">
-                      The ID of the draw to complete
-                    </p>
                   </div>
                   
                   <div className="grid gap-2">
-                    <Label htmlFor="blockHash">Block Hash</Label>
+                    <Label htmlFor="timeDrawJackpot">Initial Jackpot (ETH)</Label>
                     <Input 
-                      id="blockHash" 
-                      type="text"
-                      placeholder="0x..."
-                      value={blockHash} 
-                      onChange={(e) => setBlockHash(e.target.value)}
+                      id="timeDrawJackpot" 
+                      type="number" 
+                      step="0.01"
+                      min="0.01"
+                      value={initialJackpot} 
+                      onChange={(e) => setInitialJackpot(e.target.value)}
                     />
-                    <p className="text-sm text-gray-500">
-                      The Ethereum block hash to use for random number generation (starts with 0x)
-                    </p>
                   </div>
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button 
-                  className="w-full" 
-                  onClick={handleCompleteDrawWithHash}
-                  disabled={completingDrawWithHash}
-                >
-                  {completingDrawWithHash ? 'Completing Draw...' : 'Complete Draw with Block Hash'}
-                </Button>
-              </CardFooter>
-            </Card>
-          </TabsContent>
-
-          {/* Block Gap Settings Tab */}
-          <TabsContent value="block-gap">
-            <Card>
-              <CardHeader>
-                <CardTitle>Update Block Gap</CardTitle>
-                <CardDescription>
-                  Update the gap between the current block and the future block used for random number generation.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 h-[200px] overflow-y-auto">
-                <div className="grid gap-4">
+                  
                   <div className="grid gap-2">
-                    <Label htmlFor="blockGap">Block Gap</Label>
+                    <Label htmlFor="timeDrawHours">Draw Time (Hours)</Label>
                     <Input 
-                      id="blockGap" 
-                      type="number"
+                      id="timeDrawHours" 
+                      type="number" 
+                      step="1"
                       min="1"
-                      value={blockGap} 
-                      onChange={(e) => setBlockGap(parseInt(e.target.value))}
+                      value={drawTimeHours} 
+                      onChange={(e) => setDrawTimeHours(parseInt(e.target.value))}
                     />
-                    <p className="text-sm text-gray-500">
-                      The number of blocks in the future to use for random number generation
-                    </p>
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <Label htmlFor="timeDrawSeriesIndex">Series</Label>
+                    {seriesLoading ? (
+                      <div className="flex items-center space-x-2">
+                        <RefreshCw className="animate-spin h-4 w-4" />
+                        <span className="text-sm">Loading series...</span>
+                      </div>
+                    ) : (
+                      <Select
+                        value={seriesIndex.toString()}
+                        onValueChange={handleSeriesChange}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a series" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {seriesList.length > 0 ? (
+                            seriesList.map((series) => (
+                              <SelectItem 
+                                key={series.index} 
+                                value={series.index.toString()}
+                              >
+                                {series.name} (Series #{series.index})
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="0">Default Series (0)</SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                 </div>
               </CardContent>
               <CardFooter>
                 <Button 
                   className="w-full" 
-                  onClick={handleUpdateBlockGap}
-                  disabled={updatingBlockGap}
+                  onClick={handleStartTimeDraw}
+                  disabled={startingNewDraw}
                 >
-                  {updatingBlockGap ? 'Updating Block Gap...' : 'Update Block Gap'}
+                  {startingNewDraw ? 'Starting Draw...' : 'Start Time-Based Draw'}
                 </Button>
               </CardFooter>
             </Card>
-          </TabsContent>
-
-          {/* Series Management Tab */}
-          {/* Settings Tab */}
-          <TabsContent value="settings">
+          </div>
+          
+          <div className="mt-4">
             <Card>
               <CardHeader>
-                <CardTitle>UI Settings</CardTitle>
+                <CardTitle>Start New Block-Based Draw</CardTitle>
                 <CardDescription>
-                  Configure display options for the lottery interface
+                  Start a new draw that completes at a specific future block.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label htmlFor="show-series" className="font-medium">Show Series Dropdown</Label>
-                      <p className="text-sm text-muted-foreground">
-                        When disabled, users will only see the selected draw date instead of series selection
-                      </p>
-                    </div>
-                    <Switch 
-                      id="show-series" 
-                      className="ml-4"
-                      checked={settings.showSeriesDropdown}
-                      onCheckedChange={async (checked) => {
-                        try {
-                          // Update the setting via context
-                          await updateShowSeriesDropdown(checked);
-                          console.log("Series dropdown visibility changed to:", checked);
-                          
-                          // Show toast notification
-                          toast({
-                            title: "Setting Updated",
-                            description: `Series dropdown will now be ${checked ? 'shown' : 'hidden'} to users`,
-                            duration: 3000,
-                          });
-                        } catch (error) {
-                          console.error("Error updating series dropdown setting:", error);
-                          toast({
-                            title: "Error",
-                            description: "Failed to update setting. Please try again.",
-                            variant: "destructive",
-                            duration: 3000,
-                          });
+              <CardContent className="space-y-4 h-[250px]">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="blockDrawTicketPrice">Ticket Price (ETH)</Label>
+                    <Input 
+                      id="blockDrawTicketPrice" 
+                      type="number" 
+                      step="0.001"
+                      min="0.001"
+                      value={ticketPrice} 
+                      onChange={(e) => setTicketPrice(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <Label htmlFor="blockDrawJackpot">Initial Jackpot (ETH)</Label>
+                    <Input 
+                      id="blockDrawJackpot" 
+                      type="number" 
+                      step="0.01"
+                      min="0.01"
+                      value={initialJackpot} 
+                      onChange={(e) => setInitialJackpot(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <Label htmlFor="futureBlock">Future Block Number</Label>
+                    <Input 
+                      id="futureBlock" 
+                      type="number" 
+                      step="1"
+                      min="1"
+                      value={futureBlock} 
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        if (!isNaN(val)) {
+                          setFutureBlock(val);
                         }
                       }}
                     />
                   </div>
                   
-                  <div className="mt-6 p-4 bg-card/80 border rounded-md">
-                    <p className="text-sm font-medium mb-2">Preview</p>
-                    <div className="flex flex-col md:flex-row gap-4 border border-dashed border-muted-foreground/50 p-4 rounded-md">
-                      <div className="md:w-1/2">
-                        <p className="text-sm text-muted-foreground mb-1">
-                          With Series Dropdown {settings.showSeriesDropdown ? "(Current)" : ""}
-                        </p>
-                        <div className="space-y-2 border p-3 rounded-md">
-                          <Label className="text-xs">Series</Label>
-                          <div className="h-9 bg-input rounded-md flex items-center px-3 text-sm">
-                            Beginner Series
-                          </div>
-                          <Label className="text-xs">Draw</Label>
-                          <div className="h-9 bg-input rounded-md flex items-center px-3 text-sm">
-                            Draw #1
-                          </div>
-                        </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="blockDrawSeriesIndex">Series</Label>
+                    {seriesLoading ? (
+                      <div className="flex items-center space-x-2">
+                        <RefreshCw className="animate-spin h-4 w-4" />
+                        <span className="text-sm">Loading series...</span>
                       </div>
-                      
-                      <div className="md:w-1/2">
-                        <p className="text-sm text-muted-foreground mb-1">
-                          Without Series Dropdown {!settings.showSeriesDropdown ? "(Current)" : ""}
-                        </p>
-                        <div className="space-y-2 border p-3 rounded-md">
-                          <Label className="text-xs">Current Draw</Label>
-                          <div className="h-9 bg-input rounded-md flex items-center px-3 text-sm font-medium">
-                            Draw #1 (04/22/25)
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    ) : (
+                      <Select
+                        value={seriesIndex.toString()}
+                        onValueChange={handleSeriesChange}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a series" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {seriesList.length > 0 ? (
+                            seriesList.map((series) => (
+                              <SelectItem 
+                                key={series.index} 
+                                value={series.index.toString()}
+                              >
+                                {series.name} (Series #{series.index})
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="0">Default Series (0)</SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                 </div>
               </CardContent>
-              <CardFooter className="flex justify-end border-t pt-6">
-                <p className="text-sm text-muted-foreground">
-                  Settings are automatically saved when changed
-                </p>
+              <CardFooter>
+                <Button 
+                  className="w-full" 
+                  onClick={handleStartBlockDraw}
+                  disabled={startingFutureBlockDraw}
+                >
+                  {startingFutureBlockDraw ? 'Starting Draw...' : 'Start Block-Based Draw'}
+                </Button>
               </CardFooter>
             </Card>
-          </TabsContent>
-          
-          <TabsContent value="series">
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Left column - Create New Series */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Create New Series</CardTitle>
-                  <CardDescription>
-                    Create a new lottery series with the specified name.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4 h-[300px] overflow-y-auto">
-                  <div className="grid gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="seriesName">Series Name</Label>
-                      <Input 
-                        id="seriesName" 
-                        type="text"
-                        placeholder="e.g., Weekly Special, Monthly Jackpot"
-                        value={newSeriesName} 
-                        onChange={(e) => setNewSeriesName(e.target.value)}
-                      />
-                      <p className="text-sm text-gray-500">
-                        A descriptive name for the new lottery series
-                      </p>
-                    </div>
-                    
-                    <div className="mt-4">
-                      <p className="text-sm text-gray-500">
-                        Enter a name for your new lottery series. Each series can have multiple draws with different parameters.
-                      </p>
-                      <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-800 text-sm">
-                        <span className="font-medium">Note:</span> Series are permanent and cannot be deleted once created.
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Button 
-                    className="w-full" 
-                    onClick={handleCreateNewSeries}
-                    disabled={creatingNewSeries}
-                  >
-                    {creatingNewSeries ? 'Creating Series...' : 'Create New Series'}
-                  </Button>
-                </CardFooter>
-              </Card>
-              
-              {/* Right column - Current Series List */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Current Series</CardTitle>
-                  <CardDescription>
-                    List of all available lottery series.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="h-[300px] overflow-y-auto">
-                  <div className="space-y-2">
-                    <div className="flex justify-between mb-2">
-                      <span className="font-medium">Series List</span>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={refreshSeriesList}
-                        title="Refresh series list"
-                        disabled={seriesLoading}
-                      >
-                        {seriesLoading ? (
-                          <RefreshCw className="animate-spin h-4 w-4" />
-                        ) : (
-                          <RefreshCw className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
-                    
-                    {seriesLoading && seriesList.length === 0 ? (
-                      <div className="flex justify-center items-center py-12">
-                        <RefreshCw className="animate-spin h-8 w-8 text-primary mr-2" />
-                        <span>Loading series data...</span>
-                      </div>
-                    ) : seriesList.length === 0 ? (
-                      <div className="text-center py-8 border border-dashed rounded-md border-gray-300">
-                        <p className="text-gray-500">No series data available</p>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="mt-2"
-                          onClick={refreshSeriesList}
-                          disabled={seriesLoading}
-                        >
-                          {seriesLoading ? (
-                            <RefreshCw className="animate-spin h-4 w-4 mr-1" />
-                          ) : (
-                            <RefreshCw className="h-4 w-4 mr-1" />
-                          )}
-                          Refresh
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="border rounded-md divide-y relative">
-                        {seriesLoading && (
-                          <div className="absolute inset-0 bg-white/50 dark:bg-black/50 flex items-center justify-center z-10">
-                            <RefreshCw className="animate-spin h-6 w-6 text-primary" />
-                          </div>
-                        )}
-                        {seriesList.map((series) => (
-                          <div key={series.index} className="p-3 flex justify-between items-center">
-                            <div>
-                              <span className="font-medium">{series.name}</span>
-                              <div className="text-sm text-gray-500">Series #{series.index}</div>
-                            </div>
-                            <Badge variant="outline" className="ml-2">
-                              {series.index === 0 ? 'Default' : ''}
-                            </Badge>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-            
-            <div className="mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Start New Time-Based Draw</CardTitle>
-                  <CardDescription>
-                    Start a new time-based draw in a specific series.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4 h-[250px]">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="timeDrawTicketPrice">Ticket Price (ETH)</Label>
-                      <Input 
-                        id="timeDrawTicketPrice" 
-                        type="number" 
-                        step="0.001"
-                        min="0.001"
-                        value={ticketPrice} 
-                        onChange={(e) => setTicketPrice(e.target.value)}
-                      />
-                    </div>
-                    
-                    <div className="grid gap-2">
-                      <Label htmlFor="timeDrawJackpot">Initial Jackpot (ETH)</Label>
-                      <Input 
-                        id="timeDrawJackpot" 
-                        type="number" 
-                        step="0.01"
-                        min="0.01"
-                        value={initialJackpot} 
-                        onChange={(e) => setInitialJackpot(e.target.value)}
-                      />
-                    </div>
-                    
-                    <div className="grid gap-2">
-                      <Label htmlFor="timeDrawHours">Draw Time (Hours)</Label>
-                      <Input 
-                        id="timeDrawHours" 
-                        type="number" 
-                        step="1"
-                        min="1"
-                        value={drawTimeHours} 
-                        onChange={(e) => setDrawTimeHours(parseInt(e.target.value))}
-                      />
-                    </div>
-                    
-                    <div className="grid gap-2">
-                      <Label htmlFor="timeDrawSeriesIndex">Series</Label>
-                      {seriesLoading ? (
-                        <div className="flex items-center space-x-2">
-                          <RefreshCw className="animate-spin h-4 w-4" />
-                          <span className="text-sm">Loading series...</span>
-                        </div>
-                      ) : (
-                        <Select
-                          value={seriesIndex.toString()}
-                          onValueChange={handleSeriesChange}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a series" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {seriesList.length > 0 ? (
-                              seriesList.map((series) => (
-                                <SelectItem 
-                                  key={series.index} 
-                                  value={series.index.toString()}
-                                >
-                                  {series.name} (Series #{series.index})
-                                </SelectItem>
-                              ))
-                            ) : (
-                              <SelectItem value="0">Default Series (0)</SelectItem>
-                            )}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Button 
-                    className="w-full" 
-                    onClick={handleStartTimeDraw}
-                    disabled={startingNewDraw}
-                  >
-                    {startingNewDraw ? 'Starting Draw...' : 'Start Time-Based Draw'}
-                  </Button>
-                </CardFooter>
-              </Card>
-            </div>
-            
-            <div className="mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Start New Block-Based Draw</CardTitle>
-                  <CardDescription>
-                    Start a new draw that completes at a specific future block.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4 h-[250px]">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="blockDrawTicketPrice">Ticket Price (ETH)</Label>
-                      <Input 
-                        id="blockDrawTicketPrice" 
-                        type="number" 
-                        step="0.001"
-                        min="0.001"
-                        value={ticketPrice} 
-                        onChange={(e) => setTicketPrice(e.target.value)}
-                      />
-                    </div>
-                    
-                    <div className="grid gap-2">
-                      <Label htmlFor="blockDrawJackpot">Initial Jackpot (ETH)</Label>
-                      <Input 
-                        id="blockDrawJackpot" 
-                        type="number" 
-                        step="0.01"
-                        min="0.01"
-                        value={initialJackpot} 
-                        onChange={(e) => setInitialJackpot(e.target.value)}
-                      />
-                    </div>
-                    
-                    <div className="grid gap-2">
-                      <Label htmlFor="futureBlock">Future Block Number</Label>
-                      <Input 
-                        id="futureBlock" 
-                        type="number" 
-                        step="1"
-                        min="1"
-                        value={futureBlock} 
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value);
-                          if (!isNaN(val)) {
-                            setFutureBlock(val);
-                          }
-                        }}
-                      />
-                    </div>
-                    
-                    <div className="grid gap-2">
-                      <Label htmlFor="blockDrawSeriesIndex">Series</Label>
-                      {seriesLoading ? (
-                        <div className="flex items-center space-x-2">
-                          <RefreshCw className="animate-spin h-4 w-4" />
-                          <span className="text-sm">Loading series...</span>
-                        </div>
-                      ) : (
-                        <Select
-                          value={seriesIndex.toString()}
-                          onValueChange={handleSeriesChange}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a series" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {seriesList.length > 0 ? (
-                              seriesList.map((series) => (
-                                <SelectItem 
-                                  key={series.index} 
-                                  value={series.index.toString()}
-                                >
-                                  {series.name} (Series #{series.index})
-                                </SelectItem>
-                              ))
-                            ) : (
-                              <SelectItem value="0">Default Series (0)</SelectItem>
-                            )}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Button 
-                    className="w-full" 
-                    onClick={handleStartBlockDraw}
-                    disabled={startingFutureBlockDraw}
-                  >
-                    {startingFutureBlockDraw ? 'Starting Draw...' : 'Start Block-Based Draw'}
-                  </Button>
-                </CardFooter>
-              </Card>
-            </div>
-          </TabsContent>
-        </Tabs>
-      )}
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

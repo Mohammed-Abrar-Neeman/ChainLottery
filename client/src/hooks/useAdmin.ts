@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useWallet } from './useWallet';
+import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
+import { BrowserProvider } from 'ethers';
 import { 
   getLotteryContract, 
   getLotteryContractWithSigner,
@@ -20,8 +21,12 @@ import QRCode from 'qrcode';
 type TwoFactorState = 'not-setup' | 'setup' | 'verified';
 
 export interface SeriesInfo {
-  index: number; 
+  index: number;
   name: string;
+  isActive: boolean;
+  totalDraws: number;
+  totalTickets: number;
+  totalPrize: string;
 }
 
 export interface AdminState {
@@ -54,7 +59,10 @@ const ADMIN_2FA_SECRET_KEY = 'admin_2fa_secret';
 
 export function useAdmin(): AdminState {
   const queryClient = useQueryClient();
-  const { isConnected, account, provider } = useWallet();
+  const { address, isConnected } = useAccount();
+  const publicClient = usePublicClient();
+  const { data: walletClient } = useWalletClient();
+  const { toast } = useToast();
   
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminError, setAdminError] = useState<Error | null>(null);
@@ -68,27 +76,28 @@ export function useAdmin(): AdminState {
 
   // Check if the connected wallet is the admin
   const { isLoading: isAdminLoading, refetch: refetchAdmin } = useQuery({
-    queryKey: ['admin', account],
+    queryKey: ['admin', address],
     queryFn: async () => {
       try {
-        if (!isConnected || !account) {
+        if (!isConnected || !address) {
+          console.log("Wallet not connected or no address available");
           setIsAdmin(false);
           return false;
         }
         
-        // We should always check against the contract owner rather than using a hardcoded list
-        // If we don't have a provider, we can't check admin status
-        if (!provider) {
-          console.log("No provider available, cannot check admin status");
+        if (!walletClient || !publicClient) {
+          console.log("Waiting for wallet and public client to be available...");
           setIsAdmin(false);
           return false;
         }
 
         try {
           console.log("Getting network information");
-          const network = await provider.getNetwork();
-          const chainId = network.chainId.toString();
+          const chainId = publicClient.chain.id.toString();
           console.log("Network chain ID:", chainId);
+          
+          // Create ethers provider from wallet client
+          const provider = new BrowserProvider(walletClient);
           
           console.log("Getting lottery contract for chain ID:", chainId);
           const contract = getLotteryContract(provider, chainId);
@@ -105,31 +114,12 @@ export function useAdmin(): AdminState {
             console.log("Attempting to retrieve admin address from contract");
             const adminAddress = await contract.admin();
             console.log("Admin address from contract:", adminAddress);
-            console.log("Current connected account:", account);
+            console.log("Current connected account:", address);
             
             // Case-insensitive comparison of Ethereum addresses
-            const isCurrentAdmin = adminAddress.toLowerCase() === account.toLowerCase();
+            const isCurrentAdmin = adminAddress.toLowerCase() === address.toLowerCase();
             console.log("Is current account admin?", isCurrentAdmin);
             setIsAdmin(isCurrentAdmin);
-            
-            // Check for 2FA status if user is admin
-            if (isCurrentAdmin) {
-              const storedSecret = localStorage.getItem(ADMIN_2FA_SECRET_KEY);
-              const verified = localStorage.getItem(ADMIN_2FA_KEY) === 'true';
-              
-              if (storedSecret) {
-                setTwoFactorSecret(storedSecret);
-                if (verified) {
-                  setTwoFactorState('verified');
-                } else {
-                  setTwoFactorState('setup');
-                  // Generate QR code for the existing secret
-                  generateQrCode(storedSecret, account);
-                }
-              } else {
-                setTwoFactorState('not-setup');
-              }
-            }
             
             return isCurrentAdmin;
           } catch (contractError) {
@@ -151,8 +141,9 @@ export function useAdmin(): AdminState {
         return false;
       }
     },
-    enabled: true, // Always enabled for development
-    retry: 0, // No retries needed for development
+    enabled: isConnected && !!address && !!walletClient && !!publicClient,
+    retry: 3,
+    retryDelay: 1000,
   });
 
   // Generate QR code from secret
@@ -220,7 +211,7 @@ export function useAdmin(): AdminState {
   const setupTwoFactor = async (): Promise<{secret: string, qrCode: string}> => {
     try {
       // Use the connected wallet account, or fallback if not available
-      const userAccount = account || '0xAbc123DemoWalletAddress456Def789';
+      const userAccount = address || '0xAbc123DemoWalletAddress456Def789';
       
       console.log("[SECURITY] Setting up 2FA");
       
@@ -302,50 +293,46 @@ export function useAdmin(): AdminState {
         throw new Error("Not authorized - Only wallet-verified admins can access this function");
       }
 
-      // Mock implementation for development
+      if (!walletClient || !publicClient) {
+        throw new Error("Wallet or public client not available");
+      }
+
       console.log(`[DEV MODE] Starting new draw with price: ${ticketPrice} ETH, initialJackpot: ${initialJackpot}, drawTime: ${drawTime}, seriesIndex: ${seriesIndex}, useFutureBlock: ${useFutureBlock}`);
       
-      // In production, this should use the contract
-      if (provider) {
+      // Create ethers provider from wallet client
+      const provider = new BrowserProvider(walletClient);
+      const chainId = publicClient.chain.id.toString();
+      const contract = await getLotteryContractWithSigner(provider, chainId);
+      
+      if (contract) {
         try {
-          const network = await provider.getNetwork();
-          const chainId = network.chainId.toString();
-          const contract = await getLotteryContractWithSigner(provider, chainId);
+          const priceInWei = parseEther(ticketPrice);
+          const jackpotInWei = parseEther(initialJackpot);
           
-          if (contract) {
-            try {
-              const priceInWei = parseEther(ticketPrice);
-              const jackpotInWei = parseEther(initialJackpot);
-              
-              // Call the appropriate smart contract function based on the draw type
-              let tx;
-              if (useFutureBlock) {
-                // Get block number to use for future block draw
-                const currentBlock = await provider.getBlockNumber();
-                const futureBlockNumber = currentBlock + 200; // 200 blocks in the future
-                
-                tx = await contract.startNewFutureBlockDraw(priceInWei, jackpotInWei, futureBlockNumber, seriesIndex);
-              } else {
-                // Use timestamp for regular draw
-                tx = await contract.startNewXDraw(priceInWei, jackpotInWei, drawTime, seriesIndex);
-              }
-              
-              await tx.wait();
-              
-              // Invalidate relevant queries
-              queryClient.invalidateQueries({ queryKey: ['lottery'] });
-              
-              // Show success message
-              console.log("New draw started successfully");
-              return true;
-            } catch (error) {
-              console.error("Contract call error:", error);
-              console.error("Contract call failed:", error);
-              return false;
-            }
+          // Call the appropriate smart contract function based on the draw type
+          let tx;
+          if (useFutureBlock) {
+            // Get block number to use for future block draw
+            const currentBlock = await publicClient.getBlockNumber();
+            const futureBlockNumber = Number(currentBlock) + 200; // 200 blocks in the future
+            
+            tx = await contract.startNewFutureBlockDraw(priceInWei, jackpotInWei, futureBlockNumber, seriesIndex);
+          } else {
+            // Use timestamp for regular draw
+            tx = await contract.startNewXDraw(priceInWei, jackpotInWei, drawTime, seriesIndex);
           }
+          
+          await tx.wait();
+          
+          // Invalidate relevant queries
+          queryClient.invalidateQueries({ queryKey: ['lottery'] });
+          
+          // Show success message
+          console.log("New draw started successfully");
+          return true;
         } catch (error) {
-          console.error("Contract setup failed:", error);
+          console.error("Contract call error:", error);
+          console.error("Contract call failed:", error);
           return false;
         }
       }
@@ -376,11 +363,11 @@ export function useAdmin(): AdminState {
       console.log(`Attempting to complete draw ID: ${drawId} with winning numbers: ${winningNumbers.join(', ')}`);
       
       // Use the contract
-      if (provider) {
+      if (walletClient && publicClient) {
         try {
-          const network = await provider.getNetwork();
-          const chainId = network.chainId.toString();
-          const contract = await getLotteryContractWithSigner(provider, chainId);
+          const network = await publicClient.getNetwork();
+          const chainId = network.chain.id.toString();
+          const contract = await getLotteryContractWithSigner(new BrowserProvider(walletClient), chainId);
           
           if (contract) {
             try {
@@ -419,23 +406,85 @@ export function useAdmin(): AdminState {
     await refetchAdmin();
   };
 
-  // Function to fetch series list from the contract
-  const refreshSeriesList = async (): Promise<void> => {
-    if (!provider) return;
-    
+  // Function to refresh the series list
+  const refreshSeriesList = async () => {
     try {
+      if (!isAdmin) {
+        console.log('Cannot refresh series list: Not an admin');
+        return;
+      }
+
+      if (!walletClient || !publicClient) {
+        console.log('Waiting for wallet and public client to be available...');
+        return;
+      }
+
       setSeriesLoading(true);
-      console.log("Fetching series list from contract...");
       
-      const network = await provider.getNetwork();
-      const chainId = network.chainId.toString();
+      // Create ethers provider from wallet client
+      const provider = new BrowserProvider(walletClient);
+      const chainId = publicClient.chain.id.toString();
+      const contract = getLotteryContract(provider, chainId);
       
-      const seriesData = await getAllSeriesData(provider, chainId);
-      console.log("Series data fetched:", seriesData);
-      
-      setSeriesList(seriesData);
+      if (!contract) {
+        throw new Error('Contract not available');
+      }
+
+      // Get total number of series
+      const totalSeries = await contract.getTotalSeries();
+      console.log('Total series:', totalSeries.toString());
+
+      // Fetch all series data
+      const seriesData = await Promise.all(
+        Array.from({ length: Number(totalSeries) }, async (_, index) => {
+          try {
+            // Get series name from seriesList mapping
+            const seriesName = await contract.seriesList(index);
+            
+            // Get total draws in this series
+            const totalDraws = await contract.getTotalDrawsInSeries(index);
+            
+            // Get all draw IDs for this series
+            const drawIds = await contract.getSeriesDrawIdsByIndex(index);
+            
+            // Calculate total tickets and prize across all draws
+            let totalTickets = 0;
+            let totalPrize = BigInt(0);
+            
+            for (const drawId of drawIds) {
+              const totalTicketsInDraw = await contract.getTotalTicketsSold(drawId);
+              const jackpot = await contract.getJackpot(drawId);
+              totalTickets += Number(totalTicketsInDraw);
+              totalPrize += jackpot;
+            }
+
+            return {
+              index,
+              name: seriesName,
+              isActive: true, // Series is always active once created
+              totalDraws: Number(totalDraws),
+              totalTickets,
+              totalPrize: ethers.formatEther(totalPrize) // Convert from Wei to ETH
+            } as SeriesInfo;
+          } catch (error) {
+            console.error(`Error fetching series ${index}:`, error);
+            return null;
+          }
+        })
+      );
+
+      // Filter out any null entries and update state
+      const validSeries = seriesData.filter((series): series is SeriesInfo => series !== null);
+      console.log('Fetched series data:', validSeries);
+      setSeriesList(validSeries);
     } catch (error) {
-      console.error("Error fetching series list:", error);
+      console.error('Error refreshing series list:', error);
+      toast({
+        title: "Error",
+        description: "Failed to refresh series list. Please try again.",
+        variant: "destructive",
+        duration: 3000,
+      });
     } finally {
       setSeriesLoading(false);
     }
@@ -450,15 +499,22 @@ export function useAdmin(): AdminState {
     setTwoFactorState('verified');
   };
 
-  // Update admin status when account changes
+  // Update admin status and series list when account changes
   useEffect(() => {
-    if (isConnected && account) {
-      refetchAdmin();
-    } else {
-      setIsAdmin(false);
-      // Always keep twoFactorState as 'verified'
-    }
-  }, [isConnected, account, refetchAdmin]);
+    const initializeAdmin = async () => {
+      if (isConnected && address && walletClient && publicClient) {
+        const isAdminResult = await refetchAdmin();
+        if (isAdminResult.data) {
+          await refreshSeriesList();
+        }
+      } else {
+        setIsAdmin(false);
+        setSeriesList([]); // Clear series list when not connected
+      }
+    };
+
+    initializeAdmin();
+  }, [isConnected, address, walletClient, publicClient, refetchAdmin]);
 
   // Update block gap for future block draws
   const updateBlockGap = async (newBlockGap: number): Promise<boolean> => {
@@ -468,14 +524,14 @@ export function useAdmin(): AdminState {
         throw new Error("Not authorized - Only wallet-verified admins can access this function");
       }
 
-      if (!provider) {
-        throw new Error("Wallet provider not available");
+      if (!walletClient || !publicClient) {
+        throw new Error("Wallet or public client not available");
       }
 
       console.log(`Updating block gap to ${newBlockGap}`);
       
-      const network = await provider.getNetwork();
-      const chainId = network.chainId.toString();
+      const provider = new BrowserProvider(walletClient);
+      const chainId = publicClient.chain.id.toString();
       
       const result = await updateBlockGapFunc(newBlockGap, provider, chainId);
       
@@ -504,14 +560,14 @@ export function useAdmin(): AdminState {
         throw new Error("Not authorized - Only wallet-verified admins can access this function");
       }
 
-      if (!provider) {
-        throw new Error("Wallet provider not available");
+      if (!walletClient || !publicClient) {
+        throw new Error("Wallet or public client not available");
       }
 
       console.log(`Creating new series: ${seriesName}`);
       
-      const network = await provider.getNetwork();
-      const chainId = network.chainId.toString();
+      const provider = new BrowserProvider(walletClient);
+      const chainId = publicClient.chain.id.toString();
       
       const result = await newSeriesFunc(seriesName, provider, chainId);
       
@@ -545,30 +601,87 @@ export function useAdmin(): AdminState {
         throw new Error("Not authorized - Only wallet-verified admins can access this function");
       }
 
-      if (!provider) {
-        throw new Error("Wallet provider not available");
+      if (!walletClient || !publicClient) {
+        throw new Error("Wallet or public client not available");
       }
 
-      console.log(`Starting new time-based draw: price=${ticketPrice} ETH, jackpot=${initialJackpot} ETH, time=${drawTime}, series=${seriesIndex}`);
+      console.log(`Starting new time-based draw with parameters:`, {
+        ticketPrice,
+        initialJackpot,
+        drawTime,
+        seriesIndex
+      });
       
-      const network = await provider.getNetwork();
-      const chainId = network.chainId.toString();
+      // Create ethers provider from wallet client
+      const provider = new BrowserProvider(walletClient);
+      const chainId = publicClient.chain.id.toString();
+      const contract = await getLotteryContractWithSigner(provider, chainId);
       
-      const result = await startNewXDrawFunc(ticketPrice, initialJackpot, drawTime, seriesIndex, provider, chainId);
-      
-      if (result.success) {
-        console.log(`New time-based draw started with ticket price ${ticketPrice} ETH and initial jackpot ${initialJackpot} ETH`);
+      if (!contract) {
+        throw new Error('Contract not available');
+      }
+
+      // Convert values to wei using ethers.parseEther
+      const priceInWei = ethers.parseEther(ticketPrice);
+      const jackpotInWei = ethers.parseEther(initialJackpot);
+
+      // Ensure drawTime is in the future
+      const currentTime = Math.floor(Date.now() / 1000);
+      if (drawTime <= currentTime) {
+        throw new Error('Draw time must be in the future');
+      }
+
+      console.log('Transaction parameters:', {
+        priceInWei: priceInWei.toString(),
+        jackpotInWei: jackpotInWei.toString(),
+        drawTime,
+        seriesIndex
+      });
+
+      try {
+        // Call the contract function and wait for transaction
+        const tx = await contract.startNewXDraw(
+          priceInWei,
+          jackpotInWei,
+          drawTime,
+          seriesIndex,
+          { gasLimit: 500000 } // Add explicit gas limit
+        );
+
+        console.log('Transaction sent:', tx.hash);
+        
+        // Wait for transaction confirmation
+        const receipt = await tx.wait();
+        console.log('Transaction confirmed:', receipt);
         
         // Invalidate relevant queries
         queryClient.invalidateQueries({ queryKey: ['lottery'] });
         
+        toast({
+          title: "Success",
+          description: "New time-based draw started successfully",
+          duration: 5000,
+        });
+        
         return true;
-      } else {
-        console.error("Failed to start new time-based draw:", result.error);
-        return false;
+      } catch (txError: any) {
+        console.error('Transaction error:', txError);
+        
+        // Handle specific error cases
+        if (txError.code === 'CALL_EXCEPTION') {
+          throw new Error('Contract call failed. Please check if the draw time is valid and you have sufficient funds.');
+        }
+        
+        throw txError;
       }
     } catch (error) {
       console.error("Error starting new time-based draw:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to start time-based draw",
+        variant: "destructive",
+        duration: 5000,
+      });
       return false;
     }
   };
@@ -586,14 +699,14 @@ export function useAdmin(): AdminState {
         throw new Error("Not authorized - Only wallet-verified admins can access this function");
       }
 
-      if (!provider) {
-        throw new Error("Wallet provider not available");
+      if (!walletClient || !publicClient) {
+        throw new Error("Wallet or public client not available");
       }
 
       console.log(`Starting new block-based draw: price=${ticketPrice} ETH, jackpot=${initialJackpot} ETH, block=${futureBlock}, series=${seriesIndex}`);
       
-      const network = await provider.getNetwork();
-      const chainId = network.chainId.toString();
+      const provider = new BrowserProvider(walletClient);
+      const chainId = publicClient.chain.id.toString();
       
       const result = await startNewFutureBlockDrawFunc(ticketPrice, initialJackpot, futureBlock, seriesIndex, provider, chainId);
       
@@ -622,14 +735,14 @@ export function useAdmin(): AdminState {
         throw new Error("Not authorized - Only wallet-verified admins can access this function");
       }
 
-      if (!provider) {
-        throw new Error("Wallet provider not available");
+      if (!walletClient || !publicClient) {
+        throw new Error("Wallet or public client not available");
       }
 
       console.log(`Completing draw ${drawId} with block hash: ${blockHash}`);
       
-      const network = await provider.getNetwork();
-      const chainId = network.chainId.toString();
+      const provider = new BrowserProvider(walletClient);
+      const chainId = publicClient.chain.id.toString();
       
       const result = await completeDrawWithBlockHashFunc(drawId, blockHash, provider, chainId);
       
