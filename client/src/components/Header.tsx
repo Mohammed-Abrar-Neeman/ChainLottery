@@ -1,12 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'wouter';
-import { useAccount, useDisconnect, usePublicClient, useWalletClient } from 'wagmi';
-import { BrowserProvider } from 'ethers';
-import { useAdmin } from '@/hooks/useAdmin';
-import { formatAddress } from '@/lib/web3';
-import { getLotteryContract } from '@/lib/lotteryContract';
-import { useToast } from '@/hooks/use-toast';
-import WalletModal from './modals/WalletModal';
+import React, { useState } from 'react';
+import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { 
   DropdownMenu,
@@ -20,115 +13,12 @@ import { Wallet, Menu, X, ShieldCheck, Ticket, Home, History, HelpCircle } from 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-  const { address, isConnected } = useAccount();
-  const { disconnect } = useDisconnect();
-  const publicClient = usePublicClient();
-  const { data: walletClient } = useWalletClient();
-  const { isAdmin } = useAdmin();
-  const [location, setLocation] = useLocation();
-  const { toast } = useToast();
-  
-  // Handle scroll effect for header
-  useEffect(() => {
-    const handleScroll = () => {
-      if (window.scrollY > 10) {
-        setScrolled(true);
-      } else {
-        setScrolled(false);
-      }
-    };
-    
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-  
-  // Function to handle clicking on the admin link - simplest direct check
-  const handleAdminClick = async (e: React.MouseEvent) => {
-    e.preventDefault(); // Always prevent default navigation
-    
-    // DIRECT CHECK 1: Is wallet connected?
-    if (!isConnected) {
-      toast({
-        title: "Wallet Not Connected",
-        description: "Please connect your wallet to access admin features.",
-        variant: "destructive",
-        duration: 3000
-      });
-      return;
-    }
-    
-    // DIRECT CHECK 2: Is it the admin wallet?
-    try {
-      if (!walletClient || !address) {
-        toast({
-          title: "Wallet Error",
-          description: "Error accessing wallet. Please try again.",
-          variant: "destructive",
-          duration: 3000
-        });
-        return;
-      }
-      
-      // Create ethers provider from wallet client
-      const provider = new BrowserProvider(walletClient);
-      
-      // Get network and contract information
-      if (!publicClient) {
-        toast({
-          title: "Network Error",
-          description: "Could not access network information. Please try again.",
-          variant: "destructive",
-          duration: 3000
-        });
-        return;
-      }
-      const chainId = publicClient.chain.id.toString();
-      const contract = getLotteryContract(provider, chainId);
-      
-      if (!contract) {
-        toast({
-          title: "Contract Error",
-          description: "Could not access lottery contract. Please ensure you're on the correct network.",
-          variant: "destructive",
-          duration: 3000
-        });
-        return;
-      }
-      
-      // Get admin address directly from contract
-      const adminAddress = await contract.admin();
-      const isCurrentAdmin = adminAddress.toLowerCase() === address.toLowerCase();
-      
-      if (!isCurrentAdmin) {
-        toast({
-          title: "Access Denied",
-          description: "You don't have admin privileges. Please connect with the admin wallet.",
-          variant: "destructive",
-          duration: 3000
-        });
-        return;
-      }
-      
-      // Admin access granted, navigate to admin page
-      console.log("Admin access granted, proceeding to admin page");
-      setLocation("/admin");
-    } catch (error) {
-      console.error("Error verifying admin access:", error);
-      toast({
-        title: "Error",
-        description: "Error checking admin status. Please try again.",
-        variant: "destructive",
-        duration: 3000
-      });
-    }
-  };
-  
+
   const toggleMobileMenu = () => {
     setIsOpen(!isOpen);
   };
 
-  // Custom link component to avoid nesting <a> tags
+  // Custom link component for navigation
   const NavLink = ({ href, label, isMobile = false }: { href: string, label: string | React.ReactNode, isMobile?: boolean }) => {
     return (
       <Link href={href}>
@@ -137,7 +27,7 @@ export default function Header() {
             {label}
           </span>
         ) : (
-          <span className={`text-white hover:text-accent transition cursor-pointer ${location === href ? 'text-accent' : ''}`}>
+          <span className="text-white hover:text-accent transition cursor-pointer">
             {label}
           </span>
         )}
@@ -146,13 +36,14 @@ export default function Header() {
   };
 
   return (
-    <header className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? 'backdrop-blur-lg' : ''}`}>
+    <header className="sticky top-0 z-50">
       {/* Gold accent bar */}
       <div className="h-1 w-full bg-gradient-to-r from-primary/30 via-primary to-primary/30"></div>
       
       {/* Header main content */}
       <div className="bg-secondary/95 backdrop-blur-md border-b border-primary/20 shadow-md">
         <div className="container mx-auto px-4 py-3 flex flex-wrap items-center justify-between">
+          {/* Logo */}
           <div className="flex items-center">
             <Link href="/">
               <div className="flex items-center cursor-pointer">
@@ -212,65 +103,19 @@ export default function Header() {
                 FAQ
               </span>
             } />
-            <Link href="/admin" onClick={handleAdminClick}>
-              <div 
-                className={`text-white hover:text-primary transition cursor-pointer flex items-center px-3 py-2 rounded-md hover:bg-white/5 ${location === '/admin' ? 'text-primary bg-white/5' : ''}`}
-              >
+            <NavLink href="/admin" label={
+              <span className="flex items-center px-3 py-2 rounded-md hover:bg-white/5">
                 <ShieldCheck className="mr-1.5 h-4 w-4" />
                 Admin
-              </div>
-            </Link>
+              </span>
+            } />
           </nav>
-          <appkit-button/>
-          {/* Wallet Connection */}
+
+          {/* Wallet Connection Button */}
           <div className="hidden lg:block">
-            {isConnected ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="btn-glow bg-card/60 border border-primary/30 rounded-full px-4 py-2 text-white">
-                    <div className="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></div>
-                    <span className="truncate-address font-mono text-sm">
-                      {address ? formatAddress(address) : ''}
-                    </span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="border border-primary/20">
-                  <DropdownMenuItem asChild>
-                    <Link href="/my-tickets">
-                      <span className="w-full cursor-pointer flex items-center">
-                        <Ticket className="mr-2 h-4 w-4" />
-                        My Tickets
-                      </span>
-                    </Link>
-                  </DropdownMenuItem>
-                  {isAdmin && (
-                    <>
-                      <DropdownMenuItem asChild>
-                        <Link href="/admin" onClick={handleAdminClick}>
-                          <span className="w-full flex items-center">
-                            <ShieldCheck className="mr-2 h-4 w-4" />
-                            Admin Panel
-                          </span>
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                    </>
-                  )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => disconnect()} className="cursor-pointer">
-                    Disconnect
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <Button 
-                onClick={() => setShowWalletModal(true)} 
-                className="btn-glow bg-gradient-to-r from-primary to-yellow-600 hover:from-yellow-600 hover:to-primary text-black font-bold rounded-full px-6 py-6 h-10 transition flex items-center shadow-lg"
-              >
-                <Wallet className="mr-2 h-5 w-5" />
-                Connect Wallet
-              </Button>
-            )}
+            <div className="border border-primary rounded-full p-[2px]">
+              <appkit-button/>
+            </div>
           </div>
         </div>
       </div>
@@ -303,48 +148,18 @@ export default function Header() {
                 FAQ
               </span>
             } isMobile />
-            <Link href="/admin" onClick={handleAdminClick}>
-              <div 
-                className="block px-3 py-2 text-white hover:bg-white/10 rounded-md cursor-pointer"
-              >
-                <span className="flex items-center">
-                  <ShieldCheck className="mr-2 h-5 w-5" />
-                  Admin Panel
-                </span>
-              </div>
-            </Link>
+            <NavLink href="/admin" label={
+              <span className="flex items-center">
+                <ShieldCheck className="mr-2 h-5 w-5" />
+                Admin
+              </span>
+            } isMobile />
             
             {/* Mobile wallet connection */}
-            {isConnected ? (
-              <div className="mt-3 px-3 py-3 border border-primary/20 rounded-lg bg-card/60">
-                <div className="flex items-center justify-between text-white mb-3">
-                  <div className="flex items-center">
-                    <div className="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></div>
-                    <span className="font-mono text-sm">{address ? formatAddress(address) : ''}</span>
-                  </div>
-                </div>
-                <Button 
-                  onClick={() => disconnect()} 
-                  variant="outline"
-                  className="w-full border-primary/30 text-white hover:bg-white/10"
-                >
-                  Disconnect
-                </Button>
-              </div>
-            ) : (
-              <Button 
-                onClick={() => setShowWalletModal(true)} 
-                className="w-full mt-3 bg-gradient-to-r from-primary to-yellow-600 hover:from-yellow-600 hover:to-primary text-black font-bold rounded-full px-6 py-6 h-10 transition flex items-center justify-center shadow-lg"
-              >
-                <Wallet className="mr-2 h-5 w-5" />
-                Connect Wallet
-              </Button>
-            )}
+                <appkit-button/>
           </div>
         </div>
       )}
-      
-      <WalletModal open={showWalletModal} onClose={() => setShowWalletModal(false)} />
     </header>
   );
 }
