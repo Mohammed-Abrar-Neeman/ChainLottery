@@ -14,6 +14,7 @@ import { useAppSettings } from '@/context/AppSettingsContext';
 import { useAppKitProvider, useAppKitAccount } from "@reown/appkit/react";
 import { BrowserProvider, Contract } from "ethers";
 import LotteryABI from '@/abi/Lottery.json';
+import { ethers } from 'ethers';
 
 // Contract address - replace with your deployed contract address
 const LOTTERY_CONTRACT_ADDRESS = '0x204f5777A911090572633De22b2571d6Bb89308d';
@@ -31,6 +32,9 @@ export default function Admin() {
   // AppKit hooks
   const { address, isConnected } = useAppKitAccount();
   const { walletProvider } = useAppKitProvider("eip155");
+
+  // Add currentBlock state
+  const [currentBlock, setCurrentBlock] = useState<number | null>(null);
 
   // Check admin status
   const checkAdminStatus = async () => {
@@ -104,52 +108,351 @@ export default function Admin() {
     setSeriesIndex(parseInt(value));
   };
   
-  // Mock handlers for form submissions
-  const handleStartTimeDraw = () => {
-    toast({
-      title: "Draw Started",
-      description: "Time-based draw has been started successfully",
-      variant: "success",
-      duration: 3000,
-    });
+  // Update getContract to also get current block
+  const getContract = async () => {
+    if (!isConnected || !address || !walletProvider) return null;
+    const ethersProvider = new BrowserProvider(walletProvider);
+    const signer = await ethersProvider.getSigner();
+    const provider = signer.provider;
+    if (provider) {
+      const block = await provider.getBlockNumber();
+      setCurrentBlock(block);
+    }
+    return new Contract(LOTTERY_CONTRACT_ADDRESS, LotteryABI, signer);
   };
-  
-  const handleStartBlockDraw = () => {
-    toast({
-      title: "Draw Started",
-      description: "Block-based draw has been started successfully",
-      variant: "success",
-      duration: 3000,
-    });
+
+  // Update validation functions
+  const validateTicketPrice = (price: string) => {
+    const numPrice = parseFloat(price);
+    if (isNaN(numPrice) || numPrice <= 0) {
+      throw new Error("Ticket price must be greater than 0");
+    }
+    return true;
   };
-  
-  const handleCompleteDraw = () => {
-    toast({
-      title: "Draw Completed",
-      description: "Draw has been completed successfully",
-      variant: "success",
-      duration: 3000,
-    });
+
+  const validateDrawTime = (hours: number) => {
+    const currentTime = Math.floor(Date.now() / 1000);
+    const drawTime = currentTime + (hours * 3600);
+    
+    if (drawTime <= currentTime) {
+      throw new Error("Draw time must be in the future");
+    }
+    return true;
   };
-  
-  const handleCompleteDrawWithHash = () => {
-    toast({
-      title: "Draw Completed",
-      description: "Draw has been completed with block hash successfully",
-      variant: "success",
-      duration: 3000,
-    });
+
+  const validateSeriesIndex = async (index: number) => {
+    const contract = await getContract();
+    if (!contract) throw new Error("Contract not initialized");
+    
+    const totalSeries = await contract.getTotalSeries();
+    if (index >= totalSeries) {
+      throw new Error("Invalid series index");
+    }
+    return true;
   };
-  
-  const handleCreateNewSeries = () => {
-    toast({
-      title: "Series Created",
-      description: "New series has been created successfully",
-      variant: "success",
-      duration: 3000,
-    });
+
+  // Updated handler for time-based draw
+  const handleStartTimeDraw = async () => {
+    try {
+      // Validate inputs
+      validateTicketPrice(ticketPrice);
+      validateDrawTime(drawTimeHours);
+      await validateSeriesIndex(seriesIndex);
+
+      const contract = await getContract();
+      if (!contract) throw new Error("Contract not initialized");
+
+      const ticketPriceWei = ethers.parseEther(ticketPrice);
+      const initialJackpotWei = ethers.parseEther(initialJackpot || "0");
+      const drawTime = Math.floor(Date.now() / 1000) + (drawTimeHours * 3600);
+
+      const tx = await contract.startNewXDraw(
+        ticketPriceWei,
+        initialJackpotWei,
+        drawTime,
+        seriesIndex
+      );
+
+      await tx.wait();
+      toast({
+        title: "Draw Started",
+        description: "Time-based draw has been started successfully",
+        variant: "success",
+      });
+    } catch (error) {
+      console.error('Error starting time-based draw:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to start time-based draw. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
-  
+
+  // Validation functions
+  const validateJackpot = (jackpot: string) => {
+    const numJackpot = parseFloat(jackpot);
+    if (isNaN(numJackpot) || numJackpot <= 0) {
+      throw new Error("Initial jackpot must be greater than 0");
+    }
+    return true;
+  };
+
+  const validateFutureBlock = async (block: number) => {
+    const contract = await getContract();
+    if (!contract) throw new Error("Contract not initialized");
+    
+    const provider = contract.runner?.provider;
+    if (!provider) throw new Error("Failed to get provider");
+    
+    const currentBlock = await provider.getBlockNumber();
+    console.log('Debug block numbers:', {
+      inputBlock: block,
+      currentBlock: currentBlock,
+      requiredBlock: currentBlock + 100,
+      difference: block - currentBlock
+    });
+
+    // Check if the input block is at least 100 blocks ahead
+    if (block - currentBlock < 100) {
+      throw new Error(`Future block must be at least 100 blocks ahead. Current block: ${currentBlock}, minimum required: ${currentBlock + 100}`);
+    }
+    return true;
+  };
+
+  const validateWinningNumbers = (numbers: string[]) => {
+    if (numbers.length !== 6) {
+      throw new Error("Must provide exactly 6 winning numbers");
+    }
+
+    // Validate first 5 numbers (1-70)
+    for (let i = 0; i < 5; i++) {
+      const num = parseInt(numbers[i]);
+      if (isNaN(num) || num < 1 || num > 70) {
+        throw new Error(`Number ${i + 1} must be between 1 and 70`);
+      }
+    }
+
+    // Validate LOTTO number (1-30)
+    const lottoNum = parseInt(numbers[5]);
+    if (isNaN(lottoNum) || lottoNum < 1 || lottoNum > 30) {
+      throw new Error("LOTTO number must be between 1 and 30");
+    }
+
+    return true;
+  };
+
+  const validateBlockHash = (hash: string) => {
+    if (!hash.startsWith('0x') || hash.length !== 66) {
+      throw new Error("Invalid block hash format");
+    }
+    return true;
+  };
+
+  const validateSeriesName = (name: string) => {
+    if (!name || name.trim().length === 0) {
+      throw new Error("Series name cannot be empty");
+    }
+    if (name.length > 50) {
+      throw new Error("Series name must be less than 50 characters");
+    }
+    return true;
+  };
+
+  const validateBlockGap = (gap: number) => {
+    if (gap <= 0) {
+      throw new Error("Block gap must be greater than 0");
+    }
+    return true;
+  };
+
+  // Updated handler functions with validations
+  const handleStartBlockDraw = async () => {
+    try {
+      // Validate inputs
+      validateTicketPrice(ticketPrice);
+      await validateFutureBlock(futureBlock);
+      await validateSeriesIndex(seriesIndex);
+
+      const contract = await getContract();
+      if (!contract) throw new Error("Contract not initialized");
+
+      const ticketPriceWei = ethers.parseEther(ticketPrice);
+      const initialJackpotWei = ethers.parseEther(initialJackpot || "0");
+
+      const tx = await contract.startNewFutureBlockDraw(
+        ticketPriceWei,
+        initialJackpotWei,
+        futureBlock,
+        seriesIndex
+      );
+
+      await tx.wait();
+      toast({
+        title: "Draw Started",
+        description: "Block-based draw has been started successfully",
+        variant: "success",
+      });
+    } catch (error) {
+      console.error('Error starting block-based draw:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to start block-based draw. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCompleteDraw = async () => {
+    try {
+      // Validate inputs
+      if (!drawId) throw new Error("Draw ID is required");
+      validateWinningNumbers(winningNumbers);
+
+      const contract = await getContract();
+      if (!contract) throw new Error("Contract not initialized");
+
+      const winningNumbersArray = winningNumbers.map(num => parseInt(num));
+      
+      const tx = await contract.completeDrawManually(
+        parseInt(drawId),
+        winningNumbersArray
+      );
+
+      await tx.wait();
+      toast({
+        title: "Draw Completed",
+        description: "Draw has been completed successfully",
+        variant: "success",
+      });
+    } catch (error) {
+      console.error('Error completing draw:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to complete draw. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCompleteDrawWithHash = async () => {
+    try {
+      // Validate inputs
+      if (!drawId) throw new Error("Draw ID is required");
+      validateBlockHash(blockHash);
+
+      const contract = await getContract();
+      if (!contract) throw new Error("Contract not initialized");
+
+      const tx = await contract.completeDrawWithBlockHash(
+        parseInt(drawId),
+        blockHash
+      );
+
+      await tx.wait();
+      toast({
+        title: "Draw Completed",
+        description: "Draw has been completed with block hash successfully",
+        variant: "success",
+      });
+    } catch (error) {
+      console.error('Error completing draw with block hash:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to complete draw with block hash. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCreateNewSeries = async () => {
+    try {
+      // Validate inputs
+      validateSeriesName(newSeriesName);
+
+      const contract = await getContract();
+      if (!contract) throw new Error("Contract not initialized");
+
+      const tx = await contract.newSeries(newSeriesName);
+      await tx.wait();
+
+      // Refresh series list
+      await refreshSeriesList();
+      setNewSeriesName('');
+
+      toast({
+        title: "Series Created",
+        description: "New series has been created successfully",
+        variant: "success",
+      });
+    } catch (error) {
+      console.error('Error creating new series:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create new series. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdateBlockGap = async (newGap: number) => {
+    try {
+      // Validate inputs
+      validateBlockGap(newGap);
+
+      const contract = await getContract();
+      if (!contract) throw new Error("Contract not initialized");
+
+      const tx = await contract.updateBlockGap(newGap);
+      await tx.wait();
+
+      toast({
+        title: "Block Gap Updated",
+        description: "Block gap settings have been updated successfully",
+        variant: "success",
+      });
+    } catch (error) {
+      console.error('Error updating block gap:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update block gap. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Refresh series list
+  const refreshSeriesList = async () => {
+    try {
+      const contract = await getContract();
+      if (!contract) throw new Error("Contract not initialized");
+
+      const totalSeries = await contract.getTotalSeries();
+      const updatedSeriesList = [];
+      
+      for (let i = 0; i < totalSeries; i++) {
+        const name = await contract.getSeriesNameByIndex(i);
+        updatedSeriesList.push({ index: i, name });
+      }
+      
+      setSeriesList(updatedSeriesList);
+    } catch (error) {
+      console.error('Error refreshing series list:', error);
+      toast({
+        title: "Error",
+        description: "Failed to refresh series list. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Effect to refresh series list when connected
+  useEffect(() => {
+    if (isConnected && isAdmin) {
+      refreshSeriesList();
+    }
+  }, [isConnected, isAdmin]);
+
   // Show loading state
   if (isLoading) {
     return (
@@ -570,14 +873,20 @@ export default function Admin() {
                   
                   <div className="grid gap-2">
                     <Label htmlFor="futureBlock">Future Block Number</Label>
-                    <Input 
-                      id="futureBlock" 
-                      type="number" 
-                      step="1"
-                      min="1"
-                      value={futureBlock} 
-                      onChange={(e) => setFutureBlock(parseInt(e.target.value))}
-                    />
+                    <div className="space-y-1">
+                      <Input 
+                        id="futureBlock" 
+                        type="number" 
+                        step="1"
+                        min="1"
+                        value={futureBlock} 
+                        onChange={(e) => setFutureBlock(parseInt(e.target.value))}
+                        placeholder="Enter future block number"
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        Current block: {currentBlock || 'Loading...'}, Minimum required: {currentBlock ? currentBlock + 100 : 'Loading...'}
+                      </p>
+                    </div>
                   </div>
                   
                   <div className="grid gap-2">
