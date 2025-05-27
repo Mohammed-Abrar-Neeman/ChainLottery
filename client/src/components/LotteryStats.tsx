@@ -1,7 +1,9 @@
 import React from 'react';
-import { useLotteryData } from '@/hooks/useLotteryData';
-import { useWallet } from '@/hooks/useWallet';
+import { useQuery } from '@tanstack/react-query';
+import { useLotteryContract } from '@/hooks/useLotteryContract';
 import { Ticket, DollarSign, Users, History } from 'lucide-react';
+import { ethers } from 'ethers';
+import { useAppKitAccount } from '@reown/appkit/react';
 
 // Add prop types for shared state
 interface LotteryStatsProps {
@@ -9,131 +11,94 @@ interface LotteryStatsProps {
   sharedDrawId?: number;
 }
 
+interface TimeRemaining {
+  days: number;
+  hours: number;
+  minutes: number;
+}
+
+// Utility function to format USD
+const formatUSD = (ethAmount: string) => {
+  const ethPrice = 2000; // TODO: Get this from an API
+  const usdAmount = parseFloat(ethAmount) * ethPrice;
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD'
+  }).format(usdAmount);
+};
+
 export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: LotteryStatsProps) {
-  // Use the shared state values instead of the hook's internal state
-  const { 
-    lotteryData: defaultLotteryData, 
-    timeRemaining: defaultTimeRemaining, 
-    formatUSD, 
-    hasAvailableDraws: isDrawAvailable,
-    totalDrawsCount,
-    seriesDraws,
-    getSelectedDrawTicketPrice,
-    // We're still using these from the hook for the actual functionality,
-    // but we're passing in the shared values for state
-    selectedSeriesIndex: _selectedSeriesIndex,
-    selectedDrawId: _selectedDrawId,
-  } = useLotteryData();
-  
-  // Get wallet connection status for conditional rendering
-  const { isConnected } = useWallet();
-  
-  // Use the shared state values from props if provided
-  const selectedSeriesIndex = sharedSeriesIndex !== undefined ? sharedSeriesIndex : _selectedSeriesIndex;
-  const selectedDrawId = sharedDrawId !== undefined ? sharedDrawId : _selectedDrawId;
-  
+  const { getLotteryData, getSeriesDraws } = useLotteryContract();
+  const { address, isConnected } = useAppKitAccount();
+
+  // Fetch lottery data for the selected series and draw
+  const { data: lotteryData } = useQuery({
+    queryKey: ['lotteryData', sharedSeriesIndex, sharedDrawId],
+    queryFn: () => getLotteryData(sharedSeriesIndex, sharedDrawId),
+    enabled: sharedSeriesIndex !== undefined && sharedDrawId !== undefined,
+    staleTime: 0,
+  });
+
+  // Fetch series draws for the selected series
+  const { data: seriesDraws } = useQuery({
+    queryKey: ['seriesDraws', sharedSeriesIndex],
+    queryFn: () => getSeriesDraws(sharedSeriesIndex ?? 0),
+    enabled: sharedSeriesIndex !== undefined,
+    staleTime: 0,
+  });
+
+  // Get the selected draw data
+  const selectedDraw = React.useMemo(() => {
+    if (!isConnected || !seriesDraws || !sharedDrawId) return null;
+    return seriesDraws.find(draw => draw.drawId === sharedDrawId);
+  }, [isConnected, seriesDraws, sharedDrawId]);
+
   // Format time remaining as string
   const formatTimeRemaining = () => {
-    // If no wallet connection or unavailable time data, return static values
-    if (!isConnected || !timeRemaining) {
+    if (!isConnected || !lotteryData?.timeRemaining) {
       return "1d 12h 30m";
     }
-    
-    if (timeRemaining.days > 0) {
-      return `${timeRemaining.days}d ${timeRemaining.hours}h ${timeRemaining.minutes}m`;
+
+    // Convert seconds to days, hours, minutes
+    const totalSeconds = lotteryData.timeRemaining;
+    const days = Math.floor(totalSeconds / (24 * 60 * 60));
+    const hours = Math.floor((totalSeconds % (24 * 60 * 60)) / (60 * 60));
+    const minutes = Math.floor((totalSeconds % (60 * 60)) / 60);
+
+    if (days > 0) {
+      return `${days}d ${hours}h ${minutes}m`;
     }
-    return `${timeRemaining.hours}h ${timeRemaining.minutes}m`;
+    return `${hours}h ${minutes}m`;
   };
-  
-  // Get the selected draw data from seriesDraws
-  const getSelectedDraw = () => {
-    if (!isConnected || !isDrawAvailable() || !seriesDraws || !selectedDrawId) {
-      return null;
-    }
-    
-    return seriesDraws.find(draw => draw.drawId === selectedDrawId);
-  };
-  
-  // Get the jackpot amount directly from the contract's reported value
-  const getJackpotAmount = () => {
-    return defaultLotteryData?.jackpotAmount || "0.0";
-  };
-  
-  // Get the ticket price directly from the contract's reported value 
-  const getTicketPrice = () => {
-    return defaultLotteryData?.ticketPrice || "0.0";
-  };
-  
-  // Get the display round number based on the series and draw ID
+
+  // Get the current round number
   const getCurrentRound = () => {
-    if (!selectedDrawId) {
-      return 1;
-    }
-    // For each series, assign a consistent round number for display purposes
-    if (selectedSeriesIndex === 0) {
-      return selectedDrawId;
-    } else if (selectedSeriesIndex === 1) {
-      return 1;
-    } else if (selectedSeriesIndex === 2) {
-      return selectedDrawId;
-    } else if (selectedSeriesIndex === 3) {
-      return selectedDrawId;
-    } else if (selectedSeriesIndex === 4) {
-      return selectedDrawId;
-    } else if (selectedSeriesIndex === 5) {
-      return selectedDrawId;
-    }
-    return selectedDrawId;
+    if (!sharedDrawId) return 1;
+    return sharedDrawId;
   };
-  
-  // Get participants count for the SELECTED draw, not just the default draw
-  const getParticipantCount = () => {
-    return defaultLotteryData?.participantCount || 0;
-  };
-  
-  // Re-calculate values when selected draw changes
-  const ticketPrice = getTicketPrice();
-  const jackpotAmount = getJackpotAmount();
+
+  // Get values from lottery data
+  const ticketPrice = lotteryData?.ticketPrice || "0.0";
+  const jackpotAmount = lotteryData?.jackpotAmount || "0.0";
   const currentRound = getCurrentRound();
-  const participantCount = getParticipantCount();
-  
-  // Create lottery data with the selected draw values
-  const lotteryData = {
-    ...defaultLotteryData,
-    jackpotAmount: jackpotAmount,
-    ticketPrice: ticketPrice,
-    currentDraw: currentRound, // Use the normalized round number
-    participantCount: participantCount
-  };
-  
-  // Use timeRemaining from defaultLotteryData for now since it's calculated from endpoint
-  const timeRemaining = defaultTimeRemaining;
-  
-  // Add an effect to log and respond to drawId changes
-  React.useEffect(() => {
-    console.log("LotteryStats - Draw ID changed, recalculating values:", {
-      selectedDrawId,
-      ticketPrice,
-      jackpotAmount,
-      currentRound
-    });
-  }, [selectedDrawId, ticketPrice, jackpotAmount, currentRound]);
-  
-  // Log the values for debugging
+  const participantCount = lotteryData?.participantCount || 0;
+
+  // Calculate time remaining
+  const timeRemaining = lotteryData?.timeRemaining ? {
+    days: Math.floor(lotteryData.timeRemaining / (24 * 60 * 60)),
+    hours: Math.floor((lotteryData.timeRemaining % (24 * 60 * 60)) / (60 * 60)),
+    minutes: Math.floor((lotteryData.timeRemaining % (60 * 60)) / 60)
+  } : undefined;
+
+  // Log values for debugging
   console.log('LotteryStats - Updated values:', {
     ticketPrice,
     jackpotAmount,
     currentRound,
     participantCount,
-    drawAvailable: isDrawAvailable(),
-    selectedDrawId,
+    selectedDraw,
     sharedDrawId,
-    defaultLotteryData: {
-      jackpotAmount: defaultLotteryData?.jackpotAmount,
-      ticketPrice: defaultLotteryData?.ticketPrice, 
-      participantCount: defaultLotteryData?.participantCount,
-      timeRemaining: defaultTimeRemaining
-    }
+    lotteryData
   });
 
   return (
@@ -194,10 +159,7 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
             <h3 className="ml-4 text-xl font-semibold">Round</h3>
           </div>
           <p className="lotto-number text-3xl">
-            {/* Check if there's actual draw data from the smart contract */}
-            {(isDrawAvailable() && seriesDraws && seriesDraws.length > 0 && currentRound > 0) 
-              ? `#${currentRound}` 
-              : 'No Data'}
+            {selectedDraw && currentRound > 0 ? `#${currentRound}` : 'No Data'}
           </p>
           <p className="text-gray-600 text-sm">
             {timeRemaining && timeRemaining.days === 0 && timeRemaining.hours === 0 && timeRemaining.minutes === 0 

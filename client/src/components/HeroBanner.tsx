@@ -1,9 +1,8 @@
 import React, { Dispatch, SetStateAction } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { useLotteryData } from '@/hooks/useLotteryData';
-import { useWallet } from '@/hooks/useWallet';
+import { useLotteryContract } from '@/hooks/useLotteryContract';
 import { useAppSettings } from '@/context/AppSettingsContext';
-import { useDrawDate } from '@/hooks/useDrawDate';
 import { Calendar } from 'lucide-react';
 import WalletModal from './modals/WalletModal';
 import {
@@ -13,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useAppKitAccount } from '@reown/appkit/react';
 
 // Props interface for shared state
 interface HeroBannerProps {
@@ -22,49 +22,58 @@ interface HeroBannerProps {
   setSharedDrawId?: Dispatch<SetStateAction<number | undefined>>;
 }
 
+// Utility function to format USD
+const formatUSD = (ethAmount: string) => {
+  const ethPrice = 2000; // TODO: Get this from an API
+  const usdAmount = parseFloat(ethAmount) * ethPrice;
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD'
+  }).format(usdAmount);
+};
+
 export default function HeroBanner({
   sharedSeriesIndex,
   setSharedSeriesIndex,
   sharedDrawId,
   setSharedDrawId
 }: HeroBannerProps) {
-  const { 
-    lotteryData, 
-    timeRemaining, 
-    formatUSD,
-    seriesList,
-    isLoadingSeriesList,
-    seriesDraws,
-    isLoadingSeriesDraws,
-    totalDrawsCount,
-    isLoadingTotalDrawsCount,
-    selectedSeriesIndex,
-    selectedDrawId,
-    setSelectedSeriesIndex,
-    setSelectedDrawId,
-    hasAvailableDraws: isDrawAvailable
-  } = useLotteryData();
-  const { isConnected } = useWallet();
+  const { getLotteryData, getSeriesList, getSeriesDraws } = useLotteryContract();
+  const { address, isConnected } = useAppKitAccount();
   const { settings } = useAppSettings();
-  const { getDrawDate } = useDrawDate();
   const [showWalletModal, setShowWalletModal] = React.useState(false);
-  
-  // ONE-WAY DATA FLOW: No longer syncing FROM shared props TO selectedDrawId
-  // Instead, we only use sharedDrawId directly in the UI
-  // This prevents circular updates that cause flickering
-  
+
+  // Fetch series list
+  const { data: seriesList } = useQuery({
+    queryKey: ['seriesList'],
+    queryFn: getSeriesList,
+    staleTime: 0,
+  });
+
+  // Fetch lottery data for the selected series and draw
+  const { data: lotteryData } = useQuery({
+    queryKey: ['lotteryData', sharedSeriesIndex, sharedDrawId],
+    queryFn: () => getLotteryData(sharedSeriesIndex, sharedDrawId),
+    enabled: sharedSeriesIndex !== undefined && sharedDrawId !== undefined,
+    staleTime: 0,
+  });
+
+  // Fetch series draws for the selected series
+  const { data: seriesDraws } = useQuery({
+    queryKey: ['seriesDraws', sharedSeriesIndex],
+    queryFn: () => getSeriesDraws(sharedSeriesIndex ?? 0),
+    enabled: sharedSeriesIndex !== undefined,
+    staleTime: 0,
+  });
+
   const scrollToBuyTickets = () => {
     const element = document.getElementById('buy-tickets');
     if (element) {
-      // Scroll to element with offset to ensure the header is visible
-      const headerOffset = 100; // Adjust this value as needed for your layout
+      const headerOffset = 100;
       const elementPosition = element.getBoundingClientRect().top;
       const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
       
-      // Add highlight class to make the section flash
       element.classList.add('highlight-target');
-      
-      // Remove highlight class after animation is complete
       setTimeout(() => {
         element.classList.remove('highlight-target');
       }, 1500);
@@ -83,15 +92,11 @@ export default function HeroBanner({
   const scrollToHowItWorks = () => {
     const element = document.getElementById('how-it-works');
     if (element) {
-      // Scroll to element with offset to ensure the header is visible
-      const headerOffset = 100; // Adjust this value as needed for your layout
+      const headerOffset = 100;
       const elementPosition = element.getBoundingClientRect().top;
       const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
       
-      // Add highlight class to make the section flash
       element.classList.add('highlight-target');
-      
-      // Remove highlight class after animation is complete
       setTimeout(() => {
         element.classList.remove('highlight-target');
       }, 1500);
@@ -103,26 +108,19 @@ export default function HeroBanner({
     }
   };
   
-  // Modified handlers to update both local state AND shared state
   const handleSeriesChange = (value: string) => {
     const newSeriesIndex = parseInt(value);
     console.log("HeroBanner - Series change:", { 
-      oldInternal: selectedSeriesIndex, 
       oldShared: sharedSeriesIndex,
       newValue: newSeriesIndex 
     });
     
-    // First update the local state
-    setSelectedSeriesIndex(newSeriesIndex);
-    
-    // Then update the shared state if it's available
     if (setSharedSeriesIndex) {
       setSharedSeriesIndex(newSeriesIndex);
       console.log("HeroBanner - Updated shared series index to:", newSeriesIndex);
     }
     
-    // Reset draw selection when series changes (both local and shared)
-    setSelectedDrawId(undefined);
+    // Reset draw selection when series changes
     if (setSharedDrawId) {
       setSharedDrawId(undefined);
     }
@@ -131,63 +129,58 @@ export default function HeroBanner({
   const handleDrawChange = (value: string) => {
     const newDrawId = parseInt(value);
     console.log("HeroBanner - Draw change:", { 
-      oldInternal: selectedDrawId, 
       oldShared: sharedDrawId,
       newValue: newDrawId 
     });
     
-    // Only update if there's a change
-    if (selectedDrawId !== newDrawId) {
-      // First update the local state
-      setSelectedDrawId(newDrawId);
-      console.log("HeroBanner - Updated internal draw ID to:", newDrawId);
-      
-      // Then update the shared state if it's available
-      if (setSharedDrawId) {
-        setSharedDrawId(newDrawId);
-        console.log("HeroBanner - Updated shared draw ID to:", newDrawId);
-      }
+    if (setSharedDrawId && sharedDrawId !== newDrawId) {
+      setSharedDrawId(newDrawId);
+      console.log("HeroBanner - Updated shared draw ID to:", newDrawId);
     }
   };
-  
-  // Get raw jackpot amount in ETH directly from the contract
-  const getJackpotAmountRaw = (): string => {
-    if (isDrawAvailable()) {
-      // Always use the jackpot value directly from the contract's getJackpot function
-      const jackpotFromData = lotteryData?.jackpotAmount || '0';
-      return jackpotFromData;
-    }
+
+  // Get draw date for display
+  const getDrawDate = (draws: any[], drawId: number): string => {
+    const draw = draws.find(d => d.drawId === drawId);
+    if (!draw) return 'Unknown';
     
-    // If no lottery data is available, return zero
-    return '0';
+    const date = new Date(draw.endTimestamp * 1000);
+    return date.toLocaleDateString();
   };
-  
-  // Get formatted jackpot amount for display
+
+  // Get jackpot amount
   const getJackpotAmount = (): string => {
-    const amount = getJackpotAmountRaw();
-    // If the contract returns a valid non-zero value, use it exactly as provided
-    if (parseFloat(amount) > 0) {
-      return parseFloat(amount).toFixed(5);
-    }
-    
-    // For empty/zero values, we still need to show something
-    // Return zero formatted to five decimal places
-    return '0.00000';
+    const amount = lotteryData?.jackpotAmount || '0';
+    return parseFloat(amount) > 0 ? parseFloat(amount).toFixed(5) : '0.00000';
   };
-  
-  // Get participant count directly from the contract using getTotalTicketsSold
+
+  // Get participant count
   const getParticipantCount = (): string => {
-    // Get the real-time data directly from the contract
-    if (isDrawAvailable()) {
-      // Use the participantCount from the lotteryData object which is populated using getTotalTicketsSold
-      const participants = lotteryData?.participantCount !== undefined ? lotteryData.participantCount : 0;
-      return participants.toString();
-    }
-    
-    // Return 0 if no draw is available
-    return '0';
+    return lotteryData?.participantCount?.toString() || '0';
   };
-  
+
+  // Calculate time remaining
+  const timeRemaining = React.useMemo(() => {
+    if (!lotteryData?.timeRemaining) {
+      return { days: 0, hours: 0, minutes: 0, seconds: 0 };
+    }
+
+    const totalSeconds = lotteryData.timeRemaining;
+    return {
+      days: Math.floor(totalSeconds / (24 * 60 * 60)),
+      hours: Math.floor((totalSeconds % (24 * 60 * 60)) / (60 * 60)),
+      minutes: Math.floor((totalSeconds % (60 * 60)) / 60),
+      seconds: Math.floor(totalSeconds % 60)
+    };
+  }, [lotteryData?.timeRemaining]);
+
+  // Check if there's an active draw
+  const isDrawAvailable = React.useMemo(() => {
+    if (!seriesDraws || !sharedDrawId) return false;
+    const draw = seriesDraws.find(d => d.drawId === sharedDrawId);
+    return draw && !draw.completed;
+  }, [seriesDraws, sharedDrawId]);
+
   return (
     <section className="mb-16">
       <div className="casino-card relative overflow-hidden">
@@ -273,30 +266,26 @@ export default function HeroBanner({
               {/* Series and Draw Selection */}
               <div className="mb-6 flex space-x-4">
                 {settings.showSeriesDropdown ? (
-                  // Show series and draw dropdowns when setting is enabled
                   <>
                     <div className="w-1/2">
                       <label className="text-sm font-mono uppercase tracking-wider text-primary mb-1 block">
                         Series
                       </label>
                       <Select
-                        disabled={false}
-                        value={selectedSeriesIndex?.toString() || "0"}
+                        value={sharedSeriesIndex?.toString() || "0"}
                         onValueChange={handleSeriesChange}
                       >
                         <SelectTrigger className="bg-secondary border border-primary/30 text-white">
                           <SelectValue placeholder="Select series" />
                         </SelectTrigger>
                         <SelectContent className="border border-primary/30">
-                          {/* Only show data from the blockchain */}
-                          {(seriesList && seriesList.length > 0) ? (
+                          {seriesList && seriesList.length > 0 ? (
                             seriesList.map((series) => (
                               <SelectItem key={series.index} value={series.index.toString()}>
                                 {series.name} {series.active ? ' (Active)' : ''}
                               </SelectItem>
                             ))
                           ) : (
-                            // No data message
                             <SelectItem key="no-data" value="0" disabled>
                               No Series Available
                             </SelectItem>
@@ -310,23 +299,20 @@ export default function HeroBanner({
                         Draw
                       </label>
                       <Select
-                        disabled={false}
-                        value={selectedDrawId?.toString() || "1"}
+                        value={sharedDrawId?.toString() || "1"}
                         onValueChange={handleDrawChange}
                       >
                         <SelectTrigger className="bg-secondary border border-primary/30 text-white">
                           <SelectValue placeholder="Select draw" />
                         </SelectTrigger>
                         <SelectContent className="border border-primary/30">
-                          {/* Only show draws from the blockchain */}
-                          {(seriesDraws && seriesDraws.length > 0) ? (
+                          {seriesDraws && seriesDraws.length > 0 ? (
                             seriesDraws.filter(draw => draw.drawId !== 0).map((draw) => (
                               <SelectItem key={draw.drawId} value={draw.drawId.toString()}>
                                 Draw #{draw.drawId} {!draw.completed ? ' (Active)' : ''}
                               </SelectItem>
                             ))
                           ) : (
-                            // No data message
                             <SelectItem key="no-draws" value="1" disabled>
                               No Draws Available
                             </SelectItem>
@@ -336,14 +322,12 @@ export default function HeroBanner({
                     </div>
                   </>
                 ) : (
-                  // Show simplified view with just draw date when setting is disabled
                   <div className="w-full">
                     <label className="text-sm font-mono uppercase tracking-wider text-primary mb-1 block">
                       Current Draw
                     </label>
                     <Select
-                      disabled={false}
-                      value={selectedDrawId?.toString() || "1"}
+                      value={sharedDrawId?.toString() || "1"}
                       onValueChange={handleDrawChange}
                     >
                       <SelectTrigger className="bg-secondary border border-primary/30 text-white">
@@ -353,15 +337,13 @@ export default function HeroBanner({
                         </div>
                       </SelectTrigger>
                       <SelectContent className="border border-primary/30">
-                        {/* Only show draws that are available from the contract */}
-                        {(seriesDraws && seriesDraws.length > 0) ? (
+                        {seriesDraws && seriesDraws.length > 0 ? (
                           seriesDraws.filter(draw => draw.drawId !== 0).map((draw) => (
                             <SelectItem key={draw.drawId} value={draw.drawId.toString()}>
                               Draw #{draw.drawId} ({getDrawDate(seriesDraws, draw.drawId)})
                             </SelectItem>
                           ))
                         ) : (
-                          // No available draws
                           <SelectItem key="no-draws" value="1" disabled>
                             No draws available
                           </SelectItem>
@@ -373,7 +355,7 @@ export default function HeroBanner({
               </div>
               
               <div className="flex-1">
-                {!isDrawAvailable() && (
+                {!isDrawAvailable && (
                   <div className="bg-card border border-primary/20 rounded-lg p-4 mb-6">
                     <p className="text-lg font-semibold mb-1 text-white">No Active Draws Available</p>
                     <p className="text-sm opacity-75">
@@ -393,14 +375,14 @@ export default function HeroBanner({
                       <span className="ml-2 text-xl bg-gradient-to-r from-primary to-yellow-400 text-transparent bg-clip-text font-bold">ETH</span>
                     </div>
                     <span className="text-sm font-mono text-white/60">
-                      ≈ {formatUSD(getJackpotAmountRaw())}
+                      ≈ {formatUSD(getJackpotAmount())}
                     </span>
                   </div>
                 </div>
                 
                 <div className="mb-8">
                   <span className="text-xs font-mono uppercase tracking-wider text-primary/80 block mb-2">Time Remaining</span>
-                  {isDrawAvailable() ? (
+                  {isDrawAvailable ? (
                     <div className="grid grid-cols-4 gap-2 font-mono">
                       <div className="bg-black/30 backdrop-blur-sm border border-primary/20 rounded-lg p-3 text-center">
                         <div className="text-2xl text-white lotto-number">{timeRemaining.days.toString().padStart(2, '0')}</div>
