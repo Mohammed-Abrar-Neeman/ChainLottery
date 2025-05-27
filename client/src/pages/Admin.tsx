@@ -96,6 +96,35 @@ export default function Admin() {
   // Settings state
   const [showSeriesDropdown, setShowSeriesDropdown] = useState(true);
   
+  // Add state for block gap
+  const [blockGap, setBlockGap] = useState<number>(0);
+  const [currentBlockGap, setCurrentBlockGap] = useState<number>(0);
+
+  // Function to get current block gap
+  const getCurrentBlockGap = async () => {
+    try {
+      const contract = await getContract();
+      if (!contract) throw new Error("Contract not initialized");
+      
+      const gap = await contract.blockGapInSeconds();
+      setCurrentBlockGap(Number(gap));
+    } catch (error) {
+      console.error('Error getting block gap:', error);
+      toast({
+        title: "Error",
+        description: "Failed to get current block gap",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Effect to get current block gap when connected
+  useEffect(() => {
+    if (isConnected && isAdmin) {
+      getCurrentBlockGap();
+    }
+  }, [isConnected, isAdmin]);
+
   // Handle winning number changes
   const handleWinningNumberChange = (index: number, value: string) => {
     const newNumbers = [...winningNumbers];
@@ -656,38 +685,57 @@ export default function Admin() {
             <CardContent className="space-y-4">
               <div className="grid gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="minBlockGap">Minimum Block Gap</Label>
-                  <Input 
-                    id="minBlockGap" 
-                    type="number"
-                    min="1"
-                    placeholder="Enter minimum blocks between draws"
-                  />
-                </div>
-                
-                <div className="grid gap-2">
-                  <Label htmlFor="maxBlockGap">Maximum Block Gap</Label>
-                  <Input 
-                    id="maxBlockGap" 
-                    type="number"
-                    min="1"
-                    placeholder="Enter maximum blocks between draws"
-                  />
+                  <Label htmlFor="blockGap">Block Gap (in seconds)</Label>
+                  <div className="space-y-1">
+                    <Input 
+                      id="blockGap" 
+                      type="number"
+                      min="1"
+                      value={blockGap} 
+                      onChange={(e) => setBlockGap(parseInt(e.target.value))}
+                      placeholder="Enter block gap in seconds"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Current block gap: {currentBlockGap} seconds
+                    </p>
+                  </div>
                 </div>
               </div>
             </CardContent>
             <CardFooter>
               <Button 
                 className="w-full" 
-                onClick={() => {
-                  toast({
-                    title: "Settings Updated",
-                    description: "Block gap settings have been updated successfully",
-                    duration: 3000,
-                  });
+                onClick={async () => {
+                  try {
+                    if (blockGap <= 0) {
+                      throw new Error("Block gap must be greater than 0");
+                    }
+
+                    const contract = await getContract();
+                    if (!contract) throw new Error("Contract not initialized");
+
+                    const tx = await contract.updateBlockGap(blockGap);
+                    await tx.wait();
+
+                    // Refresh current block gap
+                    await getCurrentBlockGap();
+                    
+                    toast({
+                      title: "Success",
+                      description: "Block gap settings have been updated successfully",
+                      variant: "success",
+                    });
+                  } catch (error) {
+                    console.error('Error updating block gap:', error);
+                    toast({
+                      title: "Error",
+                      description: error instanceof Error ? error.message : "Failed to update block gap",
+                      variant: "destructive",
+                    });
+                  }
                 }}
               >
-                Update Block Gap Settings
+                Update Block Gap
               </Button>
             </CardFooter>
           </Card>
