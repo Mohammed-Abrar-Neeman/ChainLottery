@@ -42,7 +42,7 @@ export default function FAQSection() {
               <AccordionTrigger className="text-lg font-semibold hover:no-underline">
                 {item.question}
               </AccordionTrigger>
-              <AccordionContent className="mt-3 text-gray-600">
+              <AccordionContent className="mt-3 text-gray-200">
                 <p dangerouslySetInnerHTML={{ __html: item.answer }}></p>
               </AccordionContent>
             </AccordionItem>
