@@ -13,11 +13,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useAppSettings } from '@/context/AppSettingsContext';
 import { useAppKitProvider, useAppKitAccount } from "@reown/appkit/react";
 import { BrowserProvider, Contract } from "ethers";
-import LotteryABI from '@/abi/Lottery.json';
+import { CONTRACTS, LOTTERY_ABI } from '@/config/contracts';
 import { ethers } from 'ethers';
-
-// Contract address - replace with your deployed contract address
-const LOTTERY_CONTRACT_ADDRESS = '0x204f5777A911090572633De22b2571d6Bb89308d';
 
 export default function Admin() {
   // Initialize toast
@@ -48,8 +45,8 @@ export default function Admin() {
       const ethersProvider = new BrowserProvider(walletProvider);
       const signer = await ethersProvider.getSigner();
       const lotteryContract = new Contract(
-        LOTTERY_CONTRACT_ADDRESS,
-        LotteryABI,
+        CONTRACTS.LOTTERY,
+        LOTTERY_ABI,
         signer
       );
 
@@ -147,7 +144,7 @@ export default function Admin() {
       const block = await provider.getBlockNumber();
       setCurrentBlock(block);
     }
-    return new Contract(LOTTERY_CONTRACT_ADDRESS, LotteryABI, signer);
+    return new Contract(CONTRACTS.LOTTERY, LOTTERY_ABI, signer);
   };
 
   // Update validation functions

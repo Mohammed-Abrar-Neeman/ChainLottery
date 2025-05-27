@@ -11,10 +11,7 @@ import {
 import { Wallet, Menu, X, ShieldCheck, Ticket, Home, History, HelpCircle } from 'lucide-react';
 import { useAppKitAccount, useAppKitProvider } from "@reown/appkit/react";
 import { BrowserProvider, Contract } from "ethers";
-import LotteryABI from '@/abi/Lottery.json';
-
-// Contract address - replace with your deployed contract address
-const LOTTERY_CONTRACT_ADDRESS = '0x204f5777A911090572633De22b2571d6Bb89308d';
+import { CONTRACTS, LOTTERY_ABI } from '@/config/contracts';
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
@@ -38,8 +35,8 @@ export default function Header() {
       const ethersProvider = new BrowserProvider(walletProvider);
       const signer = await ethersProvider.getSigner();
       const lotteryContract = new Contract(
-        LOTTERY_CONTRACT_ADDRESS,
-        LotteryABI,
+        CONTRACTS.LOTTERY,
+        LOTTERY_ABI,
         signer
       );
 
