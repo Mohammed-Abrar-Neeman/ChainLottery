@@ -225,6 +225,20 @@ export const useLotteryContract = () => {
     }
   }, [getContract, address]);
 
+  // Get ticket price for a specific draw
+  const getTicketPrice = useCallback(async (drawId?: number): Promise<number> => {
+    try {
+      const contract = await getContract();
+      if (!contract) return 0;
+
+      const price = await contract.getTicketPrice(drawId ?? 0);
+      return Number(ethers.formatEther(price));
+    } catch (error) {
+      console.error('Error getting ticket price:', error);
+      return 0;
+    }
+  }, [getContract]);
+
   return {
     getContract,
     getLotteryData,
@@ -235,6 +249,7 @@ export const useLotteryContract = () => {
     checkUserPrizes,
     getUserTickets,
     isConnected,
-    address
+    address,
+    getTicketPrice
   };
 }; 
