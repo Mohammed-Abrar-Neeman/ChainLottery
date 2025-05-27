@@ -4,9 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle, ExternalLink, RefreshCcw, Trophy } from 'lucide-react';
-import { getDrawWinners, getWinningNumbers, getTotalWinners } from '@/lib/lotteryContract';
 import { formatAddress } from '@/lib/utils';
-import { useWallet } from '@/hooks/useWallet';
+import { useLotteryContract } from '@/hooks/useLotteryContract';
 
 // Utility function for formatting USD amounts
 const formatUSD = (ethAmount: string): string => {
@@ -33,10 +32,6 @@ export interface Winner {
   drawId?: number;
   seriesIndex?: number;
   timestamp?: number;
-  ticketNumbers?: {
-    numbers: number[];
-    lottoNumber: number | null;
-  }[];
   winningNumbers?: number[];
   transactionHash?: string;
 }
@@ -44,71 +39,25 @@ export interface Winner {
 interface PastWinnersProps {
   sharedDrawId?: number;
   sharedSeriesIndex?: number;
+  isLoading?: boolean;
 }
 
-export default function PastWinners({ sharedDrawId, sharedSeriesIndex }: PastWinnersProps) {
-  const { provider, chainId } = useWallet();
+export default function PastWinners({ sharedDrawId, sharedSeriesIndex, isLoading: parentIsLoading }: PastWinnersProps) {
+  const { getLotteryData } = useLotteryContract();
   const [winners, setWinners] = useState<Winner[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [drawsAvailable, setDrawsAvailable] = useState(true);
   const [isDrawCompleted, setIsDrawCompleted] = useState(false);
-  const [totalWinnersCount, setTotalWinnersCount] = useState(0);
   
   // Track previous values to detect changes
   const [previousDrawId, setPreviousDrawId] = useState<number | undefined>();
   const [previousSeriesIndex, setPreviousSeriesIndex] = useState<number | undefined>();
-  
-  // Define default draw IDs for each series
-  const getDefaultDrawIdForSeries = (seriesIndex: number | undefined): number => {
-    if (seriesIndex === undefined) return 1; // Default to draw ID 1
-    
-    // Map series index to their primary draw ID
-    switch (seriesIndex) {
-      case 0: return 1; // Beginner series -> Draw ID 1
-      case 1: return 2; // Intermediate series -> Draw ID 2
-      case 2: return 3; // Monthly Mega series -> Draw ID 3
-      case 3: return 4; // Weekly Express series -> Draw ID 4
-      case 4: return 5; // Quarterly Rewards series -> Draw ID 5
-      case 5: return 6; // Annual Championship series -> Draw ID 6
-      default: return 1; // Fallback to Draw ID 1 for any other series
-    }
-  };
-  
-  // Calculate effective draw ID - never undefined
-  const effectiveDrawId = sharedDrawId !== undefined 
-    ? sharedDrawId 
-    : getDefaultDrawIdForSeries(sharedSeriesIndex);
 
-  // Check if draw is completed (using getWinningNumbers as a proxy)
-  const checkDrawCompletion = useCallback(async () => {
-    if (!provider || !chainId) return false;
-    
-    try {
-      const winningNumbers = await getWinningNumbers(provider, chainId, effectiveDrawId);
-      // If we have winning numbers, the draw is completed
-      return winningNumbers && winningNumbers.length > 0;
-    } catch (error) {
-      console.error('Error checking draw completion:', error);
-      return false;
-    }
-  }, [provider, chainId, effectiveDrawId]);
-
-  // Get total winners count
-  const fetchTotalWinners = useCallback(async () => {
-    if (!provider || !chainId) return;
-    
-    try {
-      const totalWinners = await getTotalWinners(provider, chainId);
-      setTotalWinnersCount(totalWinners);
-    } catch (error) {
-      console.error('Error fetching total winners count:', error);
-    }
-  }, [provider, chainId]);
-
-  // Define refreshWinners function before it's used
+  // Define refreshWinners function
   const refreshWinners = useCallback((forceReset = false) => {
-    // Always reset state when force is true
+    if (!sharedDrawId) return;
+
+    // Reset state when force is true
     if (forceReset) {
       setWinners([]);
       setPreviousDrawId(undefined);
@@ -118,44 +67,27 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex }: PastWin
     setIsLoading(true);
     setError(null);
     
-    if (!provider || !chainId) {
-      setIsLoading(false);
-      setError('Cannot refresh without blockchain connection');
-      return;
-    }
+    console.log(`PastWinners - Manual refresh triggered for Series ${sharedSeriesIndex}, Draw ${sharedDrawId}`);
     
-    console.log(`PastWinners - Manual refresh triggered for Series ${sharedSeriesIndex}, Draw ${effectiveDrawId}`);
-    
-    // Fetch all necessary data in parallel
-    Promise.all([
-      checkDrawCompletion(),
-      getDrawWinners(provider, chainId, effectiveDrawId, sharedSeriesIndex),
-      getWinningNumbers(provider, chainId, effectiveDrawId)
-    ])
-      .then(([completed, fetchedWinners, winningNumbers]) => {
-        // Convert completion status to boolean
-        setIsDrawCompleted(Boolean(completed));
-        
-        console.log(`PastWinners - Refresh completed: Got ${fetchedWinners.length} winners for Series ${sharedSeriesIndex}, Draw ${effectiveDrawId}`);
-        
-        // No special cases - only show winners from the blockchain
-        // Draw #1 doesn't have winners yet, so we should display "Winner Yet To Be Declared"
-        
-        // Copy the winners to ensure type safety
-        const newWinners: Winner[] = [...fetchedWinners];
-        
-        // Add winning numbers if available
-        if (winningNumbers && winningNumbers.length > 0 && completed && newWinners.length > 0) {
-          for (let i = 0; i < newWinners.length; i++) {
-            newWinners[i] = {
-              ...newWinners[i],
-              winningNumbers
-            };
-          }
+    // Fetch lottery data
+    getLotteryData(sharedSeriesIndex, sharedDrawId)
+      .then(lotteryData => {
+        if (!lotteryData) {
+          setWinners([]);
+          setIsDrawCompleted(false);
+          return;
         }
-        
-        // Update state with the new winners
-        setWinners(newWinners);
+
+        setIsDrawCompleted(true);
+        setWinners(lotteryData.participants.map(participant => ({
+          winnerAddress: participant.walletAddress,
+          amountWon: lotteryData.jackpotAmount,
+          drawId: sharedDrawId,
+          seriesIndex: sharedSeriesIndex,
+          timestamp: participant.timestamp,
+          transactionHash: participant.transactionHash,
+          winningNumbers: lotteryData.winningNumbers
+        })));
       })
       .catch(error => {
         console.error('Error refreshing winners:', error);
@@ -164,33 +96,23 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex }: PastWin
       .finally(() => {
         setIsLoading(false);
       });
-  }, [provider, chainId, effectiveDrawId, sharedSeriesIndex, checkDrawCompletion]);
+  }, [getLotteryData, sharedSeriesIndex, sharedDrawId]);
 
-  // SIMPLIFIED: Load winners for the selected draw - always refresh on prop changes
+  // Load winners for the selected draw - refresh on prop changes
   useEffect(() => {
-    // Log the update
-    console.log(`PastWinners - Props updated to series: ${sharedSeriesIndex}, draw: ${sharedDrawId}, effectiveDrawId: ${effectiveDrawId}`);
-    
-    // Only continue with blockchain queries if we have connection
-    if (!provider || !chainId) {
-      console.log(`PastWinners - Missing connection, skipping refresh`);
-      return;
-    }
-    
+    if (!sharedDrawId) return;
+
     // Check if there was a change in series or draw
     const seriesChanged = previousSeriesIndex !== sharedSeriesIndex;
-    const drawIdChanged = previousDrawId !== effectiveDrawId;
+    const drawIdChanged = previousDrawId !== sharedDrawId;
     
     if (seriesChanged || drawIdChanged) {
       console.log(`PastWinners - Series or Draw ID changed, refreshing data`);
       setPreviousSeriesIndex(sharedSeriesIndex);
-      setPreviousDrawId(effectiveDrawId);
-      
-      // Immediately refresh on every prop change - query directly from blockchain
-      console.log(`PastWinners - Querying blockchain directly for draw ${effectiveDrawId}, series ${sharedSeriesIndex || 0}`);
+      setPreviousDrawId(sharedDrawId);
       refreshWinners(true);
     }
-  }, [sharedDrawId, sharedSeriesIndex, effectiveDrawId, provider, chainId, refreshWinners, previousSeriesIndex, previousDrawId]);
+  }, [sharedDrawId, sharedSeriesIndex, refreshWinners, previousSeriesIndex, previousDrawId]);
   
   // Helper for time formatting
   const getTimeDifference = (timestamp: number | undefined) => {
@@ -215,23 +137,24 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex }: PastWin
     return "minor";
   };
 
+  // Use parent loading state if provided
+  const isLoadingState = parentIsLoading || isLoading;
+
   return (
     <section className="mb-16">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">Past Winners</h2>
         
-        {drawsAvailable && (
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => refreshWinners()} 
-            disabled={isLoading}
-            className="flex items-center"
-          >
-            <RefreshCcw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-        )}
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => refreshWinners()} 
+          disabled={isLoadingState}
+          className="flex items-center"
+        >
+          <RefreshCcw className={`h-4 w-4 mr-2 ${isLoadingState ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
       
       {error && (
@@ -241,7 +164,7 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex }: PastWin
         </Alert>
       )}
       
-      {!isLoading && winners.length === 0 ? (
+      {!isLoadingState && winners.length === 0 ? (
         <Alert variant="default" className="mb-6">
           <div className="flex items-start gap-2">
             <Trophy className="h-5 w-5 flex-shrink-0 mt-0.5" />
@@ -253,7 +176,7 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex }: PastWin
         </Alert>
       ) : (
         <>
-          {isLoading ? (
+          {isLoadingState ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="glass rounded-xl shadow-glass overflow-hidden">
@@ -276,7 +199,7 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex }: PastWin
                 <div key={`${winner.winnerAddress}-${index}`} className="glass rounded-xl shadow-glass overflow-hidden">
                   <div className="bg-gradient-to-r from-primary to-accent p-4 text-white">
                     <div className="flex justify-between items-center">
-                      <span className="font-semibold">Draw #{winner.drawId || effectiveDrawId}</span>
+                      <span className="font-semibold">Draw #{winner.drawId || sharedDrawId}</span>
                       <span className="text-sm font-mono">{getTimeDifference(winner.timestamp)}</span>
                     </div>
                   </div>
@@ -308,29 +231,6 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex }: PastWin
                       <div className="crypto-value text-lg text-primary">{winner.amountWon} ETH</div>
                       <div className="text-sm text-white/60">≈ {formatUSD(winner.amountWon)}</div>
                     </div>
-                    
-                    {winner.ticketNumbers && winner.ticketNumbers.length > 0 && (
-                      <div className="mb-4">
-                        <div className="text-sm text-white/70 mb-1">Winning Ticket</div>
-                        <div className="flex flex-wrap gap-1.5 mb-1">
-                          {winner.ticketNumbers[0].numbers.map((num, i) => (
-                            <span 
-                              key={`number-${i}`} 
-                              className="inline-flex items-center justify-center w-6 h-6 text-xs lotto-number rounded-full bg-primary/20 text-primary border border-primary/40"
-                            >
-                              {num}
-                            </span>
-                          ))}
-                          {winner.ticketNumbers[0].lottoNumber && (
-                            <span 
-                              className="inline-flex items-center justify-center w-6 h-6 text-xs lotto-number rounded-full bg-accent/20 text-accent border border-accent/40"
-                            >
-                              {winner.ticketNumbers[0].lottoNumber}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )}
                     
                     {winner.winningNumbers && winner.winningNumbers.length > 0 && (
                       <div className="mb-4">

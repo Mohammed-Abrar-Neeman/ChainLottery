@@ -16,10 +16,11 @@ export interface LotteryData {
   ticketPrice: string;
   currentDraw: number;
   timeRemaining: number;
-  endTimestamp?: number;
+  endTimestamp: number;
   participants: Participant[];
   participantCount: number;
   seriesIndex?: number;
+  winningNumbers?: number[];
 }
 
 export interface Participant {
