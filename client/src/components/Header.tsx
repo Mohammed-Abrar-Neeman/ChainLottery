@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { 
@@ -9,10 +9,54 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { Wallet, Menu, X, ShieldCheck, Ticket, Home, History, HelpCircle } from 'lucide-react';
+import { useAppKitAccount, useAppKitProvider } from "@reown/appkit/react";
+import { BrowserProvider, Contract } from "ethers";
+import LotteryABI from '@/abi/Lottery.json';
+
+// Contract address - replace with your deployed contract address
+const LOTTERY_CONTRACT_ADDRESS = '0x204f5777A911090572633De22b2571d6Bb89308d';
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // AppKit hooks
+  const { address, isConnected } = useAppKitAccount();
+  const { walletProvider } = useAppKitProvider("eip155");
+
+  // Check admin status
+  const checkAdminStatus = async () => {
+    if (!isConnected || !address || !walletProvider) {
+      setIsAdmin(false);
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const ethersProvider = new BrowserProvider(walletProvider);
+      const signer = await ethersProvider.getSigner();
+      const lotteryContract = new Contract(
+        LOTTERY_CONTRACT_ADDRESS,
+        LotteryABI,
+        signer
+      );
+
+      const adminAddress = await lotteryContract.admin();
+      setIsAdmin(adminAddress.toLowerCase() === address.toLowerCase());
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+      setIsAdmin(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Effect to check admin status when connection changes
+  useEffect(() => {
+    checkAdminStatus();
+  }, [isConnected, address, walletProvider]);
 
   const toggleMobileMenu = () => {
     setIsOpen(!isOpen);
@@ -32,6 +76,20 @@ export default function Header() {
           </span>
         )}
       </Link>
+    );
+  };
+
+  // Admin menu item component
+  const AdminMenuItem = ({ isMobile = false }: { isMobile?: boolean }) => {
+    if (!isAdmin) return null;
+    
+    return (
+      <NavLink href="/admin" label={
+        <span className={`flex items-center ${isMobile ? '' : 'px-3 py-2 rounded-md hover:bg-white/5'}`}>
+          <ShieldCheck className={`${isMobile ? 'mr-2 h-5 w-5' : 'mr-1.5 h-4 w-4'}`} />
+          Admin
+        </span>
+      } isMobile={isMobile} />
     );
   };
 
@@ -103,12 +161,7 @@ export default function Header() {
                 FAQ
               </span>
             } />
-            <NavLink href="/admin" label={
-              <span className="flex items-center px-3 py-2 rounded-md hover:bg-white/5">
-                <ShieldCheck className="mr-1.5 h-4 w-4" />
-                Admin
-              </span>
-            } />
+            <AdminMenuItem />
           </nav>
 
           {/* Wallet Connection Button */}
@@ -148,15 +201,10 @@ export default function Header() {
                 FAQ
               </span>
             } isMobile />
-            <NavLink href="/admin" label={
-              <span className="flex items-center">
-                <ShieldCheck className="mr-2 h-5 w-5" />
-                Admin
-              </span>
-            } isMobile />
+            <AdminMenuItem isMobile />
             
             {/* Mobile wallet connection */}
-                <appkit-button/>
+            <appkit-button/>
           </div>
         </div>
       )}
