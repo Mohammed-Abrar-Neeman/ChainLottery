@@ -46,6 +46,10 @@ const BuyTickets = React.memo(function BuyTickets({
   const [ticketPrice, setTicketPrice] = useState(0);
   const [gridKey, setGridKey] = useState(0);
   
+  // Buy transaction states
+  const [isBuying, setIsBuying] = useState(false);
+  const [buyError, setBuyError] = useState<string | null>(null);
+  
   const { isConnected } = useAppKitAccount();
   const { toast } = useToast();
   const { 
@@ -178,11 +182,21 @@ const BuyTickets = React.memo(function BuyTickets({
     
     // Check if draw is available by getting lottery data
     if (sharedSeriesIndex !== undefined && sharedDrawId !== undefined) {
-      const lotteryData = await getLotteryData(sharedSeriesIndex, sharedDrawId);
-      if (!lotteryData) {
+      try {
+        const lotteryData = await getLotteryData(sharedSeriesIndex, sharedDrawId);
+        if (!lotteryData) {
+          toast({
+            title: "Draw Not Available",
+            description: "This draw is no longer available for ticket purchases.",
+            variant: "destructive"
+          });
+          return;
+        }
+      } catch (error) {
+        console.error('Error checking lottery data:', error);
         toast({
-          title: "Draw Not Available",
-          description: "This draw is no longer available for ticket purchases.",
+          title: "Error",
+          description: "Failed to check draw availability. Please try again.",
           variant: "destructive"
         });
         return;
@@ -200,6 +214,8 @@ const BuyTickets = React.memo(function BuyTickets({
     
     setShowBuyConfirmModal(false);
     setShowPendingModal(true);
+    setIsBuying(true);
+    setBuyError(null);
     
     // Buy tickets
     const buyTickets = async () => {
@@ -224,19 +240,39 @@ const BuyTickets = React.memo(function BuyTickets({
             lottoNumber: DEFAULT_LOTTO_NUMBER
           }]);
           setActiveTicketIndex(0);
+          
+          // Show success toast
+          toast({
+            title: "Success!",
+            description: "Your ticket has been purchased successfully.",
+            variant: "default"
+          });
+        } else {
+          throw new Error(result.error || 'Failed to buy ticket');
         }
       } catch (error) {
         console.error('Error buying tickets:', error);
+        setBuyError(error instanceof Error ? error.message : 'Failed to buy tickets');
         setShowPendingModal(false);
         toast({
           title: "Purchase Failed",
-          description: "Failed to buy tickets. Please try again.",
+          description: error instanceof Error ? error.message : "Failed to buy tickets. Please try again.",
           variant: "destructive"
         });
+      } finally {
+        setIsBuying(false);
       }
     };
     
     buyTickets();
+  };
+  
+  // Handle modal close
+  const handleModalClose = () => {
+    setShowBuyConfirmModal(false);
+    setShowPendingModal(false);
+    setShowSuccessModal(false);
+    setBuyError(null);
   };
   
   // Render ticket summary section
@@ -522,7 +558,7 @@ const BuyTickets = React.memo(function BuyTickets({
       
       <BuyConfirmationModal
         open={showBuyConfirmModal}
-        onClose={() => setShowBuyConfirmModal(false)}
+        onClose={handleModalClose}
         onConfirm={handleInitialConfirm}
         ticketPrice={ticketPrice}
         totalTicketsPrice={totalTicketsPrice}
@@ -531,23 +567,28 @@ const BuyTickets = React.memo(function BuyTickets({
         selectedNumbers={selectedNumbers}
         selectedLottoNumber={selectedLottoNumber}
         tickets={tickets}
+        isConnected={isConnected}
       />
       
       <TransactionPendingModal
         open={showPendingModal}
-        onClose={() => setShowPendingModal(false)}
+        onClose={handleModalClose}
         transactionHash={transactionHash}
+        isBuying={isBuying}
+        error={buyError}
       />
       
       <TransactionSuccessModal
         open={showSuccessModal}
-        onClose={() => setShowSuccessModal(false)}
+        onClose={handleModalClose}
         transactionHash={transactionHash}
         ticketCount={tickets.length}
         tickets={tickets}
         totalCost={totalCost}
         selectedNumbers={selectedNumbers}
         selectedLottoNumber={selectedLottoNumber}
+        drawId={sharedDrawId}
+        seriesIndex={sharedSeriesIndex}
       />
     </section>
   );

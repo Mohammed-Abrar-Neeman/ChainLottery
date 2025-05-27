@@ -1,10 +1,11 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { X, TicketIcon } from 'lucide-react';
-import { useLotteryData } from '@/hooks/useLotteryData';
+import { X, TicketIcon, AlertCircle } from 'lucide-react';
+import { useAppKitAccount } from '@reown/appkit/react';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { formatEther } from 'viem';
 
 interface Ticket {
   id: string;
@@ -23,6 +24,7 @@ interface BuyConfirmationModalProps {
   totalCost: number;
   selectedNumbers?: number[];
   selectedLottoNumber?: number | null;
+  isConnected: boolean;
 }
 
 export default function BuyConfirmationModal({
@@ -35,170 +37,146 @@ export default function BuyConfirmationModal({
   networkFee,
   totalCost,
   selectedNumbers = [],
-  selectedLottoNumber = null
+  selectedLottoNumber = null,
+  isConnected
 }: BuyConfirmationModalProps) {
-  const { formatUSD } = useLotteryData();
-  const hasMultipleTickets = tickets.length > 0;
+  const { address } = useAppKitAccount();
+  const hasMultipleTickets = tickets.length > 1;
   const ticketCount = hasMultipleTickets ? tickets.length : 1;
+
+  // Format ETH values
+  const formatETH = (value: number) => {
+    return value < 0.0001 ? value.toFixed(6) : value.toFixed(4);
+  };
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent className="glass rounded-2xl shadow-glass max-w-md w-full max-h-[90vh] overflow-y-auto">
         <DialogHeader className="flex justify-between items-center">
           <DialogTitle className="text-xl font-bold">Confirm Purchase</DialogTitle>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={onClose} 
-            className="text-gray-500 hover:text-gray-700 transition"
-          >
-            <X className="h-5 w-5" />
-          </Button>
         </DialogHeader>
         
-        <div className="mb-6 mt-4">
-          {/* Display tickets */}
-          {hasMultipleTickets ? (
-            // Multiple tickets display
-            <div className="bg-gray-100 rounded-lg p-4 mb-4 border border-gray-200">
-              <div className="flex items-center gap-2 mb-3">
-                <TicketIcon className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold">Your Lottery Tickets ({tickets.length})</h3>
-              </div>
-              
-              <ScrollArea className="h-60 pr-4">
-                <div className="space-y-3">
+        <div className="space-y-4 mt-4">
+          {/* Ticket Summary */}
+          <div className="bg-black/20 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <TicketIcon className="h-5 w-5 text-primary" />
+              <h3 className="font-semibold text-white">
+                {hasMultipleTickets ? `Your Tickets (${tickets.length})` : 'Your Ticket'}
+              </h3>
+            </div>
+            
+            {hasMultipleTickets ? (
+              <ScrollArea className="h-40 pr-4">
+                <div className="space-y-2">
                   {tickets.map((ticket, index) => (
-                    <div key={ticket.id} className="bg-white/80 rounded p-3 border border-gray-200">
-                      <div className="text-sm font-medium mb-2">Ticket #{index + 1}</div>
-                      
-                      <div className="mb-2">
-                        <div className="text-xs text-gray-600 mb-1">Main Numbers:</div>
-                        <div className="flex gap-1 flex-wrap">
+                    <div key={ticket.id} className="bg-black/30 rounded p-2 border border-primary/20">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-xs text-white/70">Ticket #{index + 1}</span>
+                        <div className="flex gap-1">
                           {ticket.numbers.sort((a, b) => a - b).map((num) => (
                             <Badge 
                               key={num} 
                               variant="default"
-                              className="bg-primary text-white h-6 w-6 rounded-full flex items-center justify-center text-xs lotto-number"
+                              className="bg-primary/20 text-primary h-5 w-5 rounded-full flex items-center justify-center text-xs lotto-number"
                             >
                               {num < 10 ? `0${num}` : num}
                             </Badge>
                           ))}
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <div className="text-xs text-gray-600 mb-1">LOTTO Number:</div>
-                        <div className="flex">
-                          {ticket.lottoNumber && (
-                            <Badge 
-                              variant="default"
-                              className="bg-accent text-white h-6 w-6 rounded-full flex items-center justify-center text-xs lotto-number"
-                            >
-                              {ticket.lottoNumber < 10 ? `0${ticket.lottoNumber}` : ticket.lottoNumber}
-                            </Badge>
-                          )}
+                          <Badge 
+                            variant="default"
+                            className="bg-accent/20 text-accent h-5 w-5 rounded-full flex items-center justify-center text-xs lotto-number"
+                          >
+                            {ticket.lottoNumber && (ticket.lottoNumber < 10 ? `0${ticket.lottoNumber}` : ticket.lottoNumber)}
+                          </Badge>
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
               </ScrollArea>
-            </div>
-          ) : (
-            // Single ticket display (legacy support)
-            selectedNumbers.length > 0 && (
-              <div className="bg-gray-100 rounded-lg p-4 mb-4 border border-gray-200">
-                <div className="flex items-center gap-2 mb-3">
-                  <TicketIcon className="h-5 w-5 text-primary" />
-                  <h3 className="font-semibold">Your Lottery Ticket</h3>
-                </div>
-                
-                <div className="mb-2">
-                  <div className="text-sm text-gray-600 mb-1">Main Numbers (5):</div>
-                  <div className="flex gap-2 flex-wrap">
-                    {selectedNumbers.sort((a, b) => a - b).map((num) => (
-                      <Badge 
-                        key={num} 
-                        variant="default"
-                        className="bg-primary text-white h-8 w-8 rounded-full flex items-center justify-center lotto-number"
-                      >
-                        {num < 10 ? `0${num}` : num}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                
-                <div>
-                  <div className="text-sm text-gray-600 mb-1">LOTTO Number (1):</div>
-                  <div className="flex">
-                    {selectedLottoNumber && (
-                      <Badge 
-                        variant="default"
-                        className="bg-accent text-white h-8 w-8 rounded-full flex items-center justify-center lotto-number"
-                      >
-                        {selectedLottoNumber < 10 ? `0${selectedLottoNumber}` : selectedLottoNumber}
-                      </Badge>
-                    )}
-                  </div>
+            ) : (
+              <div className="flex items-center justify-between bg-black/30 rounded p-2 border border-primary/20">
+                <div className="flex gap-1">
+                  {selectedNumbers.sort((a, b) => a - b).map((num) => (
+                    <Badge 
+                      key={num} 
+                      variant="default"
+                      className="bg-primary/20 text-primary h-5 w-5 rounded-full flex items-center justify-center text-xs lotto-number"
+                    >
+                      {num < 10 ? `0${num}` : num}
+                    </Badge>
+                  ))}
+                  <Badge 
+                    variant="default"
+                    className="bg-accent/20 text-accent h-5 w-5 rounded-full flex items-center justify-center text-xs lotto-number"
+                  >
+                    {selectedLottoNumber && (selectedLottoNumber < 10 ? `0${selectedLottoNumber}` : selectedLottoNumber)}
+                  </Badge>
                 </div>
               </div>
-            )
-          )}
+            )}
+          </div>
           
-          <div className="bg-gray-50 rounded-lg p-4 mb-4">
-            <div className="flex justify-between mb-2">
-              <span className="text-gray-600">Tickets:</span>
-              <span className="crypto-value">{ticketCount}</span>
+          {/* Price Summary */}
+          <div className="bg-black/20 rounded-lg p-4 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-white/70">Tickets:</span>
+              <span className="text-white">{ticketCount}</span>
             </div>
-            <div className="flex justify-between mb-2">
-              <span className="text-gray-600">Price per ticket:</span>
-              <span className="crypto-value">
-                {ticketPrice < 0.0001 ? ticketPrice.toFixed(6) : ticketPrice.toFixed(4)} ETH
+            <div className="flex justify-between text-sm">
+              <span className="text-white/70">Price per ticket:</span>
+              <span className="text-white">
+                {formatETH(ticketPrice)} ETH
               </span>
             </div>
-            <div className="flex justify-between mb-2">
-              <span className="text-gray-600">Total price:</span>
-              <span className="crypto-value">
-                {totalTicketsPrice < 0.0001 ? totalTicketsPrice.toFixed(6) : totalTicketsPrice.toFixed(4)} ETH
+            <div className="flex justify-between text-sm">
+              <span className="text-white/70">Total price:</span>
+              <span className="text-white">
+                {formatETH(totalTicketsPrice)} ETH
               </span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Network fee (est.):</span>
-              <span className="crypto-value">{networkFee.toFixed(4)} ETH</span>
+            <div className="flex justify-between text-sm">
+              <span className="text-white/70">Network fee (est.):</span>
+              <span className="text-white">{formatETH(networkFee)} ETH</span>
             </div>
-            <div className="border-t border-gray-200 mt-3 pt-3 flex justify-between font-semibold">
-              <span>Total:</span>
-              <span className="crypto-value">
-                {totalCost < 0.0001 ? totalCost.toFixed(6) : totalCost.toFixed(4)} ETH
-              </span>
-            </div>
-            <div className="text-right text-sm text-gray-500 mt-1">
-              ≈ {formatUSD(totalCost.toString())}
+            <div className="border-t border-white/10 pt-2 mt-2 flex justify-between font-semibold">
+              <span className="text-white">Total:</span>
+              <div className="text-right">
+                <div className="text-white">
+                  {formatETH(totalCost)} ETH
+                </div>
+                <div className="text-xs text-white/50">
+                  ≈ ${(totalCost * 3000).toFixed(2)} {/* Using a fixed rate for demo */}
+                </div>
+              </div>
             </div>
           </div>
           
-          <div className="text-sm text-gray-600 mb-6">
+          {/* Warning Message */}
+          <div className="flex items-start gap-2 text-sm text-white/70 bg-black/20 rounded-lg p-3">
+            <AlertCircle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
             <p>
-              By confirming this transaction, you are purchasing {ticketCount > 1 ? `${ticketCount} lottery tickets` : 'a lottery ticket'} with your selected numbers
-              for the current draw. Your transaction will be processed on the Ethereum network and cannot be reversed.
+              By confirming, you are purchasing {ticketCount > 1 ? `${ticketCount} lottery tickets` : 'a lottery ticket'} for the current draw. 
+              This transaction cannot be reversed.
             </p>
           </div>
         </div>
         
-        <div className="flex gap-4">
+        <div className="flex gap-4 mt-6">
           <Button
             variant="outline" 
             onClick={onClose}
-            className="w-1/2 border border-gray-300 text-gray-700 font-semibold rounded-full py-3 transition hover:bg-gray-50"
+            className="w-1/2 border-primary/20 text-white hover:bg-primary/10 font-semibold rounded-lg py-2 transition"
           >
             Cancel
           </Button>
           <Button
             onClick={onConfirm}
-            className="w-1/2 bg-primary hover:bg-opacity-90 text-white font-semibold rounded-full py-3 transition flex items-center justify-center"
+            disabled={!isConnected || !address}
+            className="w-1/2 bg-primary hover:bg-primary/90 text-black font-semibold rounded-lg py-2 transition"
           >
-            <span>Confirm</span>
+            Confirm Purchase
           </Button>
         </div>
       </DialogContent>
