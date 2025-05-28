@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { useAppKitProvider, useAppKitAccount } from '@reown/appkit/react';
 import { ethers } from 'ethers';
 import { CONTRACTS, LOTTERY_ABI, LotteryData, LotteryDraw, LotterySeries, Participant, Winner } from '@/config/contracts';
+import { DEFAULT_NETWORK } from '@/config/networks';
 import { toast } from '@/hooks/use-toast';
 
 export const useLotteryContract = () => {
@@ -10,7 +11,13 @@ export const useLotteryContract = () => {
 
   // Create a fallback provider for read-only operations
   const fallbackProvider = useMemo(() => {
-    return new ethers.JsonRpcProvider("https://ethereum-sepolia.publicnode.com");
+    try {
+      console.log('Creating fallback provider for network:', DEFAULT_NETWORK.name);
+      return new ethers.JsonRpcProvider(DEFAULT_NETWORK.rpc);
+    } catch (error) {
+      console.error('Error creating fallback provider:', error);
+      return null;
+    }
   }, []);
 
   const getContract = useCallback(async () => {
@@ -23,6 +30,10 @@ export const useLotteryContract = () => {
       }
       
       // Otherwise use fallback provider for read-only operations
+      if (!fallbackProvider) {
+        console.error('Fallback provider not available');
+        return null;
+      }
       return new ethers.Contract(CONTRACTS.LOTTERY, LOTTERY_ABI, fallbackProvider);
     } catch (error) {
       console.error('Error creating contract instance:', error);
