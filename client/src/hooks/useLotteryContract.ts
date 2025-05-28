@@ -5,6 +5,11 @@ import { CONTRACTS, LOTTERY_ABI, LotteryData, LotteryDraw, LotterySeries, Partic
 import { DEFAULT_NETWORK } from '@/config/networks';
 import { toast } from '@/hooks/use-toast';
 
+// Validate environment variables
+if (!process.env.NEXT_PUBLIC_LOTTERY_CONTRACT_ADDRESS) {
+  console.error('NEXT_PUBLIC_LOTTERY_CONTRACT_ADDRESS is not defined in environment variables');
+}
+
 export const useLotteryContract = () => {
   const { walletProvider } = useAppKitProvider("eip155");
   const { address, isConnected } = useAppKitAccount();
@@ -22,8 +27,15 @@ export const useLotteryContract = () => {
 
   const getContract = useCallback(async () => {
     try {
+      if (!CONTRACTS.LOTTERY) {
+        console.error('Contract address not defined in environment variables');
+        console.error('Please check your .env.local file and ensure NEXT_PUBLIC_LOTTERY_CONTRACT_ADDRESS is set');
+        return null;
+      }
+
       // If wallet is connected, use wallet provider
       if (isConnected && address && walletProvider) {
+        console.log('Using wallet provider for contract');
         const ethersProvider = new ethers.BrowserProvider(walletProvider as any);
         const signer = await ethersProvider.getSigner();
         return new ethers.Contract(CONTRACTS.LOTTERY, LOTTERY_ABI, signer);
@@ -34,12 +46,64 @@ export const useLotteryContract = () => {
         console.error('Fallback provider not available');
         return null;
       }
+      console.log('Using fallback provider for contract');
       return new ethers.Contract(CONTRACTS.LOTTERY, LOTTERY_ABI, fallbackProvider);
     } catch (error) {
       console.error('Error creating contract instance:', error);
       return null;
     }
   }, [isConnected, address, walletProvider, fallbackProvider]);
+
+  // Check if current user is admin
+  const checkIsAdmin = useCallback(async (): Promise<boolean> => {
+    try {
+      console.log('=== Admin Check Start ===');
+      console.log('Connection status:', { isConnected, address });
+      console.log('Contract address:', CONTRACTS.LOTTERY);
+      
+      if (!isConnected || !address) {
+        console.log('Wallet not connected, admin check skipped');
+        return false;
+      }
+
+      if (!CONTRACTS.LOTTERY) {
+        console.error('Contract address not defined in environment variables');
+        console.error('Please check your .env.local file and ensure NEXT_PUBLIC_LOTTERY_CONTRACT_ADDRESS is set');
+        return false;
+      }
+
+      console.log('Getting contract instance...');
+      const contract = await getContract();
+      if (!contract) {
+        console.error('Contract not initialized');
+        return false;
+      }
+      console.log('Contract instance created successfully');
+
+      console.log('Fetching admin address...');
+      const adminAddress = await contract.admin();
+      console.log('Admin check results:', {
+        adminAddress,
+        userAddress: address,
+        adminAddressLower: adminAddress.toLowerCase(),
+        userAddressLower: address.toLowerCase(),
+        isMatch: adminAddress.toLowerCase() === address.toLowerCase()
+      });
+
+      const isUserAdmin = adminAddress.toLowerCase() === address.toLowerCase();
+      console.log('Is user admin:', isUserAdmin);
+      
+      return isUserAdmin;
+    } catch (error: any) {
+      console.error('Error checking admin status:', {
+        message: error?.message,
+        code: error?.code,
+        data: error?.data,
+        stack: error?.stack
+      });
+      return false;
+    }
+  }, [isConnected, address, getContract]);
 
   // Get lottery data for a specific series and draw
   const getLotteryData = useCallback(async (seriesIndex?: number, drawId?: number): Promise<LotteryData | null> => {
@@ -446,6 +510,7 @@ export const useLotteryContract = () => {
     isConnected,
     address,
     getTicketPrice,
-    buyMultipleTickets
+    buyMultipleTickets,
+    checkIsAdmin
   };
 }; 

@@ -9,9 +9,8 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { Wallet, Menu, X, ShieldCheck, Ticket, Home, History, HelpCircle } from 'lucide-react';
-import { useAppKitAccount, useAppKitProvider } from "@reown/appkit/react";
-import { BrowserProvider, Contract } from "ethers";
-import { CONTRACTS, LOTTERY_ABI } from '@/config/contracts';
+import { useAppKitAccount } from "@reown/appkit/react";
+import { useLotteryContract } from '@/hooks/useLotteryContract';
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
@@ -21,29 +20,19 @@ export default function Header() {
 
   // AppKit hooks
   const { address, isConnected } = useAppKitAccount();
-  const { walletProvider } = useAppKitProvider("eip155");
+  const { checkIsAdmin } = useLotteryContract();
 
   // Check admin status
   const checkAdminStatus = async () => {
-    if (!isConnected || !address || !walletProvider) {
-      setIsAdmin(false);
-      setIsLoading(false);
-      return;
-    }
-
     try {
-      const ethersProvider = new BrowserProvider(walletProvider);
-      const signer = await ethersProvider.getSigner();
-      const lotteryContract = new Contract(
-        CONTRACTS.LOTTERY,
-        LOTTERY_ABI,
-        signer
-      );
-
-      const adminAddress = await lotteryContract.admin();
-      setIsAdmin(adminAddress.toLowerCase() === address.toLowerCase());
+      console.log('=== Admin Check Start ===');
+      console.log('Connection status:', { isConnected, address });
+      setIsLoading(true);
+      const isUserAdmin = await checkIsAdmin();
+      console.log('Admin check completed:', { isUserAdmin, address });
+      setIsAdmin(isUserAdmin);
     } catch (error) {
-      console.error('Error checking admin status:', error);
+      console.error('Error in admin check:', error);
       setIsAdmin(false);
     } finally {
       setIsLoading(false);
@@ -52,8 +41,17 @@ export default function Header() {
 
   // Effect to check admin status when connection changes
   useEffect(() => {
-    checkAdminStatus();
-  }, [isConnected, address, walletProvider]);
+    console.log('=== Admin Check Effect ===');
+    console.log('Connection changed:', { isConnected, address });
+    if (isConnected && address) {
+      console.log('Wallet connected, checking admin status for:', address);
+      checkAdminStatus();
+    } else {
+      console.log('Wallet not connected, resetting admin status');
+      setIsAdmin(false);
+      setIsLoading(false);
+    }
+  }, [isConnected, address]);
 
   const toggleMobileMenu = () => {
     setIsOpen(!isOpen);
@@ -78,8 +76,15 @@ export default function Header() {
 
   // Admin menu item component
   const AdminMenuItem = ({ isMobile = false }: { isMobile?: boolean }) => {
-    if (!isAdmin) return null;
+    console.log('=== Admin Menu Item Render ===');
+    console.log('Admin status:', { isAdmin, isLoading, address });
     
+    if (!isAdmin) {
+      console.log('Admin menu not shown - user is not admin');
+      return null;
+    }
+    
+    console.log('Rendering admin menu item for admin:', address);
     return (
       <NavLink href="/admin" label={
         <span className={`flex items-center ${isMobile ? '' : 'px-3 py-2 rounded-md hover:bg-white/5'}`}>

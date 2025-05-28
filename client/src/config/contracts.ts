@@ -1,10 +1,9 @@
-import { ethers } from 'ethers';
-import LOTTERY_ABI from '@/abi/Lottery.json';
-
 // Contract addresses configuration
+console.log('Loading contract address from env:', process.env.NEXT_PUBLIC_LOTTERY_CONTRACT_ADDRESS);
+
 export const CONTRACTS = {
-  // Get from environment variable or use default
-  LOTTERY: process.env.NEXT_PUBLIC_LOTTERY_CONTRACT_ADDRESS,
+  // BSC Testnet Lottery Contract - must be set in .env.local
+  LOTTERY: process.env.NEXT_PUBLIC_LOTTERY_CONTRACT_ADDRESS || '0x6745689775ECd4f761839bE7d179e6980C577aC7',
 } as const;
 
 // Contract ABIs
