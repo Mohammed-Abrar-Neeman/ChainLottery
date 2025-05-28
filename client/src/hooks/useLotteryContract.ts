@@ -303,6 +303,111 @@ export const useLotteryContract = () => {
     }
   }, [getContract]);
 
+  // Buy multiple lottery tickets
+  const buyMultipleTickets = useCallback(async (
+    numbersList: number[][],
+    lottoNumbers: number[],
+    drawId: number
+  ): Promise<{ success: boolean; txHash?: string; error?: string }> => {
+    try {
+      console.log('=== buyMultipleTickets Function Start ===');
+      console.log('Parameters:', { numbersList, lottoNumbers, drawId });
+
+      const contract = await getContract();
+      if (!contract) {
+        console.error('Contract not initialized');
+        throw new Error('Contract not initialized');
+      }
+
+      if (!drawId) {
+        console.error('Draw ID is required');
+        throw new Error('Draw ID is required');
+      }
+
+      // Get ticket price for the draw
+      console.log('Fetching ticket price for draw:', drawId);
+      const ticketPrice = await contract.getTicketPrice(drawId);
+      console.log('Ticket price:', ethers.formatEther(ticketPrice));
+
+      // Convert numbers to uint8 arrays
+      const uint8NumbersList = numbersList.map(numbers => 
+        numbers.map(n => Number(n)) as [number, number, number, number, number]
+      );
+      
+      // Calculate total value
+      const totalValue = ticketPrice * BigInt(numbersList.length);
+      console.log('Total value:', ethers.formatEther(totalValue));
+      
+      console.log('Sending transaction with params:', {
+        numbersList: uint8NumbersList,
+        lottoNumbers,
+        drawId,
+        value: ethers.formatEther(totalValue)
+      });
+
+      const tx = await contract.buyMultipleTickets(
+        drawId,
+        uint8NumbersList,
+        lottoNumbers,
+        { value: totalValue }
+      );
+
+      console.log('Transaction sent:', tx.hash);
+      console.log('Waiting for confirmation...');
+
+      const receipt = await tx.wait();
+      console.log('Transaction confirmed:', receipt.hash);
+
+      return { success: true, txHash: receipt.hash };
+    } catch (error: any) {
+      console.error('=== buyMultipleTickets Error ===');
+      console.error('Error details:', {
+        message: error?.message,
+        code: error?.code,
+        data: error?.data,
+        transaction: error?.transaction
+      });
+
+      // Handle specific contract errors
+      if (error?.data?.message) {
+        return { 
+          success: false, 
+          error: error.data.message 
+        };
+      }
+
+      // Handle MetaMask errors
+      if (error?.code === 4001) {
+        return { 
+          success: false, 
+          error: 'Transaction rejected by user' 
+        };
+      }
+
+      // Handle insufficient funds
+      if (error?.code === -32603 && error?.message?.includes('insufficient funds')) {
+        return { 
+          success: false, 
+          error: 'Insufficient funds for transaction' 
+        };
+      }
+
+      // Handle gas errors
+      if (error?.code === -32603 && error?.message?.includes('gas required exceeds allowance')) {
+        return { 
+          success: false, 
+          error: 'Gas limit too low' 
+        };
+      }
+
+      // Return generic error
+      return { 
+        success: false, 
+        error: error?.message || 'Failed to buy tickets' 
+      };
+    }
+  }, [getContract]);
+
   return {
     getContract,
     getLotteryData,
@@ -314,6 +419,7 @@ export const useLotteryContract = () => {
     getUserTickets,
     isConnected,
     address,
-    getTicketPrice
+    getTicketPrice,
+    buyMultipleTickets
   };
 }; 

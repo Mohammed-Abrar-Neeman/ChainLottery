@@ -56,7 +56,8 @@ const BuyTickets = React.memo(function BuyTickets({
     generateQuickPick,
     buyTicket,
     getLotteryData,
-    getTicketPrice
+    getTicketPrice,
+    buyMultipleTickets
   } = useLotteryContract();
   
   const [showReconfirmModal, setShowReconfirmModal] = useState(false);
@@ -275,8 +276,7 @@ const BuyTickets = React.memo(function BuyTickets({
   const handleFinalConfirm = () => {
     console.log('=== Starting Buy Ticket Flow ===');
     console.log('Current State:', {
-      selectedNumbers,
-      selectedLottoNumber,
+      tickets,
       sharedDrawId,
       ticketPrice,
       totalTicketsPrice,
@@ -292,12 +292,6 @@ const BuyTickets = React.memo(function BuyTickets({
     const buyTickets = async () => {
       try {
         console.log('=== Validation Checks ===');
-        if (!selectedLottoNumber) {
-          console.error('Validation Failed: LOTTO number is missing');
-          throw new Error('LOTTO number is required');
-        }
-        console.log('LOTTO Number:', selectedLottoNumber);
-
         if (!sharedDrawId || sharedDrawId < 0) {
           console.error('Validation Failed: Draw ID is invalid');
           throw new Error('Please select a valid draw');
@@ -312,74 +306,95 @@ const BuyTickets = React.memo(function BuyTickets({
           duration: 5000
         });
 
-        console.log('Calling buyTicket with params:', {
-          numbers: selectedNumbers,
-          lottoNumber: selectedLottoNumber,
-          drawId: sharedDrawId
-        });
-
-        try {
-          // Buy single ticket
-          console.log('Attempting to call buyTicket function...');
-          const result = await buyTicket(
-            selectedNumbers,
-            selectedLottoNumber,
+        let result;
+        
+        // Choose between single and multiple ticket purchase
+        if (tickets.length === 1) {
+          // Single ticket purchase
+          console.log('Using buyTicket for single ticket');
+          result = await buyTicket(
+            tickets[0].numbers,
+            tickets[0].lottoNumber || 0,
             sharedDrawId
           );
+        } else {
+          // Multiple ticket purchase
+          console.log('Using buyMultipleTickets for multiple tickets');
+          const numbersList = tickets.map(ticket => ticket.numbers);
+          const lottoNumbers = tickets.map(ticket => ticket.lottoNumber || 0);
           
-          console.log('Raw transaction result:', result);
-          
-          if (!result) {
-            console.error('No result received from buyTicket');
-            throw new Error('No response from transaction');
-          }
-          
-          console.log('Transaction Result:', {
-            success: result.success,
-            txHash: result.txHash,
-            fullResult: result
+          console.log('Multiple ticket purchase details:', {
+            numbersList,
+            lottoNumbers,
+            drawId: sharedDrawId,
+            ticketCount: tickets.length,
+            totalCost: totalCost
           });
-          
-          if (result.success && result.txHash) {
-            console.log('Transaction Successful:', result.txHash);
-            // Show transaction submitted toast
-            toast({
-              title: "Transaction Submitted",
-              description: "Your ticket purchase is being processed",
-              duration: 5000
-            });
 
-            setTransactionHash(result.txHash);
-            setShowPendingModal(false);
-            setShowSuccessModal(true);
-            
-            // Reset to a single ticket after successful purchase
-            setTickets([{
-              id: `ticket-${Date.now()}`, 
-              numbers: [...DEFAULT_SELECTED_NUMBERS], 
-              lottoNumber: DEFAULT_LOTTO_NUMBER
-            }]);
-            setActiveTicketIndex(0);
-            
-            // Show success toast
-            toast({
-              title: "Success!",
-              description: "Your ticket has been purchased successfully.",
-              variant: "default"
-            });
-          } else {
-            console.error('Transaction Failed: Invalid result structure', result);
-            throw new Error('Transaction failed - invalid response structure');
+          // Validate ticket data before sending
+          if (numbersList.length !== lottoNumbers.length) {
+            throw new Error('Invalid ticket data: numbers and lotto numbers count mismatch');
           }
-        } catch (error) {
-          console.error('=== Detailed Error Information ===');
-          console.error('Error type:', error?.constructor?.name);
-          console.error('Error message:', error?.message);
-          console.error('Error stack:', error?.stack);
-          console.error('Full error object:', error);
+
+          if (numbersList.some(nums => nums.length !== 5)) {
+            throw new Error('Invalid ticket data: each ticket must have exactly 5 numbers');
+          }
+
+          if (lottoNumbers.some(num => num === null || num === undefined)) {
+            throw new Error('Invalid ticket data: all tickets must have a lotto number');
+          }
+
+          console.log('Sending multiple ticket purchase transaction...');
+          result = await buyMultipleTickets(
+            numbersList,
+            lottoNumbers,
+            sharedDrawId
+          );
+        }
+        
+        console.log('Raw transaction result:', result);
+        
+        if (!result) {
+          console.error('No result received from transaction');
+          throw new Error('No response from transaction');
+        }
+        
+        console.log('Transaction Result:', {
+          success: result.success,
+          txHash: result.txHash,
+          fullResult: result
+        });
+        
+        if (result.success && result.txHash) {
+          console.log('Transaction Successful:', result.txHash);
+          // Show transaction submitted toast
+          toast({
+            title: "Transaction Submitted",
+            description: "Your tickets are being processed",
+            duration: 5000
+          });
+
+          setTransactionHash(result.txHash);
+          setShowPendingModal(false);
+          setShowSuccessModal(true);
           
-          // Re-throw the error to be caught by the outer catch block
-          throw error;
+          // Reset to a single ticket after successful purchase
+          setTickets([{
+            id: `ticket-${Date.now()}`, 
+            numbers: [...DEFAULT_SELECTED_NUMBERS], 
+            lottoNumber: DEFAULT_LOTTO_NUMBER
+          }]);
+          setActiveTicketIndex(0);
+          
+          // Show success toast
+          toast({
+            title: "Success!",
+            description: `Your ${tickets.length} ticket${tickets.length > 1 ? 's' : ''} have been purchased successfully.`,
+            variant: "default"
+          });
+        } else {
+          console.error('Transaction Failed:', result.error || 'Unknown error');
+          throw new Error(result.error || 'Transaction failed - invalid response structure');
         }
       } catch (error) {
         console.error('=== Error Details ===');
