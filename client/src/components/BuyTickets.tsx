@@ -9,6 +9,7 @@ import BuyConfirmationModal from './modals/BuyConfirmationModal';
 import TransactionPendingModal from './modals/TransactionPendingModal';
 import TransactionSuccessModal from './modals/TransactionSuccessModal';
 import WalletModal from './modals/WalletModal';
+import TicketReconfirmationModal from './modals/TicketReconfirmationModal';
 
 // Stable default numbers for non-connected state
 const DEFAULT_SELECTED_NUMBERS = [7, 14, 21, 42, 63];
@@ -58,6 +59,8 @@ const BuyTickets = React.memo(function BuyTickets({
     getLotteryData,
     getTicketPrice
   } = useLotteryContract();
+  
+  const [showReconfirmModal, setShowReconfirmModal] = useState(false);
   
   // Fetch ticket price when connected or draw changes
   useEffect(() => {
@@ -213,6 +216,12 @@ const BuyTickets = React.memo(function BuyTickets({
     }
     
     setShowBuyConfirmModal(false);
+    setShowReconfirmModal(true);
+  };
+  
+  // Handle final confirmation
+  const handleFinalConfirm = () => {
+    setShowReconfirmModal(false);
     setShowPendingModal(true);
     setIsBuying(true);
     setBuyError(null);
@@ -220,6 +229,10 @@ const BuyTickets = React.memo(function BuyTickets({
     // Buy tickets
     const buyTickets = async () => {
       try {
+        if (!selectedLottoNumber) {
+          throw new Error('LOTTO number is required');
+        }
+        
         // Buy single ticket
         const result = await buyTicket(
           selectedNumbers,
@@ -248,7 +261,7 @@ const BuyTickets = React.memo(function BuyTickets({
             variant: "default"
           });
         } else {
-          throw new Error(result.error || 'Failed to buy ticket');
+          throw new Error('Failed to buy ticket');
         }
       } catch (error) {
         console.error('Error buying tickets:', error);
@@ -270,9 +283,11 @@ const BuyTickets = React.memo(function BuyTickets({
   // Handle modal close
   const handleModalClose = () => {
     setShowBuyConfirmModal(false);
+    setShowReconfirmModal(false);
     setShowPendingModal(false);
     setShowSuccessModal(false);
     setBuyError(null);
+    setIsBuying(false);
   };
   
   // Render ticket summary section
@@ -568,6 +583,21 @@ const BuyTickets = React.memo(function BuyTickets({
         selectedLottoNumber={selectedLottoNumber}
         tickets={tickets}
         isConnected={isConnected}
+      />
+      
+      <TicketReconfirmationModal
+        open={showReconfirmModal}
+        onClose={handleModalClose}
+        onConfirm={handleFinalConfirm}
+        tickets={tickets}
+        ticketPrice={ticketPrice}
+        totalTicketsPrice={totalTicketsPrice}
+        networkFee={networkFee}
+        totalCost={totalCost}
+        selectedNumbers={selectedNumbers}
+        selectedLottoNumber={selectedLottoNumber}
+        seriesIndex={sharedSeriesIndex}
+        drawId={sharedDrawId}
       />
       
       <TransactionPendingModal

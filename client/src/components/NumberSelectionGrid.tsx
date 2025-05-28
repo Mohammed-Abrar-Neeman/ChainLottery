@@ -1,27 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 interface NumberSelectionGridProps {
   onNumbersSelected: (numbers: number[], lottoNumber: number | null) => void;
   initialNumbers?: number[];
   initialLottoNumber?: number | null;
-  key?: string | number; // Add key prop to force re-render
 }
 
 export function NumberSelectionGrid({
   onNumbersSelected,
   initialNumbers = [],
-  initialLottoNumber = null,
-  key
+  initialLottoNumber = null
 }: NumberSelectionGridProps) {
   const [selectedNumbers, setSelectedNumbers] = useState<number[]>(initialNumbers);
   const [selectedLottoNumber, setSelectedLottoNumber] = useState<number | null>(initialLottoNumber);
-  
-  // Update state when initialNumbers or initialLottoNumber changes
-  useEffect(() => {
-    setSelectedNumbers(initialNumbers);
-    setSelectedLottoNumber(initialLottoNumber);
-  }, [initialNumbers, initialLottoNumber, key]);
   
   // Update parent when selections change
   useEffect(() => {
@@ -29,44 +22,59 @@ export function NumberSelectionGrid({
   }, [selectedNumbers, selectedLottoNumber, onNumbersSelected]);
   
   // Handle main number selection
-  const handleNumberClick = (number: number) => {
+  const handleNumberClick = (num: number) => {
     setSelectedNumbers(prev => {
-      if (prev.includes(number)) {
-        return prev.filter(n => n !== number);
+      if (prev.includes(num)) {
+        return prev.filter(n => n !== num);
       }
       if (prev.length < 5) {
-        return [...prev, number].sort((a, b) => a - b);
+        return [...prev, num].sort((a, b) => a - b);
       }
       return prev;
     });
   };
   
   // Handle LOTTO number selection
-  const handleLottoNumberClick = (number: number) => {
-    setSelectedLottoNumber(prev => prev === number ? null : number);
+  const handleLottoNumberClick = (num: number) => {
+    setSelectedLottoNumber(prev => prev === num ? null : num);
   };
   
-  // Generate number grid
-  const renderNumberGrid = (start: number, end: number, isLotto: boolean = false) => {
+  // Generate main numbers grid (1-70)
+  const renderMainNumbers = () => {
     const numbers = [];
-    for (let i = start; i <= end; i++) {
-      const isSelected = isLotto 
-        ? selectedLottoNumber === i
-        : selectedNumbers.includes(i);
-      
+    for (let i = 1; i <= 70; i++) {
       numbers.push(
         <Button
           key={i}
-          variant={isSelected ? "default" : "outline"}
-          size="sm"
-          className={`h-8 w-8 rounded-full p-0 text-xs font-medium transition-all ${
-            isSelected 
-              ? isLotto 
-                ? "bg-accent text-white hover:bg-accent/90" 
-                : "bg-primary text-white hover:bg-primary/90"
-              : "bg-black/20 text-white hover:bg-black/30"
+          variant={selectedNumbers.includes(i) ? "default" : "outline"}
+          className={`h-10 w-10 rounded-full p-0 text-sm font-medium transition-all ${
+            selectedNumbers.includes(i)
+              ? 'bg-primary text-black hover:bg-primary/90'
+              : 'bg-black/50 text-white hover:bg-black/70'
           }`}
-          onClick={() => isLotto ? handleLottoNumberClick(i) : handleNumberClick(i)}
+          onClick={() => handleNumberClick(i)}
+        >
+          {i < 10 ? `0${i}` : i}
+        </Button>
+      );
+    }
+    return numbers;
+  };
+  
+  // Generate LOTTO numbers grid (1-30)
+  const renderLottoNumbers = () => {
+    const numbers = [];
+    for (let i = 1; i <= 30; i++) {
+      numbers.push(
+        <Button
+          key={i}
+          variant={selectedLottoNumber === i ? "default" : "outline"}
+          className={`h-10 w-10 rounded-full p-0 text-sm font-medium transition-all ${
+            selectedLottoNumber === i
+              ? 'bg-accent text-white hover:bg-accent/90'
+              : 'bg-black/50 text-white hover:bg-black/70'
+          }`}
+          onClick={() => handleLottoNumberClick(i)}
         >
           {i < 10 ? `0${i}` : i}
         </Button>
@@ -76,30 +84,30 @@ export function NumberSelectionGrid({
   };
   
   return (
-    <div className="space-y-4">
-      {/* Main Numbers Grid */}
+    <div className="space-y-8">
+      {/* Main Numbers Selection */}
       <div>
-        <div className="flex justify-between items-center mb-2">
-          <h3 className="text-sm font-medium text-white">Select 5 Main Numbers (1-70)</h3>
-          <span className="text-xs text-white/70">
-            {selectedNumbers.length}/5 selected
-          </span>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold text-white">Select 5 Main Numbers</h3>
+          <Badge variant="outline" className="text-white/70">
+            {selectedNumbers.length}/5 Selected
+          </Badge>
         </div>
-        <div className="grid grid-cols-10 gap-1">
-          {renderNumberGrid(1, 70)}
+        <div className="grid grid-cols-7 sm:grid-cols-10 gap-2">
+          {renderMainNumbers()}
         </div>
       </div>
       
-      {/* LOTTO Number Grid */}
+      {/* LOTTO Number Selection */}
       <div>
-        <div className="flex justify-between items-center mb-2">
-          <h3 className="text-sm font-medium text-white">Select 1 LOTTO Number (1-30)</h3>
-          <span className="text-xs text-white/70">
-            {selectedLottoNumber ? "1/1 selected" : "0/1 selected"}
-          </span>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold text-white">Select 1 LOTTO Number</h3>
+          <Badge variant="outline" className="text-white/70">
+            {selectedLottoNumber ? '1/1 Selected' : '0/1 Selected'}
+          </Badge>
         </div>
-        <div className="grid grid-cols-10 gap-1">
-          {renderNumberGrid(1, 30, true)}
+        <div className="grid grid-cols-6 sm:grid-cols-10 gap-2">
+          {renderLottoNumbers()}
         </div>
       </div>
     </div>
