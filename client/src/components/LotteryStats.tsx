@@ -115,10 +115,10 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
             {ticketPrice && parseFloat(ticketPrice) > 0 ? 
               `${parseFloat(ticketPrice).toFixed(5)} ETH` : 'No Data'}
           </p>
-          <p className="text-gray-600 text-sm">
+          {/* <p className="text-gray-600 text-sm">
             {ticketPrice && parseFloat(ticketPrice) > 0 ? 
               `≈ ${formatUSD(ticketPrice)}` : 'Unavailable'}
-          </p>
+          </p> */}
         </div>
         
         <div className="glass rounded-2xl shadow-glass p-6">
@@ -132,10 +132,10 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
             {jackpotAmount && parseFloat(jackpotAmount) > 0 ? 
               `${parseFloat(jackpotAmount).toFixed(5)} ETH` : 'No Data'}
           </p>
-          <p className="text-gray-600 text-sm">
+          {/* <p className="text-gray-600 text-sm">
             {jackpotAmount && parseFloat(jackpotAmount) > 0 ? 
               `≈ ${formatUSD(jackpotAmount)}` : 'Unavailable'}
-          </p>
+          </p> */}
         </div>
         
         <div className="glass rounded-2xl shadow-glass p-6">
@@ -166,7 +166,7 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
               ? 'Draw completed' 
               : timeRemaining && (timeRemaining.days > 0 || timeRemaining.hours > 0 || timeRemaining.minutes > 0)
                 ? `Ends in ${formatTimeRemaining()}`
-                : 'Time unavailable'}
+                : 'Time Ended'}
           </p>
         </div>
       </div>

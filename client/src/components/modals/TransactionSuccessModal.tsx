@@ -5,6 +5,7 @@ import { CheckCircle2, TicketIcon, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatEther } from 'viem';
+import { useLocation } from 'wouter';
 
 interface Ticket {
   id: string;
@@ -37,7 +38,14 @@ export default function TransactionSuccessModal({
   drawId,
   seriesIndex
 }: TransactionSuccessModalProps) {
+  const [, setLocation] = useLocation();
   const hasMultipleTickets = tickets.length > 1;
+
+  // Handle view tickets click
+  const handleViewTickets = () => {
+    onClose();
+    setLocation('/my-tickets');
+  };
 
   // Format ETH values
   const formatETH = (value: number) => {
@@ -64,7 +72,7 @@ export default function TransactionSuccessModal({
             <div className="flex justify-between text-sm">
               <span className="text-white/70">Transaction Hash:</span>
               <a 
-                href={`https://sepolia.etherscan.io/tx/${transactionHash}`}
+                href={`https://testnet.bscscan.com/tx/${transactionHash}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-primary hover:text-primary/80 flex items-center gap-1"
@@ -151,7 +159,7 @@ export default function TransactionSuccessModal({
             Close
           </Button>
           <Button
-            onClick={onClose}
+            onClick={handleViewTickets}
             className="w-1/2 bg-primary hover:bg-primary/90 text-black font-semibold rounded-lg py-2 transition"
           >
             View My Tickets

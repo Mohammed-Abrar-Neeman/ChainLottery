@@ -108,12 +108,17 @@ export const useLotteryContract = () => {
   // Get lottery data for a specific series and draw
   const getLotteryData = useCallback(async (seriesIndex?: number, drawId?: number): Promise<LotteryData | null> => {
     try {
+      console.log('=== Getting Lottery Data ===');
+      console.log('Series Index:', seriesIndex);
+      console.log('Draw ID:', drawId);
+
       const contract = await getContract();
       if (!contract) return null;
 
       if (!drawId) return null;
 
       // Get individual pieces of data
+      console.log('Fetching contract data...');
       const [
         ticketPrice,
         jackpot,
@@ -121,7 +126,6 @@ export const useLotteryContract = () => {
         endTime,
         isFutureBlockDraw,
         completed,
-        winningNumbers,
         totalTickets,
         totalWinners
       ] = await Promise.all([
@@ -135,8 +139,16 @@ export const useLotteryContract = () => {
         contract.getTotalWinners(drawId)
       ]);
 
+      console.log('Contract data received:', {
+        ticketPrice: ethers.formatEther(ticketPrice),
+        jackpot: ethers.formatEther(jackpot),
+        totalTickets: totalTickets.toString(),
+        totalWinners: totalWinners.toString()
+      });
+
       // Get participants (winners)
       const winners = await contract.getWinners(drawId);
+      console.log('Winners data:', winners);
 
       return {
         jackpotAmount: ethers.formatEther(jackpot),

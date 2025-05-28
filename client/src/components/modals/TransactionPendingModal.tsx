@@ -20,7 +20,7 @@ export default function TransactionPendingModal({
   error
 }: TransactionPendingModalProps) {
   const getExplorerUrl = (hash: string) => {
-    return `https://sepolia.etherscan.io/tx/${hash}`;
+    return `https://testnet.bscscan.com/tx/${hash}`;
   };
 
   return (

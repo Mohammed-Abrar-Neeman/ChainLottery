@@ -708,7 +708,7 @@ export default function History() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
                             <a 
-                              href={`https://sepolia.etherscan.io/tx/${round.transactionHash}`}
+                              href={`https://testnet.bscscan.com/tx/${round.transactionHash}`}
                               target="_blank" 
                               rel="noopener noreferrer" 
                               className="text-primary/60 hover:text-primary transition"
@@ -801,7 +801,7 @@ export default function History() {
                             <span className="lotto-number ml-1 text-white">{round.participantCount}</span>
                           </div>
                           <a 
-                            href={`https://sepolia.etherscan.io/tx/${round.transactionHash}`}
+                            href={`https://testnet.bscscan.com/tx/${round.transactionHash}`}
                             target="_blank" 
                             rel="noopener noreferrer"
                             className="text-primary/80 hover:text-primary transition flex items-center"

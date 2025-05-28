@@ -259,7 +259,7 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex, isLoading
                     {winner.transactionHash && (
                       <div className="flex justify-end text-sm">
                         <a 
-                          href={`https://sepolia.etherscan.io/tx/${winner.transactionHash}`}
+                          href={`https://testnet.bscscan.com/tx/${winner.transactionHash}`}
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="text-primary hover:text-accent transition flex items-center"

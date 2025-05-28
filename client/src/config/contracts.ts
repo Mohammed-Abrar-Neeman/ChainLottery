@@ -20,6 +20,7 @@ export interface LotteryData {
   participantCount: number;
   seriesIndex?: number;
   winningNumbers?: number[];
+  completed?: boolean;
 }
 
 export interface Participant {

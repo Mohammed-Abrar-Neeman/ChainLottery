@@ -61,6 +61,8 @@ const BuyTickets = React.memo(function BuyTickets({
   } = useLotteryContract();
   
   const [showReconfirmModal, setShowReconfirmModal] = useState(false);
+  const [isDrawAvailable, setIsDrawAvailable] = useState(true);
+  const [isDrawCompleted, setIsDrawCompleted] = useState(false);
   
   // Fetch ticket price when connected or draw changes
   useEffect(() => {
@@ -72,6 +74,35 @@ const BuyTickets = React.memo(function BuyTickets({
     };
     fetchTicketPrice();
   }, [isConnected, sharedDrawId, getTicketPrice]);
+  
+  // Add effect to check draw availability
+  useEffect(() => {
+    const checkDrawAvailability = async () => {
+      if (!isConnected || !sharedDrawId) {
+        setIsDrawAvailable(false);
+        setIsDrawCompleted(false);
+        return;
+      }
+
+      try {
+        const lotteryData = await getLotteryData(sharedSeriesIndex, sharedDrawId);
+        if (!lotteryData) {
+          setIsDrawAvailable(false);
+          setIsDrawCompleted(false);
+          return;
+        }
+
+        setIsDrawAvailable(true);
+        setIsDrawCompleted(lotteryData.completed || false);
+      } catch (error) {
+        console.error('Error checking draw availability:', error);
+        setIsDrawAvailable(false);
+        setIsDrawCompleted(false);
+      }
+    };
+
+    checkDrawAvailability();
+  }, [isConnected, sharedDrawId, sharedSeriesIndex, getLotteryData]);
   
   // Use completely stable values when wallet is not connected to prevent flickering
   const totalTicketsCount = tickets.length;
@@ -706,6 +737,20 @@ const BuyTickets = React.memo(function BuyTickets({
               >
                 <Wallet className="mr-2 h-5 w-5" />
                 Connect Wallet to Buy
+              </Button>
+            ) : !isDrawAvailable ? (
+              <Button
+                disabled
+                className="w-full bg-gray-600 text-gray-300 font-bold rounded-lg py-5 h-14 text-lg transition-all shadow-lg cursor-not-allowed"
+              >
+                No Active Draw Available
+              </Button>
+            ) : isDrawCompleted ? (
+              <Button
+                disabled
+                className="w-full bg-gray-600 text-gray-300 font-bold rounded-lg py-5 h-14 text-lg transition-all shadow-lg cursor-not-allowed"
+              >
+                Draw Completed
               </Button>
             ) : (
               <Button

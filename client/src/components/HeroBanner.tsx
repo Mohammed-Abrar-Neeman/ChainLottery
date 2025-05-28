@@ -35,6 +35,16 @@ const formatUSD = (ethAmount: string) => {
   }).format(usdAmount);
 };
 
+// Add this helper function at the top level
+const formatTimeRemaining = (timeRemaining: { days: number; hours: number; minutes: number; seconds: number }) => {
+  return {
+    days: Math.max(0, timeRemaining.days),
+    hours: Math.max(0, timeRemaining.hours),
+    minutes: Math.max(0, timeRemaining.minutes),
+    seconds: Math.max(0, timeRemaining.seconds)
+  };
+};
+
 export default function HeroBanner({
   sharedSeriesIndex,
   setSharedSeriesIndex,
@@ -69,6 +79,8 @@ export default function HeroBanner({
     },
     enabled: sharedSeriesIndex !== undefined && sharedDrawId !== undefined,
     staleTime: 0,
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
   });
 
   const scrollToBuyTickets = () => {
@@ -156,7 +168,15 @@ export default function HeroBanner({
 
   // Get participant count
   const getParticipantCount = (): string => {
-    return lotteryData?.participantCount?.toString() || '0';
+    console.log('=== Getting Participant Count ===');
+    console.log('Lottery Data:', lotteryData);
+    
+    // Use totalTickets from lottery data
+    const count = lotteryData?.participantCount || 0;
+    console.log('Total tickets/participants:', count);
+    
+    // Ensure we return a string with at least 1 if there are tickets
+    return count > 0 ? count.toString() : '0';
   };
 
   // Calculate time remaining
@@ -384,9 +404,9 @@ export default function HeroBanner({
                       </span>
                       <span className="ml-2 text-xl bg-gradient-to-r from-primary to-yellow-400 text-transparent bg-clip-text font-bold">ETH</span>
                     </div>
-                    <span className="text-sm font-mono text-white/60">
+                    {/* <span className="text-sm font-mono text-white/60">
                       ≈ {formatUSD(getJackpotAmount())}
-                    </span>
+                    </span> */}
                   </div>
                 </div>
                 
@@ -395,19 +415,27 @@ export default function HeroBanner({
                   {isDrawAvailable ? (
                     <div className="grid grid-cols-4 gap-2 font-mono">
                       <div className="bg-black/30 backdrop-blur-sm border border-primary/20 rounded-lg p-3 text-center">
-                        <div className="text-2xl text-white lotto-number">{timeRemaining.days.toString().padStart(2, '0')}</div>
+                        <div className="text-2xl text-white lotto-number">
+                          {Math.max(0, timeRemaining.days).toString().padStart(2, '0')}
+                        </div>
                         <div className="text-xs uppercase text-primary/70">Days</div>
                       </div>
                       <div className="bg-black/30 backdrop-blur-sm border border-primary/20 rounded-lg p-3 text-center">
-                        <div className="text-2xl text-white lotto-number">{timeRemaining.hours.toString().padStart(2, '0')}</div>
+                        <div className="text-2xl text-white lotto-number">
+                          {Math.max(0, timeRemaining.hours).toString().padStart(2, '0')}
+                        </div>
                         <div className="text-xs uppercase text-primary/70">Hours</div>
                       </div>
                       <div className="bg-black/30 backdrop-blur-sm border border-primary/20 rounded-lg p-3 text-center">
-                        <div className="text-2xl text-white lotto-number">{timeRemaining.minutes.toString().padStart(2, '0')}</div>
+                        <div className="text-2xl text-white lotto-number">
+                          {Math.max(0, timeRemaining.minutes).toString().padStart(2, '0')}
+                        </div>
                         <div className="text-xs uppercase text-primary/70">Mins</div>
                       </div>
                       <div className="bg-black/30 backdrop-blur-sm border border-primary/20 rounded-lg p-3 text-center">
-                        <div className="text-2xl text-white lotto-number">{timeRemaining.seconds.toString().padStart(2, '0')}</div>
+                        <div className="text-2xl text-white lotto-number">
+                          {Math.max(0, timeRemaining.seconds).toString().padStart(2, '0')}
+                        </div>
                         <div className="text-xs uppercase text-primary/70">Secs</div>
                       </div>
                     </div>
