@@ -8,12 +8,27 @@ export const useLotteryContract = () => {
   const { walletProvider } = useAppKitProvider("eip155");
   const { address, isConnected } = useAppKitAccount();
 
+  // Create a fallback provider for read-only operations
+  const fallbackProvider = useMemo(() => {
+    return new ethers.JsonRpcProvider("https://ethereum-sepolia.publicnode.com");
+  }, []);
+
   const getContract = useCallback(async () => {
-    if (!isConnected || !address || !walletProvider) return null;
-    const ethersProvider = new ethers.BrowserProvider(walletProvider as any);
-    const signer = await ethersProvider.getSigner();
-    return new ethers.Contract(CONTRACTS.LOTTERY, LOTTERY_ABI, signer);
-  }, [isConnected, address, walletProvider]);
+    try {
+      // If wallet is connected, use wallet provider
+      if (isConnected && address && walletProvider) {
+        const ethersProvider = new ethers.BrowserProvider(walletProvider as any);
+        const signer = await ethersProvider.getSigner();
+        return new ethers.Contract(CONTRACTS.LOTTERY, LOTTERY_ABI, signer);
+      }
+      
+      // Otherwise use fallback provider for read-only operations
+      return new ethers.Contract(CONTRACTS.LOTTERY, LOTTERY_ABI, fallbackProvider);
+    } catch (error) {
+      console.error('Error creating contract instance:', error);
+      return null;
+    }
+  }, [isConnected, address, walletProvider, fallbackProvider]);
 
   // Get lottery data for a specific series and draw
   const getLotteryData = useCallback(async (seriesIndex?: number, drawId?: number): Promise<LotteryData | null> => {

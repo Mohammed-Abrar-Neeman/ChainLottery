@@ -20,6 +20,9 @@ interface HeroBannerProps {
   setSharedSeriesIndex?: Dispatch<SetStateAction<number | undefined>>;
   sharedDrawId?: number;
   setSharedDrawId?: Dispatch<SetStateAction<number | undefined>>;
+  seriesList: any[];
+  seriesDraws: any[];
+  isLoading?: boolean;
 }
 
 // Utility function to format USD
@@ -36,33 +39,35 @@ export default function HeroBanner({
   sharedSeriesIndex,
   setSharedSeriesIndex,
   sharedDrawId,
-  setSharedDrawId
+  setSharedDrawId,
+  seriesList,
+  seriesDraws,
+  isLoading = false
 }: HeroBannerProps) {
+  console.log('=== HeroBanner Component Render ===');
+  console.log('Props:', {
+    sharedSeriesIndex,
+    sharedDrawId,
+    seriesListLength: seriesList?.length,
+    seriesDrawsLength: seriesDraws?.length,
+    isLoading
+  });
+
   const { getLotteryData, getSeriesList, getSeriesDraws } = useLotteryContract();
   const { address, isConnected } = useAppKitAccount();
   const { settings } = useAppSettings();
   const [showWalletModal, setShowWalletModal] = React.useState(false);
 
-  // Fetch series list
-  const { data: seriesList } = useQuery({
-    queryKey: ['seriesList'],
-    queryFn: getSeriesList,
-    staleTime: 0,
-  });
-
   // Fetch lottery data for the selected series and draw
   const { data: lotteryData } = useQuery({
     queryKey: ['lotteryData', sharedSeriesIndex, sharedDrawId],
-    queryFn: () => getLotteryData(sharedSeriesIndex, sharedDrawId),
+    queryFn: () => {
+      console.log('=== HeroBanner Fetching Lottery Data ===');
+      console.log('Series index:', sharedSeriesIndex);
+      console.log('Draw ID:', sharedDrawId);
+      return getLotteryData(sharedSeriesIndex, sharedDrawId);
+    },
     enabled: sharedSeriesIndex !== undefined && sharedDrawId !== undefined,
-    staleTime: 0,
-  });
-
-  // Fetch series draws for the selected series
-  const { data: seriesDraws } = useQuery({
-    queryKey: ['seriesDraws', sharedSeriesIndex],
-    queryFn: () => getSeriesDraws(sharedSeriesIndex ?? 0),
-    enabled: sharedSeriesIndex !== undefined,
     staleTime: 0,
   });
 
@@ -110,17 +115,14 @@ export default function HeroBanner({
   
   const handleSeriesChange = (value: string) => {
     const newSeriesIndex = parseInt(value);
-    console.log("HeroBanner - Series change:", { 
-      oldShared: sharedSeriesIndex,
-      newValue: newSeriesIndex 
-    });
+    console.log('=== HeroBanner Series Change ===');
+    console.log('Old series index:', sharedSeriesIndex);
+    console.log('New series index:', newSeriesIndex);
     
     if (setSharedSeriesIndex) {
       setSharedSeriesIndex(newSeriesIndex);
-      console.log("HeroBanner - Updated shared series index to:", newSeriesIndex);
     }
     
-    // Reset draw selection when series changes
     if (setSharedDrawId) {
       setSharedDrawId(undefined);
     }
@@ -128,14 +130,12 @@ export default function HeroBanner({
   
   const handleDrawChange = (value: string) => {
     const newDrawId = parseInt(value);
-    console.log("HeroBanner - Draw change:", { 
-      oldShared: sharedDrawId,
-      newValue: newDrawId 
-    });
+    console.log('=== HeroBanner Draw Change ===');
+    console.log('Old draw ID:', sharedDrawId);
+    console.log('New draw ID:', newDrawId);
     
     if (setSharedDrawId && sharedDrawId !== newDrawId) {
       setSharedDrawId(newDrawId);
-      console.log("HeroBanner - Updated shared draw ID to:", newDrawId);
     }
   };
 
@@ -258,7 +258,7 @@ export default function HeroBanner({
           <div className="lg:w-1/2 relative">
             <div className="casino-card-header absolute top-0 left-0 right-0 py-4 px-6 text-center">
               <div className="text-sm uppercase tracking-widest font-bold text-primary">
-                Choose Your Lottery
+                {isLoading ? 'Loading...' : 'Choose Your Lottery'}
               </div>
             </div>
             
@@ -274,12 +274,17 @@ export default function HeroBanner({
                       <Select
                         value={sharedSeriesIndex?.toString() || "0"}
                         onValueChange={handleSeriesChange}
+                        disabled={isLoading}
                       >
                         <SelectTrigger className="bg-secondary border border-primary/30 text-white">
-                          <SelectValue placeholder="Select series" />
+                          <SelectValue placeholder={isLoading ? "Loading..." : "Select series"} />
                         </SelectTrigger>
                         <SelectContent className="border border-primary/30">
-                          {seriesList && seriesList.length > 0 ? (
+                          {isLoading ? (
+                            <SelectItem key="loading" value="0" disabled>
+                              Loading...
+                            </SelectItem>
+                          ) : seriesList && seriesList.length > 0 ? (
                             seriesList.map((series) => (
                               <SelectItem key={series.index} value={series.index.toString()}>
                                 {series.name} {series.active ? ' (Active)' : ''}
@@ -301,12 +306,17 @@ export default function HeroBanner({
                       <Select
                         value={sharedDrawId?.toString() || "1"}
                         onValueChange={handleDrawChange}
+                        disabled={isLoading}
                       >
                         <SelectTrigger className="bg-secondary border border-primary/30 text-white">
-                          <SelectValue placeholder="Select draw" />
+                          <SelectValue placeholder={isLoading ? "Loading..." : "Select draw"} />
                         </SelectTrigger>
                         <SelectContent className="border border-primary/30">
-                          {seriesDraws && seriesDraws.length > 0 ? (
+                          {isLoading ? (
+                            <SelectItem key="loading" value="1" disabled>
+                              Loading...
+                            </SelectItem>
+                          ) : seriesDraws && seriesDraws.length > 0 ? (
                             seriesDraws.filter(draw => draw.drawId !== 0).map((draw) => (
                               <SelectItem key={draw.drawId} value={draw.drawId.toString()}>
                                 Draw #{draw.drawId} {!draw.completed ? ' (Active)' : ''}
