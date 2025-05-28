@@ -36,9 +36,31 @@ export const useLotteryContract = () => {
       // If wallet is connected, use wallet provider
       if (isConnected && address && walletProvider) {
         console.log('Using wallet provider for contract');
-        const ethersProvider = new ethers.BrowserProvider(walletProvider as any);
-        const signer = await ethersProvider.getSigner();
-        return new ethers.Contract(CONTRACTS.LOTTERY, LOTTERY_ABI, signer);
+        try {
+          // Create provider and get signer
+          const ethersProvider = new ethers.BrowserProvider(walletProvider as any);
+          const signer = await ethersProvider.getSigner();
+          
+          // Verify signer
+          const signerAddress = await signer.getAddress();
+          console.log('Got signer address:', signerAddress);
+          
+          if (!signerAddress) {
+            throw new Error('Failed to get signer address');
+          }
+
+          // Create contract with signer
+          const contract = new ethers.Contract(CONTRACTS.LOTTERY, LOTTERY_ABI, signer);
+          
+          // Verify contract
+          const contractAddress = await contract.getAddress();
+          console.log('Contract initialized with address:', contractAddress);
+          
+          return contract;
+        } catch (error) {
+          console.error('Error setting up contract with signer:', error);
+          return null;
+        }
       }
       
       // Otherwise use fallback provider for read-only operations
@@ -117,55 +139,44 @@ export const useLotteryContract = () => {
 
       if (!drawId) return null;
 
-      // Get individual pieces of data
-      console.log('Fetching contract data...');
-      const [
-        ticketPrice,
-        jackpot,
-        startTime,
-        endTime,
-        isFutureBlockDraw,
-        completed,
-        totalTickets,
-        totalWinners
-      ] = await Promise.all([
-        contract.getTicketPrice(drawId),
-        contract.getJackpot(drawId),
-        contract.getDrawStartTime(drawId),
-        contract.getEstimatedEndTime(drawId),
-        contract.getIsFutureBlockDraw(drawId),
-        contract.getCompleted(drawId),
-        contract.getTotalTicketsSold(drawId),
-        contract.getTotalWinners(drawId)
-      ]);
+      // Get draw details in a single call
+      console.log('Fetching draw details...');
+      const drawDetails = await contract.getDrawDetails(drawId);
+      console.log('Raw draw details:', drawDetails);
 
-      console.log('Contract data received:', {
-        ticketPrice: ethers.formatEther(ticketPrice),
-        jackpot: ethers.formatEther(jackpot),
-        totalTickets: totalTickets.toString(),
-        totalWinners: totalWinners.toString()
-      });
+      // Get total tickets sold
+      const totalTicketsSold = await contract.getTotalTicketsSold(drawId);
+      console.log('Total tickets sold:', totalTicketsSold);
 
-      // Get participants (winners)
-      const winners = await contract.getWinners(drawId);
-      console.log('Winners data:', winners);
+      // Parse winning ticket numbers from the tuple structure
+      let winningTicketNumbers: number[] = [];
+      try {
+        // The winning ticket numbers are in index 8 of the tuple
+        const winningNumbersProxy = drawDetails[8];
+        if (winningNumbersProxy) {
+          // Convert BigInt values to numbers
+          winningTicketNumbers = Array.from({ length: 6 }, (_, i) => {
+            const num = winningNumbersProxy[i];
+            return num ? Number(num) : 0;
+          }).filter(num => num !== 0);
+        }
+      } catch (error) {
+        console.error('Error parsing winning ticket numbers:', error);
+        winningTicketNumbers = [];
+      }
+
+      console.log('Parsed winning ticket numbers:', winningTicketNumbers);
 
       return {
-        jackpotAmount: ethers.formatEther(jackpot),
-        ticketPrice: ethers.formatEther(ticketPrice),
+        jackpotAmount: ethers.formatEther(drawDetails[3]), // index 3 is jackpot
+        ticketPrice: ethers.formatEther(drawDetails[2]), // index 2 is ticket price
         currentDraw: Number(drawId),
-        timeRemaining: Number(endTime) - Math.floor(Date.now() / 1000),
-        endTimestamp: Number(endTime),
-        participants: winners.map((w: any) => ({
-          walletAddress: w.winnerAddress,
-          ticketCount: 1, // Each winner has one winning ticket
-          timestamp: 0, // Not available in contract
-          transactionHash: '', // Not available in contract
-          drawId: Number(drawId),
-          seriesIndex: seriesIndex
-        })),
-        participantCount: Number(totalTickets),
-        seriesIndex: seriesIndex
+        timeRemaining: Number(drawDetails[1]) - Math.floor(Date.now() / 1000), // index 1 is end time
+        endTimestamp: Number(drawDetails[1]), // index 1 is end time
+        winningTicketNumbers,
+        participantCount: Number(totalTicketsSold),
+        seriesIndex: seriesIndex,
+        completed: drawDetails[7] // index 7 is completed status
       };
     } catch (error) {
       console.error('Error fetching lottery data:', error);
@@ -384,7 +395,7 @@ export const useLotteryContract = () => {
       const contract = await getContract();
       if (!contract || !address) return [];
 
-      return await contract.getUserTickets(address, drawId);
+      return await contract.getUserTickets(address, drawId);//check
     } catch (error) {
       console.error('Error getting user tickets:', error);
       return [];

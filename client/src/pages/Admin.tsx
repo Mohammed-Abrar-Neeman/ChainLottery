@@ -15,6 +15,7 @@ import { useAppKitProvider, useAppKitAccount } from "@reown/appkit/react";
 import { BrowserProvider, Contract } from "ethers";
 import { CONTRACTS, LOTTERY_ABI } from '@/config/contracts';
 import { ethers } from 'ethers';
+import { useLotteryContract } from '@/hooks/useLotteryContract';
 
 export default function Admin() {
   // Initialize toast
@@ -29,37 +30,23 @@ export default function Admin() {
   // AppKit hooks
   const { address, isConnected } = useAppKitAccount();
   const { walletProvider } = useAppKitProvider("eip155");
+  const { checkIsAdmin, getContract } = useLotteryContract();
 
   // Add currentBlock state
   const [currentBlock, setCurrentBlock] = useState<number | null>(null);
 
   // Check admin status
   const checkAdminStatus = async () => {
-    if (!isConnected || !address || !walletProvider) {
-      setIsAdmin(false);
-      setIsLoading(false);
-      return;
-    }
-
     try {
-      const ethersProvider = new BrowserProvider(walletProvider);
-      const signer = await ethersProvider.getSigner();
-      const lotteryContract = new Contract(
-        CONTRACTS.LOTTERY,
-        LOTTERY_ABI,
-        signer
-      );
-
-      const adminAddress = await lotteryContract.admin();
-      setIsAdmin(adminAddress.toLowerCase() === address.toLowerCase());
+      console.log('=== Admin Check Start ===');
+      console.log('Connection status:', { isConnected, address });
+      setIsLoading(true);
+      const isUserAdmin = await checkIsAdmin();
+      console.log('Admin check completed:', { isUserAdmin, address });
+      setIsAdmin(isUserAdmin);
     } catch (error) {
-      console.error('Error checking admin status:', error);
+      console.error('Error in admin check:', error);
       setIsAdmin(false);
-      toast({
-        title: "Error",
-        description: "Failed to check admin status. Please try again.",
-        variant: "destructive",
-      });
     } finally {
       setIsLoading(false);
     }
@@ -67,8 +54,17 @@ export default function Admin() {
 
   // Effect to check admin status when connection changes
   useEffect(() => {
-    checkAdminStatus();
-  }, [isConnected, address, walletProvider]);
+    console.log('=== Admin Check Effect ===');
+    console.log('Connection changed:', { isConnected, address });
+    if (isConnected && address) {
+      console.log('Wallet connected, checking admin status for:', address);
+      checkAdminStatus();
+    } else {
+      console.log('Wallet not connected, resetting admin status');
+      setIsAdmin(false);
+      setIsLoading(false);
+    }
+  }, [isConnected, address]);
 
   // Draw form state
   const [ticketPrice, setTicketPrice] = useState('0.01');
@@ -134,19 +130,6 @@ export default function Admin() {
     setSeriesIndex(parseInt(value));
   };
   
-  // Update getContract to also get current block
-  const getContract = async () => {
-    if (!isConnected || !address || !walletProvider) return null;
-    const ethersProvider = new BrowserProvider(walletProvider);
-    const signer = await ethersProvider.getSigner();
-    const provider = signer.provider;
-    if (provider) {
-      const block = await provider.getBlockNumber();
-      setCurrentBlock(block);
-    }
-    return new Contract(CONTRACTS.LOTTERY, LOTTERY_ABI, signer);
-  };
-
   // Update validation functions
   const validateTicketPrice = (price: string) => {
     const numPrice = parseFloat(price);
@@ -396,26 +379,69 @@ export default function Admin() {
       // Validate inputs
       validateSeriesName(newSeriesName);
 
-      const contract = await getContract();
-      if (!contract) throw new Error("Contract not initialized");
+      if (!isConnected || !address) {
+        throw new Error("Please connect your wallet first");
+      }
 
+      console.log('Getting contract instance...');
+      const contract = await getContract();
+      if (!contract) {
+        throw new Error("Failed to initialize contract. Please try reconnecting your wallet.");
+      }
+
+      // Verify contract has a signer
+      const signer = contract.runner;
+      if (!signer || !('getAddress' in signer)) {
+        throw new Error("Contract does not have a valid signer. Please reconnect your wallet.");
+      }
+
+      console.log('Creating new series:', newSeriesName);
+      console.log('Using contract address:', CONTRACTS.LOTTERY);
+      console.log('Connected wallet:', address);
+
+      // Create the transaction
+      console.log('Sending transaction...');
       const tx = await contract.newSeries(newSeriesName);
-      await tx.wait();
+      console.log('Transaction sent:', tx.hash);
+
+      // Wait for transaction confirmation
+      console.log('Waiting for transaction confirmation...');
+      const receipt = await tx.wait();
+      console.log('Transaction confirmed:', receipt.hash);
 
       // Refresh series list
       await refreshSeriesList();
       setNewSeriesName('');
-
+      
       toast({
         title: "Series Created",
         description: "New series has been created successfully",
         variant: "success",
       });
-    } catch (error) {
-      console.error('Error creating new series:', error);
+    } catch (error: any) {
+      console.error('Error creating new series:', {
+        message: error?.message,
+        code: error?.code,
+        data: error?.data,
+        error
+      });
+
+      // Handle specific error cases
+      let errorMessage = "Failed to create new series. Please try again.";
+      
+      if (error?.code === "UNSUPPORTED_OPERATION") {
+        errorMessage = "Please make sure your wallet is properly connected and try again.";
+      } else if (error?.code === "ACTION_REJECTED") {
+        errorMessage = "Transaction was rejected. Please try again.";
+      } else if (error?.code === "INSUFFICIENT_FUNDS") {
+        errorMessage = "Insufficient funds for gas. Please add more ETH to your wallet.";
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create new series. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     }

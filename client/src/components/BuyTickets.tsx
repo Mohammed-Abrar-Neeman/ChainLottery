@@ -79,21 +79,29 @@ const BuyTickets = React.memo(function BuyTickets({
   useEffect(() => {
     const checkDrawAvailability = async () => {
       if (!isConnected || !sharedDrawId) {
+        console.log('Draw check: Not connected or no draw ID');
         setIsDrawAvailable(false);
         setIsDrawCompleted(false);
         return;
       }
 
       try {
+        console.log('Checking draw availability for:', { seriesIndex: sharedSeriesIndex, drawId: sharedDrawId });
         const lotteryData = await getLotteryData(sharedSeriesIndex, sharedDrawId);
+        console.log('Lottery data received:', lotteryData);
+        
         if (!lotteryData) {
+          console.log('No lottery data found');
           setIsDrawAvailable(false);
           setIsDrawCompleted(false);
           return;
         }
 
+        const isCompleted = lotteryData.completed || false;
+        console.log('Draw completed status:', isCompleted);
+        
         setIsDrawAvailable(true);
-        setIsDrawCompleted(lotteryData.completed || false);
+        setIsDrawCompleted(isCompleted);
       } catch (error) {
         console.error('Error checking draw availability:', error);
         setIsDrawAvailable(false);
@@ -250,7 +258,7 @@ const BuyTickets = React.memo(function BuyTickets({
     
     console.log('=== Numbers Update Complete ===');
   }, [activeTicketIndex]);
-  
+
   // Handle buy click
   const handleBuyClick = async () => {
     if (!isConnected) {
@@ -272,21 +280,21 @@ const BuyTickets = React.memo(function BuyTickets({
       try {
         const lotteryData = await getLotteryData(sharedSeriesIndex, sharedDrawId);
         if (!lotteryData) {
-          toast({
+      toast({
             title: "Draw Not Available",
             description: "This draw is no longer available for ticket purchases.",
-            variant: "destructive"
-          });
-          return;
-        }
+        variant: "destructive"
+      });
+      return;
+    }
       } catch (error) {
         console.error('Error checking lottery data:', error);
-        toast({
+      toast({
           title: "Error",
           description: "Failed to check draw availability. Please try again.",
-          variant: "destructive"
-        });
-        return;
+        variant: "destructive"
+      });
+      return;
       }
     }
     
@@ -314,7 +322,7 @@ const BuyTickets = React.memo(function BuyTickets({
       totalCost
     });
 
-    setShowReconfirmModal(false);
+      setShowReconfirmModal(false);
     setShowPendingModal(true);
     setIsBuying(true);
     setBuyError(null);
@@ -331,24 +339,24 @@ const BuyTickets = React.memo(function BuyTickets({
         
         // Show initial pending state
         console.log('=== Starting Transaction ===');
-        toast({
+      toast({
           title: "Preparing Transaction",
           description: "Please approve the transaction in MetaMask",
           duration: 5000
         });
-
-        let result;
-        
+    
+    let result;
+    
         // Choose between single and multiple ticket purchase
-        if (tickets.length === 1) {
+    if (tickets.length === 1) {
           // Single ticket purchase
           console.log('Using buyTicket for single ticket');
-          result = await buyTicket(
+      result = await buyTicket(
             tickets[0].numbers,
             tickets[0].lottoNumber || 0,
             sharedDrawId
-          );
-        } else {
+      );
+    } else {
           // Multiple ticket purchase
           console.log('Using buyMultipleTickets for multiple tickets');
           const numbersList = tickets.map(ticket => ticket.numbers);
@@ -405,17 +413,17 @@ const BuyTickets = React.memo(function BuyTickets({
             duration: 5000
           });
 
-          setTransactionHash(result.txHash);
+      setTransactionHash(result.txHash);
           setShowPendingModal(false);
-          setShowSuccessModal(true);
-          
-          // Reset to a single ticket after successful purchase
-          setTickets([{
-            id: `ticket-${Date.now()}`, 
-            numbers: [...DEFAULT_SELECTED_NUMBERS], 
-            lottoNumber: DEFAULT_LOTTO_NUMBER
-          }]);
-          setActiveTicketIndex(0);
+      setShowSuccessModal(true);
+      
+      // Reset to a single ticket after successful purchase
+      setTickets([{
+        id: `ticket-${Date.now()}`, 
+        numbers: [...DEFAULT_SELECTED_NUMBERS], 
+        lottoNumber: DEFAULT_LOTTO_NUMBER
+      }]);
+      setActiveTicketIndex(0);
           
           // Show success toast
           toast({
@@ -505,7 +513,7 @@ const BuyTickets = React.memo(function BuyTickets({
             )}
           </div>
           <div className="text-xs text-white/50 flex items-center justify-center">
-            <Calendar className="h-3 w-3 mr-1 text-primary/70" />
+              <Calendar className="h-3 w-3 mr-1 text-primary/70" />
             {isConnected ? "(Change draw selection in the banner above)" : "(Connect wallet to select draw)"}
           </div>
         </div>
@@ -592,19 +600,19 @@ const BuyTickets = React.memo(function BuyTickets({
           <div className="bg-black/20 rounded-md p-3 space-y-2">
             <div className="flex justify-between">
               <span className="text-white/70">Ticket Price:</span>
-              <span className="crypto-value text-white">
+            <span className="crypto-value text-white">
                 {isConnected ? `${ticketPrice.toFixed(5)} ETH` : "Connect wallet to see price"}
-              </span>
-            </div>
+            </span>
+          </div>
             <div className="flex justify-between">
               <span className="text-white/70">Number of Tickets:</span>
               <span className="text-white font-medium">{totalTicketsCount}</span>
-            </div>
+          </div>
             <div className="flex justify-between">
               <span className="text-white/70">Total Cost:</span>
-              <span className="crypto-value text-white">
+            <span className="crypto-value text-white">
                 {isConnected ? `${totalCost.toFixed(5)} ETH` : "Connect wallet to see price"}
-              </span>
+            </span>
             </div>
           </div>
         </div>
@@ -719,7 +727,7 @@ const BuyTickets = React.memo(function BuyTickets({
                 initialNumbers={tickets[activeTicketIndex]?.numbers || []}
                 initialLottoNumber={tickets[activeTicketIndex]?.lottoNumber || null}
               />
-            </div>
+              </div>
             
             {/* Display Selected Numbers */}
             <div className="mb-6">
@@ -738,19 +746,12 @@ const BuyTickets = React.memo(function BuyTickets({
                 <Wallet className="mr-2 h-5 w-5" />
                 Connect Wallet to Buy
               </Button>
-            ) : !isDrawAvailable ? (
+            ) : !isDrawAvailable || isDrawCompleted ? (
               <Button
                 disabled
                 className="w-full bg-gray-600 text-gray-300 font-bold rounded-lg py-5 h-14 text-lg transition-all shadow-lg cursor-not-allowed"
               >
-                No Active Draw Available
-              </Button>
-            ) : isDrawCompleted ? (
-              <Button
-                disabled
-                className="w-full bg-gray-600 text-gray-300 font-bold rounded-lg py-5 h-14 text-lg transition-all shadow-lg cursor-not-allowed"
-              >
-                Draw Completed
+                {isDrawCompleted ? "Draw Completed" : "No Active Draw Available"}
               </Button>
             ) : (
               <Button
@@ -769,9 +770,9 @@ const BuyTickets = React.memo(function BuyTickets({
       </div>
       
       {/* Modals */}
-      <WalletModal
-        open={showWalletModal}
-        onClose={() => setShowWalletModal(false)}
+      <WalletModal 
+        open={showWalletModal} 
+        onClose={() => setShowWalletModal(false)} 
       />
       
       <BuyConfirmationModal

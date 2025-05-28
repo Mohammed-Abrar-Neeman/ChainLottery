@@ -16,11 +16,10 @@ export interface LotteryData {
   currentDraw: number;
   timeRemaining: number;
   endTimestamp: number;
-  participants: Participant[];
+  winningTicketNumbers: number[];
   participantCount: number;
   seriesIndex?: number;
-  winningNumbers?: number[];
-  completed?: boolean;
+  completed: boolean;
 }
 
 export interface Participant {
