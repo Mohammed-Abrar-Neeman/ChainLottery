@@ -1,61 +1,112 @@
 import React from 'react';
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ExternalLink } from 'lucide-react';
+import { X, Loader2, ExternalLink, AlertCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface TransactionPendingModalProps {
   open: boolean;
   onClose: () => void;
-  transactionHash: string;
+  transactionHash?: string;
+  isBuying: boolean;
+  error: string | null;
 }
 
 export default function TransactionPendingModal({
   open,
   onClose,
-  transactionHash
+  transactionHash,
+  isBuying,
+  error
 }: TransactionPendingModalProps) {
+  const getExplorerUrl = (hash: string) => {
+    return `https://sepolia.etherscan.io/tx/${hash}`;
+  };
+
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="glass rounded-2xl shadow-glass max-w-md w-full text-center">
-        <div className="flex flex-col items-center mb-6">
-          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
-          <h3 className="text-xl font-bold">Transaction Pending</h3>
-          <p className="text-gray-600 mt-2">Your transaction is being processed on the blockchain.</p>
-        </div>
+      <DialogContent className="glass rounded-2xl shadow-glass max-w-md w-full">
+        <DialogHeader className="flex justify-between items-center">
+          <DialogTitle className="text-xl font-bold">
+            {error ? 'Transaction Failed' : 'Transaction in Progress'}
+          </DialogTitle>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={onClose} 
+            className="text-white/70 hover:text-white transition"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        </DialogHeader>
         
-        <div className="bg-gray-50 rounded-lg p-4 text-left mb-6">
-          <div className="flex justify-between mb-2">
-            <span className="text-gray-600">Transaction Hash:</span>
-            <a 
-              href={`https://etherscan.io/tx/${transactionHash}`} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-primary hover:text-accent transition font-mono text-sm truncate max-w-[200px] flex items-center"
+        <div className="space-y-6 mt-4">
+          {error ? (
+            // Error State
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+              <div className="flex gap-3">
+                <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-red-500">
+                    Transaction Failed
+                  </p>
+                  <p className="text-sm text-white/70 mt-1">
+                    {error}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            // Loading State
+            <div className="text-center space-y-4">
+              <div className="flex justify-center">
+                <Loader2 className="h-12 w-12 text-primary animate-spin" />
+              </div>
+              
+              <div className="space-y-2">
+                <p className="text-lg font-medium text-white">
+                  {transactionHash ? 'Confirming Transaction' : 'Waiting for Approval'}
+                </p>
+                <p className="text-sm text-white/70">
+                  {transactionHash 
+                    ? 'Your transaction is being processed on the blockchain'
+                    : 'Please approve the transaction in MetaMask'}
+                </p>
+              </div>
+              
+              {transactionHash && (
+                <div className="bg-black/20 rounded-lg p-4 border border-primary/20">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-white/70">Transaction Hash:</span>
+                    <Badge variant="outline" className="font-mono text-xs">
+                      {`${transactionHash.slice(0, 6)}...${transactionHash.slice(-4)}`}
+                    </Badge>
+                  </div>
+                  
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full mt-3 text-primary hover:text-primary/90"
+                    onClick={() => window.open(getExplorerUrl(transactionHash), '_blank')}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    View on Explorer
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+          
+          <div className="flex justify-center">
+            <Button
+              variant="outline"
+              onClick={onClose}
+              className="border-primary/20 text-white hover:bg-primary/10"
             >
-              {transactionHash.substring(0, 6)}...{transactionHash.substring(transactionHash.length - 4)}
-              <ExternalLink className="ml-1 h-3 w-3" />
-            </a>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Status:</span>
-            <span className="text-yellow-500 font-semibold">Pending</span>
+              {error ? 'Close' : 'Cancel'}
+            </Button>
           </div>
         </div>
-        
-        <div className="text-sm text-gray-600 mb-6">
-          <p>
-            This window will update automatically once your transaction is confirmed. 
-            This may take a few minutes depending on network congestion.
-          </p>
-        </div>
-        
-        <Button
-          variant="outline"
-          onClick={onClose}
-          className="w-full border border-gray-300 text-gray-700 font-semibold rounded-full py-3 transition hover:bg-gray-50"
-        >
-          Close and wait
-        </Button>
       </DialogContent>
     </Dialog>
   );

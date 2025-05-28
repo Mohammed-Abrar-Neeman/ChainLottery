@@ -17,13 +17,12 @@ interface BuyConfirmationModalProps {
   open: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  tickets?: Ticket[];
   ticketPrice: number;
   totalTicketsPrice: number;
-  networkFee: number;
   totalCost: number;
-  selectedNumbers?: number[];
-  selectedLottoNumber?: number | null;
+  selectedNumbers: number[];
+  selectedLottoNumber: number | null;
+  tickets: Array<{id: string, numbers: number[], lottoNumber: number | null}>;
   isConnected: boolean;
 }
 
@@ -31,13 +30,12 @@ export default function BuyConfirmationModal({
   open,
   onClose,
   onConfirm,
-  tickets = [],
   ticketPrice,
   totalTicketsPrice,
-  networkFee,
   totalCost,
-  selectedNumbers = [],
-  selectedLottoNumber = null,
+  selectedNumbers,
+  selectedLottoNumber,
+  tickets,
   isConnected
 }: BuyConfirmationModalProps) {
   const { address } = useAppKitAccount();
@@ -45,7 +43,8 @@ export default function BuyConfirmationModal({
   const ticketCount = hasMultipleTickets ? tickets.length : 1;
 
   // Format ETH values
-  const formatETH = (value: number) => {
+  const formatETH = (value: number | undefined) => {
+    if (value === undefined || value === null) return '0.0000';
     return value < 0.0001 ? value.toFixed(6) : value.toFixed(4);
   };
 
@@ -135,10 +134,6 @@ export default function BuyConfirmationModal({
               <span className="text-white">
                 {formatETH(totalTicketsPrice)} ETH
               </span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-white/70">Network fee (est.):</span>
-              <span className="text-white">{formatETH(networkFee)} ETH</span>
             </div>
             <div className="border-t border-white/10 pt-2 mt-2 flex justify-between font-semibold">
               <span className="text-white">Total:</span>

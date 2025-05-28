@@ -41,7 +41,6 @@ export const useLotteryContract = () => {
         contract.getEstimatedEndTime(drawId),
         contract.getIsFutureBlockDraw(drawId),
         contract.getCompleted(drawId),
-        contract.getWinningNumbers(drawId),
         contract.getTotalTicketsSold(drawId),
         contract.getTotalWinners(drawId)
       ]);
@@ -155,33 +154,98 @@ export const useLotteryContract = () => {
   const buyTicket = useCallback(async (
     numbers: number[],
     lottoNumber: number,
-    seriesIndex?: number,
-    drawId?: number
-  ): Promise<{ success: boolean; txHash?: string }> => {
+    drawId: number
+  ): Promise<{ success: boolean; txHash?: string; error?: string }> => {
     try {
+      console.log('=== buyTicket Function Start ===');
+      console.log('Parameters:', { numbers, lottoNumber, drawId });
+
       const contract = await getContract();
-      if (!contract) throw new Error('Contract not initialized');
+      if (!contract) {
+        console.error('Contract not initialized');
+        throw new Error('Contract not initialized');
+      }
+
+      if (!drawId) {
+        console.error('Draw ID is required');
+        throw new Error('Draw ID is required');
+      }
 
       // Get ticket price for the draw
-      const ticketPrice = await contract.getTicketPrice(drawId ?? 0);
+      console.log('Fetching ticket price for draw:', drawId);
+      const ticketPrice = await contract.getTicketPrice(drawId);
+      console.log('Ticket price:', ethers.formatEther(ticketPrice));
+
+      // Convert numbers to uint8 array
+      const uint8Numbers = numbers.map(n => Number(n)) as [number, number, number, number, number];
+      
+      console.log('Sending transaction with params:', {
+        numbers: uint8Numbers,
+        lottoNumber,
+        drawId,
+        value: ethers.formatEther(ticketPrice)
+      });
 
       const tx = await contract.buyTicket(
-        numbers,
+        drawId,
+        uint8Numbers,
         lottoNumber,
-        drawId ?? 0,
         { value: ticketPrice }
       );
 
+      console.log('Transaction sent:', tx.hash);
+      console.log('Waiting for confirmation...');
+
       const receipt = await tx.wait();
+      console.log('Transaction confirmed:', receipt.hash);
+
       return { success: true, txHash: receipt.hash };
-    } catch (error) {
-      console.error('Error buying ticket:', error);
-      toast({
-        title: "Error",
-        description: "Failed to buy ticket",
-        variant: "destructive"
+    } catch (error: any) {
+      console.error('=== buyTicket Error ===');
+      console.error('Error details:', {
+        message: error?.message,
+        code: error?.code,
+        data: error?.data,
+        transaction: error?.transaction
       });
-      return { success: false };
+
+      // Handle specific contract errors
+      if (error?.data?.message) {
+        return { 
+          success: false, 
+          error: error.data.message 
+        };
+      }
+
+      // Handle MetaMask errors
+      if (error?.code === 4001) {
+        return { 
+          success: false, 
+          error: 'Transaction rejected by user' 
+        };
+      }
+
+      // Handle insufficient funds
+      if (error?.code === -32603 && error?.message?.includes('insufficient funds')) {
+        return { 
+          success: false, 
+          error: 'Insufficient funds for transaction' 
+        };
+      }
+
+      // Handle gas errors
+      if (error?.code === -32603 && error?.message?.includes('gas required exceeds allowance')) {
+        return { 
+          success: false, 
+          error: 'Gas limit too low' 
+        };
+      }
+
+      // Return generic error
+      return { 
+        success: false, 
+        error: error?.message || 'Failed to buy ticket' 
+      };
     }
   }, [getContract]);
 

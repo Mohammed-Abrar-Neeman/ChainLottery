@@ -20,13 +20,12 @@ interface TicketReconfirmationModalProps {
   open: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  tickets?: Ticket[];
+  tickets: Array<{id: string, numbers: number[], lottoNumber: number | null}>;
   ticketPrice: number;
   totalTicketsPrice: number;
-  networkFee: number;
   totalCost: number;
-  selectedNumbers?: number[];
-  selectedLottoNumber?: number | null;
+  selectedNumbers: number[];
+  selectedLottoNumber: number | null;
   seriesIndex?: number;
   drawId?: number;
 }
@@ -38,7 +37,6 @@ export default function TicketReconfirmationModal({
   tickets = [],
   ticketPrice,
   totalTicketsPrice,
-  networkFee,
   totalCost,
   selectedNumbers = [],
   selectedLottoNumber = null,
@@ -252,10 +250,6 @@ export default function TicketReconfirmationModal({
               <span className="text-white">
                 {formatETH(totalTicketsPrice)} ETH
               </span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-white/70">Network fee (est.):</span>
-              <span className="text-white">{formatETH(networkFee)} ETH</span>
             </div>
             <div className="border-t border-white/10 pt-2 mt-2 flex justify-between font-semibold">
               <span className="text-white">Total:</span>

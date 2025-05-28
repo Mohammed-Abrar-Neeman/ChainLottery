@@ -14,7 +14,6 @@ import TicketReconfirmationModal from './modals/TicketReconfirmationModal';
 // Stable default numbers for non-connected state
 const DEFAULT_SELECTED_NUMBERS = [7, 14, 21, 42, 63];
 const DEFAULT_LOTTO_NUMBER = 17;
-const NETWORK_FEE = 0.0025;
 
 // Props interface for shared state
 interface BuyTicketsProps {
@@ -74,10 +73,9 @@ const BuyTickets = React.memo(function BuyTickets({
   }, [isConnected, sharedDrawId, getTicketPrice]);
   
   // Use completely stable values when wallet is not connected to prevent flickering
-  const networkFee = NETWORK_FEE;
   const totalTicketsCount = tickets.length;
   const totalTicketsPrice = ticketPrice * totalTicketsCount;
-  const totalCost = totalTicketsPrice + networkFee;
+  const totalCost = totalTicketsPrice;
   
   // Create stable series and draw name for non-connected state
   const stableSeriesName = "Beginner Series";
@@ -100,35 +98,80 @@ const BuyTickets = React.memo(function BuyTickets({
     setGridKey(prev => prev + 1);
   };
   
-  // Remove a ticket from the list
-  const removeTicket = (index: number) => {
-    if (tickets.length <= 1) {
-      toast({
-        title: "Cannot Remove Ticket",
-        description: "You must have at least one ticket.",
-        variant: "destructive"
-      });
+  // Remove a ticket
+  const handleRemoveTicket = (ticketId: string) => {
+    console.log('=== Removing Ticket ===');
+    console.log('Ticket ID to remove:', ticketId);
+    console.log('Current tickets:', tickets);
+    
+    // Find the index of the ticket to remove
+    const ticketIndex = tickets.findIndex(t => t.id === ticketId);
+    if (ticketIndex === -1) {
+      console.error('Ticket not found:', ticketId);
       return;
     }
     
-    setTickets(prev => {
-      const newTickets = [...prev];
-      newTickets.splice(index, 1);
-      return newTickets;
-    });
+    console.log('Removing ticket at index:', ticketIndex);
     
-    if (index <= activeTicketIndex) {
-      setActiveTicketIndex(Math.max(0, activeTicketIndex - 1));
+    // Remove the ticket
+    const newTickets = tickets.filter(t => t.id !== ticketId);
+    console.log('New tickets array:', newTickets);
+    
+    // Update tickets state
+    setTickets(newTickets);
+    
+    // Handle active ticket index and numbers
+    if (newTickets.length === 0) {
+      // If no tickets left, reset to defaults
+      console.log('No tickets left, resetting to defaults');
+      setActiveTicketIndex(0);
+      setSelectedNumbers([...DEFAULT_SELECTED_NUMBERS]);
+      setSelectedLottoNumber(DEFAULT_LOTTO_NUMBER);
+    } else {
+      // If we removed the active ticket
+      if (ticketIndex === activeTicketIndex) {
+        // Select the last remaining ticket
+        const newIndex = newTickets.length - 1;
+        console.log('Setting new active ticket index:', newIndex);
+        setActiveTicketIndex(newIndex);
+        // Use the numbers from the last remaining ticket
+        setSelectedNumbers([...newTickets[newIndex].numbers]);
+        setSelectedLottoNumber(newTickets[newIndex].lottoNumber);
+      } else if (ticketIndex < activeTicketIndex) {
+        // If we removed a ticket before the active one, adjust the active index
+        console.log('Adjusting active ticket index');
+        setActiveTicketIndex(activeTicketIndex - 1);
+      }
+      // If we removed a ticket after the active one, no need to change anything
     }
+    
+    // Force grid refresh
+    setGridKey(prev => prev + 1);
+    
+    console.log('=== Ticket Removal Complete ===');
   };
   
   // Handle ticket tab click
   const handleTicketSelect = (index: number) => {
+    console.log('=== Selecting Ticket ===');
+    console.log('Selecting ticket at index:', index);
+    console.log('Current tickets:', tickets);
+    
+    // Update active ticket index
     setActiveTicketIndex(index);
-    // Update selected numbers to match the selected ticket
-    setSelectedNumbers(tickets[index].numbers);
-    setSelectedLottoNumber(tickets[index].lottoNumber);
+    
+    // Get the selected ticket's numbers
+    const selectedTicket = tickets[index];
+    console.log('Selected ticket:', selectedTicket);
+    
+    // Update the number selection grid with the selected ticket's numbers
+    setSelectedNumbers([...selectedTicket.numbers]);
+    setSelectedLottoNumber(selectedTicket.lottoNumber);
+    
+    // Force grid refresh
     setGridKey(prev => prev + 1);
+    
+    console.log('=== Ticket Selection Complete ===');
   };
   
   // Handle quick pick generation
@@ -152,19 +195,28 @@ const BuyTickets = React.memo(function BuyTickets({
   
   // Handle number selection
   const handleNumbersSelected = useCallback((numbers: number[], lottoNumber: number | null) => {
+    console.log('=== Updating Numbers ===');
+    console.log('New numbers:', numbers);
+    console.log('New lotto number:', lottoNumber);
+    console.log('Active ticket index:', activeTicketIndex);
+    
+    // Update selected numbers state
     setSelectedNumbers(numbers);
     setSelectedLottoNumber(lottoNumber);
     
-    // Update active ticket
+    // Update the active ticket's numbers
     setTickets(prev => {
       const newTickets = [...prev];
       newTickets[activeTicketIndex] = {
         ...newTickets[activeTicketIndex],
-        numbers,
+        numbers: [...numbers],
         lottoNumber
       };
+      console.log('Updated tickets:', newTickets);
       return newTickets;
     });
+    
+    console.log('=== Numbers Update Complete ===');
   }, [activeTicketIndex]);
   
   // Handle buy click
@@ -219,8 +271,18 @@ const BuyTickets = React.memo(function BuyTickets({
     setShowReconfirmModal(true);
   };
   
-  // Handle final confirmation
+  // Handle final confirmation and transaction
   const handleFinalConfirm = () => {
+    console.log('=== Starting Buy Ticket Flow ===');
+    console.log('Current State:', {
+      selectedNumbers,
+      selectedLottoNumber,
+      sharedDrawId,
+      ticketPrice,
+      totalTicketsPrice,
+      totalCost
+    });
+
     setShowReconfirmModal(false);
     setShowPendingModal(true);
     setIsBuying(true);
@@ -229,50 +291,143 @@ const BuyTickets = React.memo(function BuyTickets({
     // Buy tickets
     const buyTickets = async () => {
       try {
+        console.log('=== Validation Checks ===');
         if (!selectedLottoNumber) {
+          console.error('Validation Failed: LOTTO number is missing');
           throw new Error('LOTTO number is required');
         }
+        console.log('LOTTO Number:', selectedLottoNumber);
+
+        if (!sharedDrawId || sharedDrawId < 0) {
+          console.error('Validation Failed: Draw ID is invalid');
+          throw new Error('Please select a valid draw');
+        }
+        console.log('Draw ID:', sharedDrawId);
         
-        // Buy single ticket
-        const result = await buyTicket(
-          selectedNumbers,
-          selectedLottoNumber,
-          sharedSeriesIndex ?? 0,
-          sharedDrawId ?? 0
-        );
-        
-        if (result.success && result.txHash) {
-          setTransactionHash(result.txHash);
-          setShowPendingModal(false);
-          setShowSuccessModal(true);
+        // Show initial pending state
+        console.log('=== Starting Transaction ===');
+        toast({
+          title: "Preparing Transaction",
+          description: "Please approve the transaction in MetaMask",
+          duration: 5000
+        });
+
+        console.log('Calling buyTicket with params:', {
+          numbers: selectedNumbers,
+          lottoNumber: selectedLottoNumber,
+          drawId: sharedDrawId
+        });
+
+        try {
+          // Buy single ticket
+          console.log('Attempting to call buyTicket function...');
+          const result = await buyTicket(
+            selectedNumbers,
+            selectedLottoNumber,
+            sharedDrawId
+          );
           
-          // Reset to a single ticket after successful purchase
-          setTickets([{
-            id: `ticket-${Date.now()}`, 
-            numbers: [...DEFAULT_SELECTED_NUMBERS], 
-            lottoNumber: DEFAULT_LOTTO_NUMBER
-          }]);
-          setActiveTicketIndex(0);
+          console.log('Raw transaction result:', result);
           
-          // Show success toast
-          toast({
-            title: "Success!",
-            description: "Your ticket has been purchased successfully.",
-            variant: "default"
+          if (!result) {
+            console.error('No result received from buyTicket');
+            throw new Error('No response from transaction');
+          }
+          
+          console.log('Transaction Result:', {
+            success: result.success,
+            txHash: result.txHash,
+            fullResult: result
           });
-        } else {
-          throw new Error('Failed to buy ticket');
+          
+          if (result.success && result.txHash) {
+            console.log('Transaction Successful:', result.txHash);
+            // Show transaction submitted toast
+            toast({
+              title: "Transaction Submitted",
+              description: "Your ticket purchase is being processed",
+              duration: 5000
+            });
+
+            setTransactionHash(result.txHash);
+            setShowPendingModal(false);
+            setShowSuccessModal(true);
+            
+            // Reset to a single ticket after successful purchase
+            setTickets([{
+              id: `ticket-${Date.now()}`, 
+              numbers: [...DEFAULT_SELECTED_NUMBERS], 
+              lottoNumber: DEFAULT_LOTTO_NUMBER
+            }]);
+            setActiveTicketIndex(0);
+            
+            // Show success toast
+            toast({
+              title: "Success!",
+              description: "Your ticket has been purchased successfully.",
+              variant: "default"
+            });
+          } else {
+            console.error('Transaction Failed: Invalid result structure', result);
+            throw new Error('Transaction failed - invalid response structure');
+          }
+        } catch (error) {
+          console.error('=== Detailed Error Information ===');
+          console.error('Error type:', error?.constructor?.name);
+          console.error('Error message:', error?.message);
+          console.error('Error stack:', error?.stack);
+          console.error('Full error object:', error);
+          
+          // Re-throw the error to be caught by the outer catch block
+          throw error;
         }
       } catch (error) {
+        console.error('=== Error Details ===');
         console.error('Error buying tickets:', error);
-        setBuyError(error instanceof Error ? error.message : 'Failed to buy tickets');
+        const errorMessage = error instanceof Error ? error.message : 'Failed to buy tickets';
+        console.error('Error Message:', errorMessage);
+        setBuyError(errorMessage);
         setShowPendingModal(false);
-        toast({
-          title: "Purchase Failed",
-          description: error instanceof Error ? error.message : "Failed to buy tickets. Please try again.",
-          variant: "destructive"
-        });
+        
+        // Show appropriate error message based on the error
+        if (errorMessage.includes('user rejected')) {
+          console.log('Error Type: User Rejected');
+          toast({
+            title: "Transaction Cancelled",
+            description: "You rejected the transaction in MetaMask",
+            variant: "destructive"
+          });
+        } else if (errorMessage.includes('insufficient funds')) {
+          console.log('Error Type: Insufficient Funds');
+          toast({
+            title: "Insufficient Funds",
+            description: "You don't have enough ETH to complete this transaction",
+            variant: "destructive"
+          });
+        } else if (errorMessage.includes('gas required exceeds allowance')) {
+          console.log('Error Type: Gas Limit');
+          toast({
+            title: "Gas Limit Too Low",
+            description: "Please try again with higher gas limit",
+            variant: "destructive"
+          });
+        } else if (errorMessage.includes('Transaction failed')) {
+          console.log('Error Type: Transaction Failed');
+          toast({
+            title: "Transaction Failed",
+            description: "The transaction was not successful. Please try again.",
+            variant: "destructive"
+          });
+        } else {
+          console.log('Error Type: Generic Error');
+          toast({
+            title: "Purchase Failed",
+            description: errorMessage,
+            variant: "destructive"
+          });
+        }
       } finally {
+        console.log('=== Buy Ticket Flow Complete ===');
         setIsBuying(false);
       }
     };
@@ -347,7 +502,7 @@ const BuyTickets = React.memo(function BuyTickets({
                       className="absolute -top-2 -right-2 h-5 w-5 p-0 rounded-full bg-red-600 hover:bg-red-700 text-white"
                       onClick={(e) => {
                         e.stopPropagation();
-                        removeTicket(index);
+                        handleRemoveTicket(ticket.id);
                       }}
                     >
                       ×
@@ -400,19 +555,7 @@ const BuyTickets = React.memo(function BuyTickets({
               <span className="text-white font-medium">{totalTicketsCount}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-white/70">Total Tickets Price:</span>
-              <span className="crypto-value text-white">
-                {isConnected ? `${totalTicketsPrice.toFixed(5)} ETH` : "Connect wallet to see price"}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-white/70">Network Fee:</span>
-              <span className="crypto-value text-white">
-                {networkFee.toFixed(5)} ETH
-              </span>
-            </div>
-            <div className="flex justify-between font-semibold pt-2 border-t border-white/10">
-              <span className="text-white">Total Cost:</span>
+              <span className="text-white/70">Total Cost:</span>
               <span className="crypto-value text-white">
                 {isConnected ? `${totalCost.toFixed(5)} ETH` : "Connect wallet to see price"}
               </span>
@@ -577,7 +720,6 @@ const BuyTickets = React.memo(function BuyTickets({
         onConfirm={handleInitialConfirm}
         ticketPrice={ticketPrice}
         totalTicketsPrice={totalTicketsPrice}
-        networkFee={networkFee}
         totalCost={totalCost}
         selectedNumbers={selectedNumbers}
         selectedLottoNumber={selectedLottoNumber}
@@ -592,7 +734,6 @@ const BuyTickets = React.memo(function BuyTickets({
         tickets={tickets}
         ticketPrice={ticketPrice}
         totalTicketsPrice={totalTicketsPrice}
-        networkFee={networkFee}
         totalCost={totalCost}
         selectedNumbers={selectedNumbers}
         selectedLottoNumber={selectedLottoNumber}
