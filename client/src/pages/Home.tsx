@@ -181,10 +181,10 @@ export default function Home() {
         sharedDrawId={homeDrawId}
         setSharedDrawId={setHomeDrawId}
       />
-      <ParticipantsList
+      {/* <ParticipantsList
         sharedSeriesIndex={homeSeriesIndex}
         sharedDrawId={homeDrawId}
-      />
+      /> */}
       <PastWinners
         sharedSeriesIndex={homeSeriesIndex}
         sharedDrawId={homeDrawId}
