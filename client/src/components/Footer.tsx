@@ -43,17 +43,17 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
             <div className="flex items-center mb-6">
-              <svg 
-                className="h-10 w-10 mr-3 rounded-full"
-                viewBox="0 0 40 40" 
-                fill="none" 
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <circle cx="20" cy="20" r="20" fill="#6C63FF" />
-                <path d="M12 20L20 12L28 20L20 28L12 20Z" fill="white" />
-                <path d="M16 20L20 16L24 20L20 24L16 20Z" fill="#2D3748" />
-              </svg>
-              <h2 className="text-2xl font-bold">CryptoLotto</h2>
+              <img 
+                src="/images/lottologo.jpeg" 
+                alt="Company Logo" 
+                className="h-12 w-12 mr-3" 
+              />
+              <div>
+                <h2 className="text-3xl font-bold bg-gradient-to-r from-primary via-yellow-500 to-amber-500 text-transparent bg-clip-text">
+                  CryptoLotto
+                </h2>
+                <div className="text-xs text-primary/80 font-mono -mt-1">BLOCKCHAIN LOTTERY</div>
+              </div>
             </div>
             <p className="text-gray-400 mb-6">
               The fairest, most transparent blockchain lottery powered by smart contracts and verifiable randomness.
