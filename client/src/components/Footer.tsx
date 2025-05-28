@@ -14,8 +14,10 @@ export default function Footer() {
         return `https://sepolia.etherscan.io/address/${ACTIVE_LOTTERY_CONTRACT_ADDRESS}`;
       case CHAIN_IDS.GOERLI:
         return `https://goerli.etherscan.io/address/${ACTIVE_LOTTERY_CONTRACT_ADDRESS}`;
+      case CHAIN_IDS.BSC_TESTNET:
+        return `https://testnet.bscscan.com/address/${ACTIVE_LOTTERY_CONTRACT_ADDRESS}`;
       default:
-        return `https://sepolia.etherscan.io/address/${ACTIVE_LOTTERY_CONTRACT_ADDRESS}`;
+        return `https://testnet.bscscan.com/address/${ACTIVE_LOTTERY_CONTRACT_ADDRESS}`;
     }
   };
 
@@ -28,8 +30,10 @@ export default function Footer() {
         return 'Sepolia Testnet';
       case CHAIN_IDS.GOERLI:
         return 'Goerli Testnet';
+      case CHAIN_IDS.BSC_TESTNET:
+        return 'BSC Testnet';
       default:
-        return 'Testnet';
+        return 'BSC Testnet';
     }
   };
   

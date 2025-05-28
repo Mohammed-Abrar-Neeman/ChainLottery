@@ -17,7 +17,7 @@ interface ContractAddresses {
  */
 
 // Default chain ID to use across the application
-export const DEFAULT_CHAIN_ID = '11155111'; // Sepolia testnet
+export const DEFAULT_CHAIN_ID = '97'; // Sepolia testnet
 
 // For backwards compatibility - keep ACTIVE_CHAIN_ID as an alias to DEFAULT_CHAIN_ID
 export const ACTIVE_CHAIN_ID = DEFAULT_CHAIN_ID;
@@ -27,7 +27,8 @@ export const LOTTERY_CONTRACT_ADDRESSES: {[chainId: string]: string} = {
   '1': '',                                                   // Ethereum Mainnet (add address when deploying to mainnet)
   '11155111': '0x204f5777A911090572633De22b2571d6Bb89308d', // Sepolia Testnet (current development network)
   '5': '',                                                   // Goerli Testnet
-  '1337': '0x80f6cad7adb5e8b5808d2d978c0d23d2a3787126'      // Local development
+  '1337': '0x80f6cad7adb5e8b5808d2d978c0d23d2a3787126',     // Local development
+  '97': '0x6745689775ECd4f761839bE7d179e6980C577aC7'         // BSC Testnet
 };
 
 // Current active lottery contract address based on the default chain
@@ -38,7 +39,8 @@ export const CHAIN_IDS = {
   MAINNET: '1',
   SEPOLIA: '11155111',
   GOERLI: '5',
-  LOCAL: '1337'
+  LOCAL: '1337',
+  BSC_TESTNET: '97'
 };
 
 // Network-specific contracts
@@ -54,6 +56,9 @@ export const contractAddresses: ContractAddresses = {
   },
   [CHAIN_IDS.LOCAL]: {
     lottery: LOTTERY_CONTRACT_ADDRESSES[CHAIN_IDS.LOCAL]
+  },
+  [CHAIN_IDS.BSC_TESTNET]: {
+    lottery: LOTTERY_CONTRACT_ADDRESSES[CHAIN_IDS.BSC_TESTNET]
   }
 };
 
