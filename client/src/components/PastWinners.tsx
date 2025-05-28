@@ -79,15 +79,28 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex, isLoading
         }
 
         setIsDrawCompleted(true);
-        setWinners(lotteryData.participants.map(participant => ({
-          winnerAddress: participant.walletAddress,
+        
+        // Create a winner entry with the data from lotteryData
+        const winner: Winner = {
+          winnerAddress: lotteryData.winnerAddress || '0x0000000000000000000000000000000000000000',
           amountWon: lotteryData.jackpotAmount,
           drawId: sharedDrawId,
           seriesIndex: sharedSeriesIndex,
-          timestamp: participant.timestamp,
-          transactionHash: participant.transactionHash,
-          winningNumbers: lotteryData.winningNumbers
-        })));
+          timestamp: lotteryData.endTimestamp,
+          winningNumbers: lotteryData.winningTicketNumbers,
+          transactionHash: lotteryData.transactionHash
+        };
+
+        // Check if we have valid winning numbers (not all zeros)
+        const hasValidWinningNumbers = lotteryData.winningTicketNumbers && 
+          lotteryData.winningTicketNumbers.length > 0 && 
+          lotteryData.winningTicketNumbers.some(num => num > 0);
+
+        if (hasValidWinningNumbers) {
+          setWinners([winner]);
+        } else {
+          setWinners([]);
+        }
       })
       .catch(error => {
         console.error('Error refreshing winners:', error);
@@ -127,14 +140,6 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex, isLoading
       const diffDays = Math.floor(diffHours / 24);
       return `${diffDays} days ago`;
     }
-  };
-  
-  // Helper for prize tiers
-  const getPrizeTier = (amount: string) => {
-    const amountNum = parseFloat(amount);
-    if (amountNum >= 1) return "jackpot";
-    if (amountNum >= 0.1) return "major";
-    return "minor";
   };
 
   // Use parent loading state if provided
@@ -177,70 +182,43 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex, isLoading
       ) : (
         <>
           {isLoadingState ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="glass rounded-xl shadow-glass overflow-hidden">
-                  <Skeleton className="h-16 w-full mb-2" />
-                  <div className="p-5">
-                    <Skeleton className="h-6 w-3/4 mb-4" />
-                    <Skeleton className="h-8 w-full mb-2" />
-                    <Skeleton className="h-6 w-1/2 mb-4" />
-                    <div className="flex justify-between">
-                      <Skeleton className="h-4 w-1/3" />
-                      <Skeleton className="h-4 w-1/3" />
-                    </div>
+            <div className="max-w-xl mx-auto">
+              <div className="glass rounded-xl shadow-glass overflow-hidden">
+                <Skeleton className="h-12 w-full" />
+                <div className="p-4">
+                  <Skeleton className="h-6 w-3/4 mb-3" />
+                  <Skeleton className="h-8 w-full mb-3" />
+                  <div className="flex justify-between">
+                    <Skeleton className="h-4 w-1/3" />
+                    <Skeleton className="h-4 w-1/3" />
                   </div>
                 </div>
-              ))}
+              </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="max-w-xl mx-auto">
               {winners.map((winner, index) => (
                 <div key={`${winner.winnerAddress}-${index}`} className="glass rounded-xl shadow-glass overflow-hidden">
-                  <div className="bg-gradient-to-r from-primary to-accent p-4 text-white">
+                  <div className="bg-primary/10 border-b border-primary/20 p-4">
                     <div className="flex justify-between items-center">
-                      <span className="font-semibold">Draw #{winner.drawId || sharedDrawId}</span>
-                      <span className="text-sm font-mono">{getTimeDifference(winner.timestamp)}</span>
+                      <span className="text-lg font-semibold">Draw #{winner.drawId || sharedDrawId}</span>
                     </div>
                   </div>
-                  <div className="p-5">
+                  <div className="p-4">
                     <div className="mb-4">
-                      <div className="text-sm text-white/70 mb-1">Winner</div>
-                      <div className="font-mono text-sm truncate">
-                        <a 
-                          href={`https://sepolia.etherscan.io/address/${winner.winnerAddress}`}
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-primary hover:text-accent transition"
-                        >
-                          {formatAddress(winner.winnerAddress)}
-                        </a>
-                      </div>
-                    </div>
-                    <div className="mb-4">
-                      <div className="flex justify-between items-center">
-                        <div className="text-sm text-white/70 mb-1">Prize Amount</div>
-                        <Badge 
-                          variant={getPrizeTier(winner.amountWon) === 'jackpot' ? 'destructive' : 
-                                 getPrizeTier(winner.amountWon) === 'major' ? 'default' : 'outline'}
-                        >
-                          {getPrizeTier(winner.amountWon) === 'jackpot' ? 'Jackpot' : 
-                           getPrizeTier(winner.amountWon) === 'major' ? 'Major Prize' : 'Prize'}
-                        </Badge>
-                      </div>
-                      <div className="crypto-value text-lg text-primary">{winner.amountWon} ETH</div>
-                      <div className="text-sm text-white/60">≈ {formatUSD(winner.amountWon)}</div>
+                      <div className="text-sm text-white/70 mb-1">Prize Amount</div>
+                      <div className="crypto-value text-xl text-primary">{winner.amountWon} ETH</div>
                     </div>
                     
                     {winner.winningNumbers && winner.winningNumbers.length > 0 && (
                       <div className="mb-4">
                         <div className="text-sm text-white/70 mb-1">Winning Numbers</div>
-                        <div className="flex flex-wrap gap-1.5 mb-1">
+                        <div className="flex flex-wrap gap-1.5">
                           {/* Display first 5 numbers */}
                           {winner.winningNumbers.slice(0, 5).map((num, i) => (
                             <span 
                               key={`winning-number-${i}`} 
-                              className="inline-flex items-center justify-center w-6 h-6 text-xs lotto-number rounded-full bg-green-800/30 text-green-400 border border-green-500/40"
+                              className="inline-flex items-center justify-center w-7 h-7 text-sm lotto-number rounded-full bg-green-800/30 text-green-400 border border-green-500/40"
                             >
                               {num}
                             </span>
@@ -248,7 +226,7 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex, isLoading
                           {/* Display lotto number (6th number) */}
                           {winner.winningNumbers.length >= 6 && (
                             <span 
-                              className="inline-flex items-center justify-center w-6 h-6 text-xs lotto-number rounded-full bg-yellow-800/30 text-yellow-400 border border-yellow-500/40"
+                              className="inline-flex items-center justify-center w-7 h-7 text-sm lotto-number rounded-full bg-yellow-800/30 text-yellow-400 border border-yellow-500/40"
                             >
                               {winner.winningNumbers[5]}
                             </span>
@@ -257,14 +235,14 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex, isLoading
                       </div>
                     )}
                     {winner.transactionHash && (
-                      <div className="flex justify-end text-sm">
+                      <div className="flex justify-end">
                         <a 
                           href={`https://testnet.bscscan.com/tx/${winner.transactionHash}`}
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className="text-primary hover:text-accent transition flex items-center"
+                          className="text-primary hover:text-accent transition flex items-center text-sm"
                         >
-                          View on Explorer <ExternalLink className="ml-1 h-3 w-3" />
+                          View on Explorer <ExternalLink className="ml-1 h-3.5 w-3.5" />
                         </a>
                       </div>
                     )}
