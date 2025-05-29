@@ -115,58 +115,57 @@ export default function History() {
     fetchDraws();
   }, [isConnected, selectedSeriesIndex, getSeriesDraws]);
 
-  // Fetch lottery data when draw is selected
+  // Fetch lottery data when series is selected
   useEffect(() => {
-    const fetchLotteryData = async () => {
-      if (!isConnected || selectedSeriesIndex === undefined || selectedDrawId === undefined) return;
+    const fetchAllDrawsData = async () => {
+      if (!isConnected || selectedSeriesIndex === undefined) return;
       
       setIsLoading(true);
       try {
-        const data = await getLotteryData(selectedSeriesIndex, selectedDrawId);
-        console.log('Raw lottery data:', data); // Debug log
+        const allHistoryData: LotteryHistoryEntry[] = [];
         
-        if (data) {
-          // Convert jackpot from wei to ETH string
-          const jackpotInWei = data.jackpotAmount || "0";
-          console.log('Jackpot in wei:', jackpotInWei); // Debug log
-          
-          // Check if we have winning numbers
-          const hasWinningNumbers = data.winningTicketNumbers && 
-            data.winningTicketNumbers.some(num => num !== 0);
-          console.log('Has winning numbers:', hasWinningNumbers); // Debug log
+        // Fetch data for each draw in the series
+        for (const draw of seriesDraws) {
+          const data = await getLotteryData(selectedSeriesIndex, draw.drawId);
+          if (data) {
+            // Check if we have winning numbers
+            const hasWinningNumbers = data.winningTicketNumbers && 
+              data.winningTicketNumbers.some(num => num !== 0);
 
-          // If we have winning numbers, fetch winners
-          let winners: Winner[] = [];
-          if (hasWinningNumbers) {
-            try {
-              const contract = await getContract();
-              if (contract) {
-                const winnersData = await contract.getWinners(selectedDrawId) as ContractWinner[];
-                console.log('Raw winners data:', winnersData); // Debug log
-                winners = winnersData.map(w => ({
-                  winnerAddress: w.winnerAddress,
-                  ticketIndex: Number(w.ticketIndex),
-                  amountWon: w.amountWon.toString()
-                }));
-                console.log('Processed winners:', winners); // Debug log
+            // If we have winning numbers, fetch winners
+            let winners: Winner[] = [];
+            if (hasWinningNumbers) {
+              try {
+                const contract = await getContract();
+                if (contract) {
+                  const winnersData = await contract.getWinners(draw.drawId) as ContractWinner[];
+                  winners = winnersData.map(w => ({
+                    winnerAddress: w.winnerAddress,
+                    ticketIndex: Number(w.ticketIndex),
+                    amountWon: w.amountWon.toString()
+                  }));
+                }
+              } catch (error) {
+                console.error('Error fetching winners:', error);
               }
-            } catch (error) {
-              console.error('Error fetching winners:', error);
             }
+
+            const historyEntry: LotteryHistoryEntry = {
+              seriesIndex: selectedSeriesIndex,
+              drawId: draw.drawId,
+              endTime: new Date(data.endTimestamp * 1000),
+              jackpotAmount: data.jackpotAmount || "0",
+              participantCount: data.participantCount,
+              winningNumbers: data.winningTicketNumbers,
+              winners: winners,
+            };
+            allHistoryData.push(historyEntry);
           }
-          
-          const historyEntry: LotteryHistoryEntry = {
-            seriesIndex: selectedSeriesIndex,
-            drawId: selectedDrawId,
-            endTime: new Date(data.endTimestamp * 1000),
-            jackpotAmount: jackpotInWei,
-            participantCount: data.participantCount,
-            winningNumbers: data.winningTicketNumbers,
-            winners: winners,
-          };
-          console.log('Created history entry:', historyEntry); // Debug log
-          setHistoryData([historyEntry]);
         }
+
+        // Sort history data by draw ID in descending order (newest first)
+        allHistoryData.sort((a, b) => b.drawId - a.drawId);
+        setHistoryData(allHistoryData);
       } catch (error) {
         console.error('Error fetching lottery data:', error);
       } finally {
@@ -174,21 +173,14 @@ export default function History() {
       }
     };
 
-    fetchLotteryData();
-  }, [isConnected, selectedSeriesIndex, selectedDrawId, getLotteryData, getContract]);
+    fetchAllDrawsData();
+  }, [isConnected, selectedSeriesIndex, seriesDraws, getLotteryData, getContract]);
 
   // Handle series selection
   const handleSeriesChange = (value: string) => {
     const index = parseInt(value);
     setSelectedSeriesIndex(index);
     setSelectedDrawId(undefined); // Reset draw selection
-    setHistoryData([]); // Clear history data
-  };
-
-  // Handle draw selection
-  const handleDrawChange = (value: string) => {
-      const drawId = parseInt(value);
-        setSelectedDrawId(drawId);
   };
 
   // Format ETH amount with 4 decimal places
@@ -238,59 +230,29 @@ export default function History() {
         </div>
       </div>
       
-      {/* Series and Draw Selection */}
+      {/* Series Selection */}
       <div className="casino-card p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-primary text-sm font-medium mb-2 block">Series</label>
-            {isLoading ? (
-                <Skeleton className="h-10 w-full" />
-            ) : seriesList.length === 0 ? (
-              <div className="text-sm text-white/60">No series available</div>
-              ) : (
-                <Select
-                value={selectedSeriesIndex?.toString()}
-                  onValueChange={handleSeriesChange}
-                disabled={isLoading}
-                >
-                  <SelectTrigger className="bg-black/40 border-primary/30">
-                    <SelectValue placeholder="Select a series" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-black/90 border-primary/30">
-                  {seriesList.map((series) => (
-                        <SelectItem key={series.index} value={series.index.toString()}>
-                      {series.name}
-                        </SelectItem>
-                  ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-
+        <div className="grid grid-cols-1 gap-4">
           <div>
-            <label className="text-primary text-sm font-medium mb-2 block">Draw</label>
+            <label className="text-primary text-sm font-medium mb-2 block">Series</label>
             {isLoading ? (
               <Skeleton className="h-10 w-full" />
-            ) : seriesDraws.length === 0 ? (
-              <div className="text-sm text-white/60">
-                {selectedSeriesIndex === undefined 
-                  ? "Select a series first" 
-                  : "No draws available for this series"}
-              </div>
+            ) : seriesList.length === 0 ? (
+              <div className="text-sm text-white/60">No series available</div>
             ) : (
               <Select
-                value={selectedDrawId?.toString()}
-                onValueChange={handleDrawChange}
-                disabled={isLoading || selectedSeriesIndex === undefined}
+                value={selectedSeriesIndex?.toString()}
+                onValueChange={handleSeriesChange}
+                disabled={isLoading}
               >
                 <SelectTrigger className="bg-black/40 border-primary/30">
-                    <SelectValue placeholder="Select a draw" />
+                  <SelectValue placeholder="Select a series" />
                 </SelectTrigger>
                 <SelectContent className="bg-black/90 border-primary/30">
-                  {seriesDraws.map((draw) => (
-                      <SelectItem key={draw.drawId} value={draw.drawId.toString()}>
-                      Draw #{draw.drawId} {draw.completed ? '(Completed)' : '(Active)'}
-                      </SelectItem>
+                  {seriesList.map((series) => (
+                    <SelectItem key={series.index} value={series.index.toString()}>
+                      {series.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -299,26 +261,22 @@ export default function History() {
         </div>
         
         {/* Filter active message */}
-        {(selectedSeriesIndex !== undefined || selectedDrawId !== undefined) && (
+        {selectedSeriesIndex !== undefined && (
           <div className="mt-4 flex items-center justify-between">
             <div className="flex items-center text-xs text-primary space-x-2">
               <Filter className="h-3 w-3" />
               <span>
-                Filtering: 
-                {selectedSeriesIndex !== undefined && ` Series #${selectedSeriesIndex}`}
-                {selectedSeriesIndex !== undefined && selectedDrawId !== undefined && ' -'}
-                {selectedDrawId !== undefined && ` Draw #${selectedDrawId}`}
+                Showing all draws for Series #{selectedSeriesIndex}
               </span>
             </div>
             <button
               onClick={() => {
                 setSelectedSeriesIndex(undefined);
-                setSelectedDrawId(undefined);
                 setHistoryData([]);
               }}
               className="text-primary hover:text-white text-xs underline flex items-center"
             >
-              Clear filters
+              Clear filter
             </button>
           </div>
         )}
@@ -355,9 +313,7 @@ export default function History() {
                           <div className="flex flex-col items-center justify-center space-y-2">
                             <Database className="h-8 w-8 text-primary/40" />
                             <span className="text-white/60">
-                              {selectedDrawId === undefined 
-                                ? "Select a draw to view its details" 
-                                : "No data available for this draw"}
+                              No data available for this series
                             </span>
                           </div>
                         </td>
