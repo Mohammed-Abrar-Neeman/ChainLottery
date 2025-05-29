@@ -50,11 +50,9 @@ export interface LotteryDraw {
 
 export interface LotterySeries {
   index: number;
-  active: boolean;
   drawCount: number;
   name: string;
   seriesName?: string;
-  description?: string;
 }
 
 export interface Winner {

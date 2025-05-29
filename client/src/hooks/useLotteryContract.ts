@@ -206,10 +206,8 @@ export const useLotteryContract = () => {
         
         series.push({
           index: i,
-          active: true, // Contract doesn't have active status, assuming all are active
           drawCount: Number(drawCount),
           name: name,
-          description: '' // Contract doesn't have description
         });
       }
 

@@ -307,7 +307,7 @@ export default function HeroBanner({
                           ) : seriesList && seriesList.length > 0 ? (
                             seriesList.map((series) => (
                               <SelectItem key={series.index} value={series.index.toString()}>
-                                {series.name} {series.active ? ' (Active)' : ''}
+                                {series.name}
                               </SelectItem>
                             ))
                           ) : (

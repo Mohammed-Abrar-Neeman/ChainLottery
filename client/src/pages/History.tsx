@@ -1,185 +1,303 @@
-import React, { useState, useEffect } from 'react';
-import { useLotteryHistory, LotteryHistoryData } from '@/hooks/useLotteryHistory';
-import { useLotterySeries } from '@/hooks/useLotterySeries';
-import { formatAddress } from '@/lib/web3';
-import { ExternalLink, History as HistoryIcon, Award, Info as InfoIcon, Target, Filter, Calendar, Database } from 'lucide-react';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import React, { useEffect, useState } from 'react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Skeleton } from '@/components/ui/skeleton';
+import { ExternalLink, History as HistoryIcon, Filter, Database } from 'lucide-react';
+import { formatDistanceToNow, format } from 'date-fns';
+import { useLotteryContract } from '@/hooks/useLotteryContract';
+import { useAppKitAccount } from '@reown/appkit/react';
+import { Skeleton } from "@/components/ui/skeleton";
 
-// Utility function for formatting USD amounts
-const formatUSD = (ethAmount: string): string => {
-  try {
-    const amount = parseFloat(ethAmount);
-    if (isNaN(amount)) return '$0.00';
-    
-    // Assuming 1 ETH = $3,000 (this would be dynamic in production)
-    const usdValue = amount * 3000;
-    return new Intl.NumberFormat('en-US', { 
-      style: 'currency', 
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(usdValue);
-  } catch (e) {
-    return '$0.00';
+interface Winner {
+  winnerAddress: string;
+  ticketIndex: number;
+  amountWon: string;
+}
+
+interface ContractWinner {
+  winnerAddress: string;
+  ticketIndex: bigint;
+  amountWon: bigint;
+}
+
+interface LotteryHistoryEntry {
+  seriesIndex: number;
+  drawId: number;
+  endTime: Date;
+  jackpotAmount: string;
+  participantCount: number;
+  winningNumbers?: number[];
+  winners?: Winner[];
+  transactionHash?: string;
+}
+
+// Static data for testing UI
+const MOCK_HISTORY = [
+  {
+    seriesIndex: 0,
+    drawId: 1,
+    endTime: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
+    jackpotAmount: "1000000000000000000", // 1 ETH
+    participantCount: 150,
+    winningNumbers: [1, 2, 3, 4, 5, 6],
+    winnerAddress: "0x1234567890123456789012345678901234567890",
+    transactionHash: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+  },
+  {
+    seriesIndex: 0,
+    drawId: 2,
+    endTime: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000), // 14 days ago
+    jackpotAmount: "2000000000000000000", // 2 ETH
+    participantCount: 200,
+    winningNumbers: [7, 8, 9, 10, 11, 12],
+    winnerAddress: "0x0987654321098765432109876543210987654321",
+    transactionHash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
   }
-};
+];
 
 export default function History() {
-  const { 
-    history,
-    isLoading: isLoadingHistory,
-    error: historyError,
-    fetchDrawHistory,
-    clearHistory
-  } = useLotteryHistory();
-
-  const {
-    seriesList,
-    seriesDraws,
-    isLoading: isLoadingSeries,
-    error: seriesError,
-    fetchSeriesList,
-    fetchSeriesDraws
-  } = useLotterySeries();
-
+  const { address, isConnected } = useAppKitAccount();
+  const { getSeriesList, getSeriesDraws, getLotteryData, getContract } = useLotteryContract();
+  const [seriesList, setSeriesList] = useState<{ index: number; name: string; active: boolean; }[]>([]);
+  const [seriesDraws, setSeriesDraws] = useState<{ drawId: number; seriesIndex: number; completed: boolean; }[]>([]);
+  const [historyData, setHistoryData] = useState<LotteryHistoryEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [selectedSeriesIndex, setSelectedSeriesIndex] = useState<number | undefined>();
   const [selectedDrawId, setSelectedDrawId] = useState<number | undefined>();
 
-  // Load series list on mount
-  useEffect(() => {
-    fetchSeriesList();
-  }, [fetchSeriesList]);
-
-  // Load series draws when series is selected
-  useEffect(() => {
-    if (selectedSeriesIndex !== undefined) {
-      fetchSeriesDraws(selectedSeriesIndex);
-    }
-  }, [selectedSeriesIndex, fetchSeriesDraws]);
-
-  // Load draw history when draw is selected
-  useEffect(() => {
-    if (selectedSeriesIndex !== undefined && selectedDrawId !== undefined) {
-      fetchDrawHistory(selectedSeriesIndex, selectedDrawId);
-    }
-  }, [selectedSeriesIndex, selectedDrawId, fetchDrawHistory]);
-
-  // Format the date
+  // Format date to "May 28, 2025, 5:34 PM"
   const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    }).format(date);
+    return format(date, 'MMMM d, yyyy, h:mm a');
   };
 
-  // Handler for series selection
+  // Fetch series list on mount
+  useEffect(() => {
+    const fetchSeries = async () => {
+      if (!isConnected) return;
+      
+      setIsLoading(true);
+      try {
+        const series = await getSeriesList();
+        setSeriesList(series.map(s => ({
+          index: s.index,
+          name: s.name || `Series ${s.index}`,
+          active: true // We'll get this from contract later
+        })));
+    } catch (error) {
+        console.error('Error fetching series:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+    fetchSeries();
+  }, [isConnected, getSeriesList]);
+
+  // Fetch draws when series is selected
+  useEffect(() => {
+    const fetchDraws = async () => {
+      if (!isConnected || selectedSeriesIndex === undefined) return;
+      
+      setIsLoading(true);
+      try {
+        const draws = await getSeriesDraws(selectedSeriesIndex);
+        setSeriesDraws(draws.map(d => ({
+          drawId: d.drawId,
+          seriesIndex: d.seriesIndex,
+          completed: d.completed
+        })));
+      } catch (error) {
+        console.error('Error fetching draws:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDraws();
+  }, [isConnected, selectedSeriesIndex, getSeriesDraws]);
+
+  // Fetch lottery data when draw is selected
+  useEffect(() => {
+    const fetchLotteryData = async () => {
+      if (!isConnected || selectedSeriesIndex === undefined || selectedDrawId === undefined) return;
+      
+      setIsLoading(true);
+      try {
+        const data = await getLotteryData(selectedSeriesIndex, selectedDrawId);
+        console.log('Raw lottery data:', data); // Debug log
+        
+        if (data) {
+          // Convert jackpot from wei to ETH string
+          const jackpotInWei = data.jackpotAmount || "0";
+          console.log('Jackpot in wei:', jackpotInWei); // Debug log
+          
+          // Check if we have winning numbers
+          const hasWinningNumbers = data.winningTicketNumbers && 
+            data.winningTicketNumbers.some(num => num !== 0);
+          console.log('Has winning numbers:', hasWinningNumbers); // Debug log
+
+          // If we have winning numbers, fetch winners
+          let winners: Winner[] = [];
+          if (hasWinningNumbers) {
+            try {
+              const contract = await getContract();
+              if (contract) {
+                const winnersData = await contract.getWinners(selectedDrawId) as ContractWinner[];
+                console.log('Raw winners data:', winnersData); // Debug log
+                winners = winnersData.map(w => ({
+                  winnerAddress: w.winnerAddress,
+                  ticketIndex: Number(w.ticketIndex),
+                  amountWon: w.amountWon.toString()
+                }));
+                console.log('Processed winners:', winners); // Debug log
+              }
+            } catch (error) {
+              console.error('Error fetching winners:', error);
+            }
+          }
+          
+          const historyEntry: LotteryHistoryEntry = {
+            seriesIndex: selectedSeriesIndex,
+            drawId: selectedDrawId,
+            endTime: new Date(data.endTimestamp * 1000),
+            jackpotAmount: jackpotInWei,
+            participantCount: data.participantCount,
+            winningNumbers: data.winningTicketNumbers,
+            winners: winners,
+          };
+          console.log('Created history entry:', historyEntry); // Debug log
+          setHistoryData([historyEntry]);
+        }
+      } catch (error) {
+        console.error('Error fetching lottery data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchLotteryData();
+  }, [isConnected, selectedSeriesIndex, selectedDrawId, getLotteryData, getContract]);
+
+  // Handle series selection
   const handleSeriesChange = (value: string) => {
-    if (value === 'all') {
-      setSelectedSeriesIndex(undefined);
-      setSelectedDrawId(undefined);
-      clearHistory();
-    } else {
-      const seriesIndex = parseInt(value);
-      if (!isNaN(seriesIndex)) {
-        setSelectedSeriesIndex(seriesIndex);
-        setSelectedDrawId(undefined);
-        clearHistory();
-      }
-    }
+    const index = parseInt(value);
+    setSelectedSeriesIndex(index);
+    setSelectedDrawId(undefined); // Reset draw selection
+    setHistoryData([]); // Clear history data
   };
 
-  // Handler for draw selection
+  // Handle draw selection
   const handleDrawChange = (value: string) => {
-    if (value === 'all') {
-      setSelectedDrawId(undefined);
-      clearHistory();
-    } else {
       const drawId = parseInt(value);
-      if (!isNaN(drawId)) {
         setSelectedDrawId(drawId);
-      }
+  };
+
+  // Format ETH amount with 4 decimal places
+  const formatEthAmount = (amount: string | number) => {
+    try {
+      console.log('Formatting amount:', amount); // Debug log
+      // Amount is already in ETH, just format it
+      const ethAmount = Number(amount);
+      console.log('ETH amount:', ethAmount); // Debug log
+      // Use toFixed(5) to show more precision and avoid rounding
+      return ethAmount.toFixed(5);
+    } catch (error) {
+      console.error('Error formatting ETH amount:', error);
+      return "0.00000";
     }
   };
 
-  const isLoading = isLoadingHistory || isLoadingSeries;
+  // Get USD value (placeholder - replace with actual price feed)
+  const getUsdValue = (ethAmount: string | number) => {
+    try {
+      const ethPrice = 2000; // Placeholder price
+      const ethValue = Number(ethAmount);
+      // Use toFixed(2) for USD to show cents
+      return (ethValue * ethPrice).toFixed(2);
+    } catch (error) {
+      console.error('Error calculating USD value:', error);
+      return "0.00";
+    }
+  };
 
+  // Format address for display
+  const formatAddress = (address: string) => {
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
+
+  // Get blockchain explorer URL
+  const getExplorerUrl = (hash: string) => {
+    return `https://testnet.bscscan.com/tx/${hash}`;
+  };
+  
   return (
-    <div className="mt-8">
+    <div className="container mx-auto py-8">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center">
           <HistoryIcon className="h-6 w-6 text-primary mr-2" />
           <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-amber-500 text-transparent bg-clip-text">Lottery History</h1>
         </div>
       </div>
-
+      
       {/* Series and Draw Selection */}
       <div className="casino-card p-6 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="text-primary text-sm font-medium mb-2 block">Series</label>
-            {isLoadingSeries ? (
-              <Skeleton className="h-10 w-full" />
-            ) : (
-              <Select
+            <div>
+              <label className="text-primary text-sm font-medium mb-2 block">Series</label>
+            {isLoading ? (
+                <Skeleton className="h-10 w-full" />
+            ) : seriesList.length === 0 ? (
+              <div className="text-sm text-white/60">No series available</div>
+              ) : (
+                <Select
                 value={selectedSeriesIndex?.toString()}
-                onValueChange={handleSeriesChange}
-              >
-                <SelectTrigger className="bg-black/40 border-primary/30">
-                  <SelectValue placeholder="Select a series" />
-                </SelectTrigger>
-                <SelectContent className="bg-black/90 border-primary/30">
-                  <SelectItem value="all">All Series</SelectItem>
+                  onValueChange={handleSeriesChange}
+                disabled={isLoading}
+                >
+                  <SelectTrigger className="bg-black/40 border-primary/30">
+                    <SelectValue placeholder="Select a series" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-black/90 border-primary/30">
                   {seriesList.map((series) => (
-                    <SelectItem key={series.index} value={series.index.toString()}>
-                      {series.name} (Series #{series.index})
-                    </SelectItem>
+                        <SelectItem key={series.index} value={series.index.toString()}>
+                      {series.name}
+                        </SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
 
           <div>
             <label className="text-primary text-sm font-medium mb-2 block">Draw</label>
-            {isLoadingSeries ? (
+            {isLoading ? (
               <Skeleton className="h-10 w-full" />
+            ) : seriesDraws.length === 0 ? (
+              <div className="text-sm text-white/60">
+                {selectedSeriesIndex === undefined 
+                  ? "Select a series first" 
+                  : "No draws available for this series"}
+              </div>
             ) : (
               <Select
                 value={selectedDrawId?.toString()}
                 onValueChange={handleDrawChange}
-                disabled={selectedSeriesIndex === undefined}
+                disabled={isLoading || selectedSeriesIndex === undefined}
               >
                 <SelectTrigger className="bg-black/40 border-primary/30">
-                  <SelectValue placeholder="Select a draw" />
+                    <SelectValue placeholder="Select a draw" />
                 </SelectTrigger>
                 <SelectContent className="bg-black/90 border-primary/30">
-                  <SelectItem value="all">All Draws</SelectItem>
                   {seriesDraws.map((draw) => (
-                    <SelectItem key={draw.drawId} value={draw.drawId.toString()}>
-                      Draw #{draw.drawId}
-                    </SelectItem>
+                      <SelectItem key={draw.drawId} value={draw.drawId.toString()}>
+                      Draw #{draw.drawId} {draw.completed ? '(Completed)' : '(Active)'}
+                      </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             )}
           </div>
         </div>
-
+        
         {/* Filter active message */}
         {(selectedSeriesIndex !== undefined || selectedDrawId !== undefined) && (
           <div className="mt-4 flex items-center justify-between">
@@ -196,7 +314,7 @@ export default function History() {
               onClick={() => {
                 setSelectedSeriesIndex(undefined);
                 setSelectedDrawId(undefined);
-                clearHistory();
+                setHistoryData([]);
               }}
               className="text-primary hover:text-white text-xs underline flex items-center"
             >
@@ -205,184 +323,111 @@ export default function History() {
           </div>
         )}
       </div>
-
-      <Tabs defaultValue="rounds" className="casino-card p-6">
-        <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-6 bg-black/40 border-primary/30">
-          <TabsTrigger value="rounds" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary data-[state=active]:shadow-none">Past Rounds</TabsTrigger>
-          <TabsTrigger value="winners" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary data-[state=active]:shadow-none">Winners</TabsTrigger>
-        </TabsList>
-
-        {isLoading ? (
-          <div className="py-12 text-center">
-            <div className="animate-spin inline-block w-8 h-8 border-4 border-primary border-opacity-30 border-t-primary rounded-full mb-4"></div>
-            <p className="text-white/80">Loading lottery history...</p>
-          </div>
-        ) : (
-          <>
-            <TabsContent value="rounds">
+      
+      {/* History Table */}
+      <div className="casino-card p-6">
               <div className="overflow-x-auto">
                 <table className="min-w-full">
                   <thead>
                     <tr className="bg-black/40">
-                      <th className="px-6 py-3 text-left text-xs font-bold text-primary/80 uppercase tracking-wider">Round</th>
+                      <th className="px-6 py-3 text-left text-xs font-bold text-primary/80 uppercase tracking-wider">Draw #</th>
                       <th className="px-6 py-3 text-left text-xs font-bold text-primary/80 uppercase tracking-wider">Series</th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-primary/80 uppercase tracking-wider">Date</th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-primary/80 uppercase tracking-wider">Pool Size</th>
+                      <th className="px-6 py-3 text-left text-xs font-bold text-primary/80 uppercase tracking-wider">End Date</th>
+                      <th className="px-6 py-3 text-left text-xs font-bold text-primary/80 uppercase tracking-wider">Prize Pool</th>
                       <th className="px-6 py-3 text-left text-xs font-bold text-primary/80 uppercase tracking-wider">Participants</th>
+                      <th className="px-6 py-3 text-left text-xs font-bold text-primary/80 uppercase tracking-wider">Winning Numbers</th>
                       <th className="px-6 py-3 text-left text-xs font-bold text-primary/80 uppercase tracking-wider">Winner</th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-primary/80 uppercase tracking-wider">TX</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-primary/10">
-                    {history.length > 0 ? (
-                      history.map((round) => (
-                        <tr key={`${round.seriesIndex}-${round.drawId}`} className="bg-black/20 hover:bg-black/30">
+                    {isLoading ? (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-4 text-center">
+                          <div className="flex items-center justify-center space-x-2">
+                            <Skeleton className="h-4 w-4" />
+                            <span className="text-white/60">Loading draw data...</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : historyData.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-4 text-center">
+                          <div className="flex flex-col items-center justify-center space-y-2">
+                            <Database className="h-8 w-8 text-primary/40" />
+                            <span className="text-white/60">
+                              {selectedDrawId === undefined 
+                                ? "Select a draw to view its details" 
+                                : "No data available for this draw"}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      historyData.map((entry) => (
+                        <tr key={`${entry.seriesIndex}-${entry.drawId}`} className="bg-black/20 hover:bg-black/30">
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="font-mono text-sm font-semibold text-white">#{round.drawId}</span>
+                            <span className="font-mono text-sm font-semibold text-white">#{entry.drawId}</span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
                             <Badge variant="outline" className="bg-primary/10 border-primary/30 text-primary">
-                              Series #{round.seriesIndex}
+                              {seriesList.find(s => s.index === entry.seriesIndex)?.name || `Series ${entry.seriesIndex}`}
                             </Badge>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-white/80">
-                            {formatDate(round.endTime)}
+                            {formatDate(entry.endTime)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap font-mono text-sm text-white">
-                            {round.poolAmount} ETH
-                            <div className="text-xs text-primary/80">
-                              ≈ {formatUSD(round.poolAmount)}
-                            </div>
+                            {formatEthAmount(entry.jackpotAmount)} ETH
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
-                            {round.participantCount}
+                            {entry.participantCount}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {entry.winningNumbers ? (
+                              <div className="flex flex-wrap gap-1">
+                                {entry.winningNumbers.slice(0, 5).map((num, idx) => (
+                                  <Badge key={idx} variant="outline" className="lotto-number bg-primary/10 border-primary/30 text-primary rounded-full">
+                                    {num.toString().padStart(2, '0')}
+                                  </Badge>
+                                ))}
+                                {entry.winningNumbers[5] && (
+                                  <Badge key="lotto" variant="default" className="lotto-number bg-accent/10 text-accent border-accent/30 rounded-full">
+                                    {entry.winningNumbers[5].toString().padStart(2, '0')}
+                                  </Badge>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-white/60">No Winner Announced Yet</span>
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap font-mono text-sm">
-                            <a 
-                              href={`https://testnet.bscscan.com/address/${round.winnerAddress}`}
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-primary hover:text-white transition flex items-center"
-                            >
-                              {formatAddress(round.winnerAddress)}
-                            </a>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            <a 
-                              href={`https://testnet.bscscan.com/tx/${round.transactionHash}`}
-                              target="_blank" 
-                              rel="noopener noreferrer" 
-                              className="text-primary/60 hover:text-primary transition"
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
+                            {entry.winners && entry.winners.length > 0 ? (
+                              <div className="space-y-1">
+                                {entry.winners.map((winner, idx) => (
+                                  <a 
+                                    key={idx}
+                                    href={`https://testnet.bscscan.com/address/${winner.winnerAddress}`}
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="text-primary hover:text-white transition flex items-center"
+                                  >
+                                    {formatAddress(winner.winnerAddress)}
+                                  </a>
+                                ))}
+                              </div>
+                            ) : entry.winningNumbers && entry.winningNumbers.some(num => num !== 0) ? (
+                              <span className="text-white/60">No winners found</span>
+                            ) : (
+                              <span className="text-white/60">Pending</span>
+                            )}
                           </td>
                         </tr>
                       ))
-                    ) : (
-                      <tr>
-                        <td colSpan={7} className="text-center py-12 text-white/60">
-                          <Database className="h-12 w-12 mx-auto mb-4 text-primary/30" />
-                          <p className="text-lg mb-1">No Lottery History Available</p>
-                          <p className="text-sm">No past draws have been conducted on the blockchain.</p>
-                        </td>
-                      </tr>
                     )}
                   </tbody>
                 </table>
               </div>
-            </TabsContent>
-
-            <TabsContent value="winners">
-              {history.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {history.map((round) => (
-                    <div key={`winner-${round.seriesIndex}-${round.drawId}`} className="casino-card pt-12 mt-6">
-                      <div className="casino-card-header flex justify-between items-center absolute inset-x-0 top-0 px-6 py-4 bg-black/40 border-b border-primary/20 rounded-t-xl">
-                        <div className="text-sm uppercase tracking-widest font-bold text-primary flex items-center">
-                          <Award className="h-4 w-4 mr-2" />
-                          <span className="mr-1">S{round.seriesIndex}</span>
-                          Round #{round.drawId}
-                        </div>
-                        <span className="text-sm font-mono text-white/70">{formatDate(round.endTime)}</span>
-                      </div>
-                      <div className="p-4 pt-6">
-                        {/* Winner */}
-                        <div className="mb-4">
-                          <div className="text-sm text-primary/80 uppercase tracking-wider font-medium mb-2">Winner</div>
-                          <div className="font-mono text-sm truncate">
-                            <a 
-                              href={`https://testnet.bscscan.com/address/${round.winnerAddress}`}
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-white hover:text-primary transition"
-                            >
-                              {formatAddress(round.winnerAddress)}
-                            </a>
-                          </div>
-                        </div>
-
-                        {/* Winning Numbers */}
-                        {round.winningNumbers && (
-                          <div className="mb-4">
-                            <div className="text-sm text-primary/80 uppercase tracking-wider font-medium mb-2 flex items-center">
-                              <Target size={14} className="mr-2" /> Winning Numbers
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              {round.winningNumbers.slice(0, 5).map((num, idx) => (
-                                <Badge key={idx} variant="outline" className="lotto-number bg-primary/10 border-primary/30 text-primary rounded-full">
-                                  {num.toString().padStart(2, '0')}
-                                </Badge>
-                              ))}
-                              {round.winningNumbers[5] && (
-                                <Badge key="lotto" variant="default" className="lotto-number bg-accent/10 text-accent border-accent/30 rounded-full">
-                                  {round.winningNumbers[5].toString().padStart(2, '0')}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Prize Amount */}
-                        <div className="mb-4">
-                          <div className="text-sm text-primary/80 uppercase tracking-wider font-medium mb-2">Prize Amount</div>
-                          <div className="crypto-value text-lg text-white">{round.prizeAmount} ETH</div>
-                          <div className="text-sm text-primary/70">≈ {formatUSD(round.prizeAmount)}</div>
-                        </div>
-
-                        {/* Footer */}
-                        <div className="flex justify-between text-sm mt-6 pt-4 border-t border-primary/10">
-                          <div>
-                            <span className="text-white/60">Tickets Sold:</span>
-                            <span className="lotto-number ml-1 text-white">{round.participantCount}</span>
-                          </div>
-                          <a 
-                            href={`https://testnet.bscscan.com/tx/${round.transactionHash}`}
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-primary/80 hover:text-primary transition flex items-center"
-                          >
-                            Explorer <ExternalLink className="ml-1 h-3 w-3" />
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
                 </div>
-              ) : (
-                <div className="text-center py-16">
-                  <Award className="h-16 w-16 mx-auto mb-4 text-primary/30" />
-                  <h3 className="text-xl font-bold text-white mb-2">No Winners Yet</h3>
-                  <p className="text-white/60 max-w-md mx-auto">
-                    No completed lottery draws have been found on the blockchain. 
-                    Winners will appear here once draws are completed.
-                  </p>
-                </div>
-              )}
-            </TabsContent>
-          </>
-        )}
-      </Tabs>
     </div>
   );
 }
