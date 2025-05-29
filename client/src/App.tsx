@@ -10,6 +10,7 @@ import Admin from "@/pages/Admin";
 import Blogs from "@/pages/Blogs";
 import BlogPost from "@/pages/BlogPost";
 import { WalletProvider } from "./context/WalletContext";
+import Contact from "@/pages/Contact";
 
 function Router() {
   return (
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/admin" component={Admin} />
       <Route path="/blogs" component={Blogs} />
       <Route path="/blogs/:id" component={BlogPost} />
+      <Route path="/contact" component={Contact} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>
