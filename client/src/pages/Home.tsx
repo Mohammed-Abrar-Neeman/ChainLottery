@@ -103,18 +103,36 @@ export default function Home() {
     retryDelay: 1000
   });
 
-  // Set initial draw id
+  // Effect to set initial draw ID
   useEffect(() => {
     console.log('=== Series Draws Effect ===');
     console.log('Series draws:', seriesDraws);
     console.log('Current homeDrawId:', homeDrawId);
     console.log('Is initial load:', isInitialLoad);
-    
-    if (seriesDraws && seriesDraws.length > 0 && homeDrawId === undefined) {
-      console.log('Setting initial draw ID:', seriesDraws[0].drawId);
-      setHomeDrawId(seriesDraws[0].drawId);
+
+    if (!seriesDraws || seriesDraws.length === 0) return;
+
+    // Only set initial draw ID if we don't already have one
+    if (homeDrawId === undefined) {
+      // Find active draw first
+      const activeDraw = seriesDraws.find(draw => !draw.completed && draw.drawId !== 0);
+      
+      if (activeDraw) {
+        console.log('Found active draw:', activeDraw.drawId);
+        setHomeDrawId(activeDraw.drawId);
+      } else {
+        // If no active draw, find the latest completed draw
+        const completedDraws = seriesDraws
+          .filter(draw => draw.drawId !== 0 && draw.completed)
+          .sort((a, b) => b.drawId - a.drawId);
+
+        if (completedDraws.length > 0) {
+          console.log('Found completed draw:', completedDraws[0].drawId);
+          setHomeDrawId(completedDraws[0].drawId);
+        }
+      }
     }
-  }, [seriesDraws, homeDrawId]);
+  }, [seriesDraws, homeDrawId, isInitialLoad]);
 
   // Fetch lottery data
   const { data: lotteryData, isLoading: isLotteryDataLoading } = useQuery({
@@ -170,6 +188,9 @@ export default function Home() {
         sharedDrawId={homeDrawId}
         setSharedDrawId={setHomeDrawId}
         isLoading={isDataLoading}
+        homeDrawId={homeDrawId}
+        setHomeDrawId={setHomeDrawId}
+        isInitialLoad={isInitialLoad}
       />
       <LotteryStats
         sharedSeriesIndex={homeSeriesIndex}

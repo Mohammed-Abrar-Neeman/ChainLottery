@@ -1,4 +1,4 @@
-import React, { Dispatch, SetStateAction } from 'react';
+import React, { Dispatch, SetStateAction, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { useLotteryContract } from '@/hooks/useLotteryContract';
@@ -23,6 +23,9 @@ interface HeroBannerProps {
   seriesList: any[];
   seriesDraws: any[];
   isLoading?: boolean;
+  homeDrawId?: number;
+  setHomeDrawId?: Dispatch<SetStateAction<number | undefined>>;
+  isInitialLoad: boolean;
 }
 
 // Utility function to format USD
@@ -52,7 +55,10 @@ export default function HeroBanner({
   setSharedDrawId,
   seriesList,
   seriesDraws,
-  isLoading = false
+  isLoading = false,
+  homeDrawId,
+  setHomeDrawId,
+  isInitialLoad
 }: HeroBannerProps) {
   console.log('=== HeroBanner Component Render ===');
   console.log('Props:', {
@@ -125,18 +131,104 @@ export default function HeroBanner({
     }
   };
   
+  // Set initial draw id
+  useEffect(() => {
+    console.log('=== DRAW SELECTION EFFECT TRIGGERED ===');
+    console.log('Current state:', {
+      seriesDraws,
+      homeDrawId,
+      sharedDrawId: sharedDrawId,
+      isInitialLoad
+    });
+
+    if (!seriesDraws || seriesDraws.length === 0) {
+      console.log('No draws available, returning');
+      return;
+    }
+
+    if (!setHomeDrawId) {
+      console.log('setHomeDrawId is not available, returning');
+      return;
+    }
+
+    // Log all draws with their status
+    const drawsWithStatus = seriesDraws.map(draw => ({
+      drawId: draw.drawId,
+      completed: draw.completed,
+      isActive: !draw.completed && draw.drawId !== 0
+    }));
+    console.log('All draws with status:', drawsWithStatus);
+
+    // Get all active draws
+    const activeDraws = seriesDraws.filter(draw => !draw.completed && draw.drawId !== 0);
+    console.log('Active draws found:', activeDraws);
+
+    if (activeDraws.length > 0) {
+      // Sort active draws by ID to get the latest active draw
+      const latestActiveDraw = activeDraws.sort((a, b) => b.drawId - a.drawId)[0];
+      console.log('Selected latest active draw:', latestActiveDraw);
+
+      // Update both state variables
+      console.log('Updating state with active draw:', latestActiveDraw.drawId);
+      if (setSharedDrawId) {
+        console.log('Setting shared draw ID to:', latestActiveDraw.drawId);
+        setSharedDrawId(latestActiveDraw.drawId);
+      }
+      console.log('Setting home draw ID to:', latestActiveDraw.drawId);
+      setHomeDrawId(latestActiveDraw.drawId);
+    } else {
+      console.log('No active draws found, looking for completed draws');
+      // Get completed draws
+      const completedDraws = seriesDraws
+        .filter(draw => draw.drawId !== 0 && draw.completed)
+        .sort((a, b) => b.drawId - a.drawId);
+
+      console.log('Completed draws found:', completedDraws);
+
+      if (completedDraws.length > 0) {
+        const latestCompletedDraw = completedDraws[0];
+        console.log('Selected latest completed draw:', latestCompletedDraw);
+
+        console.log('Updating state with completed draw:', latestCompletedDraw.drawId);
+        if (setSharedDrawId) {
+          console.log('Setting shared draw ID to:', latestCompletedDraw.drawId);
+          setSharedDrawId(latestCompletedDraw.drawId);
+        }
+        console.log('Setting home draw ID to:', latestCompletedDraw.drawId);
+        setHomeDrawId(latestCompletedDraw.drawId);
+      } else {
+        console.log('No draws available, resetting state');
+        if (setSharedDrawId) {
+          setSharedDrawId(undefined);
+        }
+        setHomeDrawId(undefined);
+      }
+    }
+  }, [seriesDraws, setHomeDrawId, setSharedDrawId]);
+
+  // Handle series change
   const handleSeriesChange = (value: string) => {
     const newSeriesIndex = parseInt(value);
-    console.log('=== HeroBanner Series Change ===');
-    console.log('Old series index:', sharedSeriesIndex);
-    console.log('New series index:', newSeriesIndex);
+    console.log('=== SERIES CHANGE HANDLER ===');
+    console.log('Current state:', {
+      oldSeriesIndex: sharedSeriesIndex,
+      newSeriesIndex,
+      currentDrawId: homeDrawId
+    });
     
+    // Update series index
     if (setSharedSeriesIndex) {
+      console.log('Updating series index to:', newSeriesIndex);
       setSharedSeriesIndex(newSeriesIndex);
     }
-    
+
+    // Reset draw IDs to trigger the effect
+    console.log('Resetting draw IDs');
     if (setSharedDrawId) {
       setSharedDrawId(undefined);
+    }
+    if (setHomeDrawId) {
+      setHomeDrawId(undefined);
     }
   };
   
@@ -339,7 +431,7 @@ export default function HeroBanner({
                           ) : seriesDraws && seriesDraws.length > 0 ? (
                             seriesDraws.filter(draw => draw.drawId !== 0).map((draw) => (
                               <SelectItem key={draw.drawId} value={draw.drawId.toString()}>
-                                Draw #{draw.drawId} {!draw.completed ? ' (Active)' : ''}
+                                Draw #{draw.drawId} {draw.completed ? '(Completed)' : '(Active)'}
                               </SelectItem>
                             ))
                           ) : (
