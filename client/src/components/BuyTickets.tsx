@@ -8,7 +8,6 @@ import { NumberSelectionGrid } from './NumberSelectionGrid';
 import BuyConfirmationModal from './modals/BuyConfirmationModal';
 import TransactionPendingModal from './modals/TransactionPendingModal';
 import TransactionSuccessModal from './modals/TransactionSuccessModal';
-import WalletModal from './modals/WalletModal';
 import TicketReconfirmationModal from './modals/TicketReconfirmationModal';
 
 // Stable default numbers for non-connected state
@@ -38,7 +37,6 @@ const BuyTickets = React.memo(function BuyTickets({
   const [activeTicketIndex, setActiveTicketIndex] = useState(0);
   
   // UI states
-  const [showWalletModal, setShowWalletModal] = useState(false);
   const [showBuyConfirmModal, setShowBuyConfirmModal] = useState(false);
   const [showPendingModal, setShowPendingModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -262,7 +260,11 @@ const BuyTickets = React.memo(function BuyTickets({
   // Handle buy click
   const handleBuyClick = async () => {
     if (!isConnected) {
-      setShowWalletModal(true);
+      toast({
+        title: "Wallet Not Connected",
+        description: "Please connect your wallet to buy tickets",
+        variant: "destructive"
+      });
       return;
     }
     
@@ -740,11 +742,10 @@ const BuyTickets = React.memo(function BuyTickets({
             {/* Buy Button */}
             {!isConnected ? (
               <Button
-                onClick={() => setShowWalletModal(true)}
-                className="btn-glow w-full bg-gradient-to-r from-primary to-yellow-600 hover:from-yellow-600 hover:to-primary text-black font-bold rounded-lg py-5 h-14 text-lg transition-all shadow-lg"
+                disabled
+                className="w-full bg-gray-600 text-gray-300 font-bold rounded-lg py-5 h-14 text-lg transition-all shadow-lg cursor-not-allowed"
               >
-                <Wallet className="mr-2 h-5 w-5" />
-                Connect Wallet to Buy
+                Wallet Not Connected
               </Button>
             ) : !isDrawAvailable || isDrawCompleted ? (
               <Button
@@ -768,12 +769,6 @@ const BuyTickets = React.memo(function BuyTickets({
         {/* HOW IT WORKS Section */}
         {renderHowItWorks()}
       </div>
-      
-      {/* Modals */}
-      <WalletModal 
-        open={showWalletModal} 
-        onClose={() => setShowWalletModal(false)} 
-      />
       
       <BuyConfirmationModal
         open={showBuyConfirmModal}

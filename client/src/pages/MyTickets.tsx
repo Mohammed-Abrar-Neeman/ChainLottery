@@ -5,7 +5,6 @@ import { Label } from '@/components/ui/label';
 import { useToast } from "@/hooks/use-toast";
 import { useAppSettings } from '@/context/AppSettingsContext';
 import { ExternalLink, Ticket, AlertTriangle, Wallet, ChevronDown, RefreshCw, CheckCircle, Calendar } from 'lucide-react';
-import WalletModal from '@/components/modals/WalletModal';
 import { formatAddress } from '@/lib/web3';
 import { useLotteryContract } from '@/hooks/useLotteryContract';
 import { useAppKitAccount } from '@reown/appkit/react';
@@ -27,7 +26,6 @@ export default function MyTickets() {
   const { toast } = useToast();
   const { settings } = useAppSettings();
   const { address, isConnected } = useAppKitAccount();
-  const [showWalletModal, setShowWalletModal] = useState(false);
   const [isLoadingTickets, setIsLoadingTickets] = useState(false);
   const [ticketsError, setTicketsError] = useState<Error | null>(null);
   const [userTickets, setUserTickets] = useState<TicketData[]>([]);
@@ -168,17 +166,10 @@ export default function MyTickets() {
         <div className="bg-black/30 border border-primary/30 rounded-full p-4 mb-4">
           <Wallet className="h-10 w-10 text-primary" />
         </div>
-        <h1 className="text-2xl font-bold mb-2 bg-gradient-to-r from-primary to-amber-500 text-transparent bg-clip-text">Connect Your Wallet</h1>
+        <h1 className="text-2xl font-bold mb-2 bg-gradient-to-r from-primary to-amber-500 text-transparent bg-clip-text">Wallet Not Connected</h1>
         <p className="text-white/80 mb-6 max-w-md">
-          Connect your wallet to view your lottery tickets and transaction history.
+          Please connect your wallet to view your lottery tickets and transaction history.
         </p>
-        <Button 
-          onClick={() => setShowWalletModal(true)}
-          className="bg-primary hover:bg-amber-500 text-black font-semibold rounded-full px-8 py-3 transition shadow-gold"
-        >
-          Connect Wallet
-        </Button>
-        <WalletModal open={showWalletModal} onClose={() => setShowWalletModal(false)} />
       </div>
     );
   }
