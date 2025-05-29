@@ -35,7 +35,7 @@ const Layout = ({ children }: LayoutProps) => {
     <div className="min-h-screen flex flex-col">
       <Header />
       {isHomePage && <PromoBanner />}
-      <main className="container mx-auto px-4 py-8 flex-grow">
+      <main className="container mx-auto px-8 md:px-12 lg:px-16 py-8 flex-grow">
         {children}
       </main>
       <Footer />

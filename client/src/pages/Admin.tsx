@@ -8,9 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, KeyRound, ChevronRight, Lock, Unlock, RefreshCw, CheckCircle } from 'lucide-react';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { useAppSettings } from '@/context/AppSettingsContext';
 import { useAppKitProvider, useAppKitAccount } from "@reown/appkit/react";
 import { BrowserProvider, Contract } from "ethers";
 import { CONTRACTS, LOTTERY_ABI } from '@/config/contracts';
@@ -20,7 +18,6 @@ import { useLotteryContract } from '@/hooks/useLotteryContract';
 export default function Admin() {
   // Initialize toast
   const { toast } = useToast();
-  const { settings, updateShowSeriesDropdown, resetSettings } = useAppSettings();
   
   // Basic state management
   const [activeTab, setActiveTab] = useState('series');
@@ -34,6 +31,30 @@ export default function Admin() {
 
   // Add currentBlock state
   const [currentBlock, setCurrentBlock] = useState<number | null>(null);
+
+  // Draw form state
+  const [ticketPrice, setTicketPrice] = useState('0.01');
+  const [initialJackpot, setInitialJackpot] = useState('0.1');
+  const [drawTimeHours, setDrawTimeHours] = useState(48);
+  const [seriesIndex, setSeriesIndex] = useState(0);
+  const [futureBlock, setFutureBlock] = useState(0);
+  
+  // Complete draw form state
+  const [drawId, setDrawId] = useState('');
+  const [winningNumbers, setWinningNumbers] = useState(['', '', '', '', '', '']);
+  const [blockHash, setBlockHash] = useState('');
+  
+  // Series management state
+  const [newSeriesName, setNewSeriesName] = useState('');
+  const [seriesList, setSeriesList] = useState([
+    { index: 0, name: 'Default Series' },
+    { index: 1, name: 'Weekly Special' },
+    { index: 2, name: 'Monthly Jackpot' }
+  ]);
+  
+  // Add state for block gap
+  const [blockGap, setBlockGap] = useState<number>(0);
+  const [currentBlockGap, setCurrentBlockGap] = useState<number>(0);
 
   // Check admin status
   const checkAdminStatus = async () => {
@@ -65,33 +86,6 @@ export default function Admin() {
       setIsLoading(false);
     }
   }, [isConnected, address]);
-
-  // Draw form state
-  const [ticketPrice, setTicketPrice] = useState('0.01');
-  const [initialJackpot, setInitialJackpot] = useState('0.1');
-  const [drawTimeHours, setDrawTimeHours] = useState(48);
-  const [seriesIndex, setSeriesIndex] = useState(0);
-  const [futureBlock, setFutureBlock] = useState(0);
-  
-  // Complete draw form state
-  const [drawId, setDrawId] = useState('');
-  const [winningNumbers, setWinningNumbers] = useState(['', '', '', '', '', '']);
-  const [blockHash, setBlockHash] = useState('');
-  
-  // Series management state
-  const [newSeriesName, setNewSeriesName] = useState('');
-  const [seriesList, setSeriesList] = useState([
-    { index: 0, name: 'Default Series' },
-    { index: 1, name: 'Weekly Special' },
-    { index: 2, name: 'Monthly Jackpot' }
-  ]);
-  
-  // Settings state
-  const [showSeriesDropdown, setShowSeriesDropdown] = useState(true);
-  
-  // Add state for block gap
-  const [blockGap, setBlockGap] = useState<number>(0);
-  const [currentBlockGap, setCurrentBlockGap] = useState<number>(0);
 
   // Function to get current block gap
   const getCurrentBlockGap = async () => {
@@ -505,68 +499,6 @@ export default function Admin() {
     }
   }, [isConnected, isAdmin]);
 
-  // Add this section in your render method where you show the settings
-  const renderSettingsTab = () => (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>UI Settings</CardTitle>
-          <CardDescription>Configure the user interface settings</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Series Dropdown</Label>
-                <p className="text-sm text-muted-foreground">
-                  Show or hide the series selection dropdown in the UI
-                </p>
-              </div>
-              <Switch 
-                id="show-series" 
-                className="ml-4"
-                checked={settings.showSeriesDropdown}
-                onCheckedChange={(checked) => {
-                  try {
-                    updateShowSeriesDropdown(checked);
-                    toast({
-                      title: "Setting Updated",
-                      description: `Series dropdown will now be ${checked ? 'shown' : 'hidden'} to users`,
-                      duration: 3000,
-                    });
-                  } catch (error) {
-                    console.error("Error updating series dropdown setting:", error);
-                    toast({
-                      title: "Error",
-                      description: "Failed to update setting. Please try again.",
-                      variant: "destructive",
-                      duration: 3000,
-                    });
-                  }
-                }}
-              />
-            </div>
-          </div>
-        </CardContent>
-        <CardFooter>
-          <Button
-            variant="outline"
-            onClick={() => {
-              resetSettings();
-              toast({
-                title: "Settings Reset",
-                description: "All settings have been reset to default values",
-                duration: 3000,
-              });
-            }}
-          >
-            Reset to Defaults
-          </Button>
-        </CardFooter>
-      </Card>
-    </div>
-  );
-
   // Show loading state
   if (isLoading) {
     return (
@@ -640,12 +572,11 @@ export default function Admin() {
       </div>
       
       <Tabs defaultValue="series" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-5 mb-6">
+        <TabsList className="grid grid-cols-4 mb-6">
           <TabsTrigger value="complete">Complete Draw</TabsTrigger>
           <TabsTrigger value="block-hash">Complete w/ Hash</TabsTrigger>
           <TabsTrigger value="block-gap">Block Gap</TabsTrigger>
           <TabsTrigger value="series">Manage Series</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
         
         {/* Complete Draw Tab */}
@@ -1055,11 +986,6 @@ export default function Admin() {
               </CardFooter>
             </Card>
           </div>
-        </TabsContent>
-
-        {/* Settings Tab */}
-        <TabsContent value="settings">
-          {renderSettingsTab()}
         </TabsContent>
       </Tabs>
     </div>

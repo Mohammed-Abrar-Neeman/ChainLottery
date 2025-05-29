@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from '@/components/ui/label';
 import { useToast } from "@/hooks/use-toast";
-import { useAppSettings } from '@/context/AppSettingsContext';
 import { ExternalLink, Ticket, AlertTriangle, Wallet, ChevronDown, RefreshCw, CheckCircle, Calendar } from 'lucide-react';
 import { formatAddress } from '@/lib/web3';
 import { useLotteryContract } from '@/hooks/useLotteryContract';
@@ -24,7 +23,6 @@ interface TicketData {
 
 export default function MyTickets() {
   const { toast } = useToast();
-  const { settings } = useAppSettings();
   const { address, isConnected } = useAppKitAccount();
   const [isLoadingTickets, setIsLoadingTickets] = useState(false);
   const [ticketsError, setTicketsError] = useState<Error | null>(null);
@@ -218,48 +216,41 @@ export default function MyTickets() {
         
         {/* Selection Controls */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
-          {settings.showSeriesDropdown && (
-            <div>
-              <Label htmlFor="series-select" className="text-sm font-bold mb-2 block text-primary uppercase tracking-wider">Series</Label>
-              <Select
-                value={localSeriesIndex?.toString()}
-                onValueChange={(value) => {
-                  setLocalSeriesIndex(Number(value));
-                  setLocalDrawId(undefined);
-                }}
-              >
-                <SelectTrigger id="series-select" className="w-full bg-black/30 border-primary/20 text-white">
-                  <SelectValue placeholder="Select series" />
-                </SelectTrigger>
-                <SelectContent className="bg-black/90 border-primary/20">
-                  {seriesList.map((series) => (
-                    <SelectItem key={series.index} value={series.index.toString()}>
-                      {series.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          <div>
+            <Label htmlFor="series-select" className="text-sm font-bold mb-2 block text-primary uppercase tracking-wider">Series</Label>
+            <Select
+              value={localSeriesIndex?.toString()}
+              onValueChange={(value) => {
+                setLocalSeriesIndex(Number(value));
+                setLocalDrawId(undefined);
+              }}
+            >
+              <SelectTrigger id="series-select" className="w-full bg-black/30 border-primary/20 text-white">
+                <SelectValue placeholder="Select series" />
+              </SelectTrigger>
+              <SelectContent className="bg-black/90 border-primary/20">
+                {seriesList.map((series) => (
+                  <SelectItem key={series.index} value={series.index.toString()}>
+                    {series.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           
-          <div className={settings.showSeriesDropdown ? "" : "md:col-span-2"}>
-            <Label htmlFor="draw-select" className="text-sm font-bold mb-2 block text-primary uppercase tracking-wider">
-              {settings.showSeriesDropdown ? "Draw" : "Current Draw"}
-            </Label>
+          <div>
+            <Label htmlFor="draw-select" className="text-sm font-bold mb-2 block text-primary uppercase tracking-wider">Draw</Label>
             <Select
               value={localDrawId?.toString()}
               onValueChange={(value) => setLocalDrawId(Number(value))}
             >
               <SelectTrigger id="draw-select" className="w-full bg-black/30 border-primary/20 text-white">
-                <div className="flex items-center">
-                  <Calendar className="h-4 w-4 mr-2 text-primary/70" />
-                  <SelectValue placeholder="Select draw" />
-                </div>
+                <SelectValue placeholder="Select draw" />
               </SelectTrigger>
               <SelectContent className="bg-black/90 border-primary/20">
                 {drawsList.map((draw) => (
                   <SelectItem key={draw.drawId} value={draw.drawId.toString()}>
-                    Draw #{draw.drawId}
+                    Draw #{draw.drawId} {draw.completed ? '(Completed)' : '(Active)'}
                   </SelectItem>
                 ))}
               </SelectContent>

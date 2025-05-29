@@ -7,7 +7,6 @@ import MyTickets from "@/pages/MyTickets";
 import History from "@/pages/History";
 import FAQ from "@/pages/FAQ";
 import Admin from "@/pages/Admin";
-import { AppSettingsProvider } from "./context/AppSettingsContext";
 import { WalletProvider } from "./context/WalletContext";
 
 function Router() {
@@ -37,10 +36,8 @@ function AppContent() {
 function App() {
   return (
     <WalletProvider cookies={null}>
-        <AppSettingsProvider>
           <AppContent />
           <Toaster />
-        </AppSettingsProvider>
     </WalletProvider>
   );
 }

@@ -30,8 +30,8 @@ export default function Footer() {
   };
   
   return (
-    <footer className="bg-secondary text-white py-12">
-      <div className="container mx-auto px-4">
+    <footer className="bg-card border-t border-border">
+      <div className="container mx-auto px-8 md:px-12 lg:px-16 py-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
             <div className="flex items-center mb-6">

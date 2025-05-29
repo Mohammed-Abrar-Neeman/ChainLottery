@@ -96,13 +96,9 @@ export default function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50">
-      {/* Gold accent bar */}
-      <div className="h-1 w-full bg-gradient-to-r from-primary/30 via-primary to-primary/30"></div>
-      
-      {/* Header main content */}
-      <div className="bg-secondary/95 backdrop-blur-md border-b border-primary/20 shadow-md">
-        <div className="container mx-auto px-4 py-3 flex flex-wrap items-center justify-between">
+    <header className="bg-card border-b border-border">
+      <div className="container mx-auto px-8 md:px-12 lg:px-16">
+        <nav className="flex items-center justify-between h-16">
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/">
@@ -172,7 +168,7 @@ export default function Header() {
               <appkit-button/>
             </div>
           </div>
-        </div>
+        </nav>
       </div>
       
       {/* Mobile Navigation Menu */}

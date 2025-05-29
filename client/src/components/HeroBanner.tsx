@@ -2,7 +2,6 @@ import React, { Dispatch, SetStateAction, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { useLotteryContract } from '@/hooks/useLotteryContract';
-import { useAppSettings } from '@/context/AppSettingsContext';
 import { Calendar } from 'lucide-react';
 import {
   Select,
@@ -70,7 +69,6 @@ export default function HeroBanner({
 
   const { getLotteryData, getSeriesList, getSeriesDraws } = useLotteryContract();
   const { address, isConnected } = useAppKitAccount();
-  const { settings } = useAppSettings();
   const [showWalletModal, setShowWalletModal] = React.useState(false);
 
   // Fetch lottery data for the selected series and draw
@@ -376,103 +374,69 @@ export default function HeroBanner({
             <div className="bg-card bg-opacity-90 pt-16 pb-8 px-8 lg:px-12 h-full flex flex-col border-l border-primary/20">
               {/* Series and Draw Selection */}
               <div className="mb-6 flex space-x-4">
-                {settings.showSeriesDropdown ? (
-                  <>
-                    <div className="w-1/2">
-                      <label className="text-sm font-mono uppercase tracking-wider text-primary mb-1 block">
-                        Series
-                      </label>
-                      <Select
-                        value={sharedSeriesIndex?.toString() || "0"}
-                        onValueChange={handleSeriesChange}
-                        disabled={isLoading}
-                      >
-                        <SelectTrigger className="bg-secondary border border-primary/30 text-white">
-                          <SelectValue placeholder={isLoading ? "Loading..." : "Select series"} />
-                        </SelectTrigger>
-                        <SelectContent className="border border-primary/30">
-                          {isLoading ? (
-                            <SelectItem key="loading" value="0" disabled>
-                              Loading...
-                            </SelectItem>
-                          ) : seriesList && seriesList.length > 0 ? (
-                            seriesList.map((series) => (
-                              <SelectItem key={series.index} value={series.index.toString()}>
-                                {series.name}
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <SelectItem key="no-data" value="0" disabled>
-                              No Series Available
-                            </SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div className="w-1/2">
-                      <label className="text-sm font-mono uppercase tracking-wider text-primary mb-1 block">
-                        Draw
-                      </label>
-                      <Select
-                        value={sharedDrawId?.toString() || "1"}
-                        onValueChange={handleDrawChange}
-                        disabled={isLoading}
-                      >
-                        <SelectTrigger className="bg-secondary border border-primary/30 text-white">
-                          <SelectValue placeholder={isLoading ? "Loading..." : "Select draw"} />
-                        </SelectTrigger>
-                        <SelectContent className="border border-primary/30">
-                          {isLoading ? (
-                            <SelectItem key="loading" value="1" disabled>
-                              Loading...
-                            </SelectItem>
-                          ) : seriesDraws && seriesDraws.length > 0 ? (
-                            seriesDraws.filter(draw => draw.drawId !== 0).map((draw) => (
-                              <SelectItem key={draw.drawId} value={draw.drawId.toString()}>
-                                Draw #{draw.drawId} {draw.completed ? '(Completed)' : '(Active)'}
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <SelectItem key="no-draws" value="1" disabled>
-                              No Draws Available
-                            </SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </>
-                ) : (
-                  <div className="w-full">
-                    <label className="text-sm font-mono uppercase tracking-wider text-primary mb-1 block">
-                      Current Draw
-                    </label>
-                    <Select
-                      value={sharedDrawId?.toString() || "1"}
-                      onValueChange={handleDrawChange}
-                    >
-                      <SelectTrigger className="bg-secondary border border-primary/30 text-white">
-                        <div className="flex items-center">
-                          <Calendar className="h-4 w-4 mr-2 text-primary/70" />
-                          <SelectValue placeholder="Select draw" />
-                        </div>
-                      </SelectTrigger>
-                      <SelectContent className="border border-primary/30">
-                        {seriesDraws && seriesDraws.length > 0 ? (
-                          seriesDraws.filter(draw => draw.drawId !== 0).map((draw) => (
-                            <SelectItem key={draw.drawId} value={draw.drawId.toString()}>
-                              Draw #{draw.drawId} ({getDrawDate(seriesDraws, draw.drawId)})
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <SelectItem key="no-draws" value="1" disabled>
-                            No draws available
+                <div className="w-1/2">
+                  <label className="text-sm font-mono uppercase tracking-wider text-primary mb-1 block">
+                    Series
+                  </label>
+                  <Select
+                    value={sharedSeriesIndex?.toString() || "0"}
+                    onValueChange={handleSeriesChange}
+                    disabled={isLoading}
+                  >
+                    <SelectTrigger className="bg-secondary border border-primary/30 text-white">
+                      <SelectValue placeholder={isLoading ? "Loading..." : "Select series"} />
+                    </SelectTrigger>
+                    <SelectContent className="border border-primary/30">
+                      {isLoading ? (
+                        <SelectItem key="loading" value="0" disabled>
+                          Loading...
+                        </SelectItem>
+                      ) : seriesList && seriesList.length > 0 ? (
+                        seriesList.map((series) => (
+                          <SelectItem key={series.index} value={series.index.toString()}>
+                            {series.name}
                           </SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                        ))
+                      ) : (
+                        <SelectItem key="no-data" value="0" disabled>
+                          No Series Available
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="w-1/2">
+                  <label className="text-sm font-mono uppercase tracking-wider text-primary mb-1 block">
+                    Draw
+                  </label>
+                  <Select
+                    value={sharedDrawId?.toString() || "1"}
+                    onValueChange={handleDrawChange}
+                    disabled={isLoading}
+                  >
+                    <SelectTrigger className="bg-secondary border border-primary/30 text-white">
+                      <SelectValue placeholder={isLoading ? "Loading..." : "Select draw"} />
+                    </SelectTrigger>
+                    <SelectContent className="border border-primary/30">
+                      {isLoading ? (
+                        <SelectItem key="loading" value="1" disabled>
+                          Loading...
+                        </SelectItem>
+                      ) : seriesDraws && seriesDraws.length > 0 ? (
+                        seriesDraws.filter(draw => draw.drawId !== 0).map((draw) => (
+                          <SelectItem key={draw.drawId} value={draw.drawId.toString()}>
+                            Draw #{draw.drawId} {draw.completed ? '(Completed)' : '(Active)'}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem key="no-draws" value="1" disabled>
+                          No Draws Available
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               
               <div className="flex-1">
