@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { Wallet, Menu, X, ShieldCheck, Ticket, Home, History, HelpCircle } from 'lucide-react';
+import { Wallet, Menu, X, ShieldCheck, Ticket, Home, History, HelpCircle, BookOpen } from 'lucide-react';
 import { useAppKitAccount } from "@reown/appkit/react";
 import { useLotteryContract } from '@/hooks/useLotteryContract';
 
@@ -159,6 +159,12 @@ export default function Header() {
                 FAQ
               </span>
             } />
+            <NavLink href="/blogs" label={
+              <span className="flex items-center px-3 py-2 rounded-md hover:bg-white/5">
+                <BookOpen className="mr-1.5 h-4 w-4" />
+                Blogs
+              </span>
+            } />
             <AdminMenuItem />
           </nav>
 
@@ -197,6 +203,12 @@ export default function Header() {
               <span className="flex items-center">
                 <HelpCircle className="mr-2 h-5 w-5" />
                 FAQ
+              </span>
+            } isMobile />
+            <NavLink href="/blogs" label={
+              <span className="flex items-center">
+                <BookOpen className="mr-2 h-5 w-5" />
+                Blogs
               </span>
             } isMobile />
             <AdminMenuItem isMobile />

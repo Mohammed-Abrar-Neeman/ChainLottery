@@ -7,6 +7,8 @@ import MyTickets from "@/pages/MyTickets";
 import History from "@/pages/History";
 import FAQ from "@/pages/FAQ";
 import Admin from "@/pages/Admin";
+import Blogs from "@/pages/Blogs";
+import BlogPost from "@/pages/BlogPost";
 import { WalletProvider } from "./context/WalletContext";
 
 function Router() {
@@ -18,6 +20,8 @@ function Router() {
       <Route path="/history" component={History} />
       <Route path="/faq" component={FAQ} />
       <Route path="/admin" component={Admin} />
+      <Route path="/blogs" component={Blogs} />
+      <Route path="/blogs/:id" component={BlogPost} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>
