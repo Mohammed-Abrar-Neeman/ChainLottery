@@ -15,8 +15,8 @@ if (!projectId) {
 
 // Set up metadata
 const metadata = {
-  name: 'Chain-Lottery',
-  description: 'Chain-Lottery',
+  name: 'Chain-Lotto',
+  description: 'Chain-Lotto',
   url: 'https://github.com/0xonerb/next-reown-appkit-ssr', // origin must match your domain & subdomain
   icons: ['https://avatars.githubusercontent.com/u/179229932']
 };

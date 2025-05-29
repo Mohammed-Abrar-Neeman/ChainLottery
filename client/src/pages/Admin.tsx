@@ -20,7 +20,7 @@ import { useLotteryContract } from '@/hooks/useLotteryContract';
 export default function Admin() {
   // Initialize toast
   const { toast } = useToast();
-  const { settings, updateShowSeriesDropdown } = useAppSettings();
+  const { settings, updateShowSeriesDropdown, resetSettings } = useAppSettings();
   
   // Basic state management
   const [activeTab, setActiveTab] = useState('series');
@@ -504,6 +504,68 @@ export default function Admin() {
       refreshSeriesList();
     }
   }, [isConnected, isAdmin]);
+
+  // Add this section in your render method where you show the settings
+  const renderSettingsTab = () => (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>UI Settings</CardTitle>
+          <CardDescription>Configure the user interface settings</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Series Dropdown</Label>
+                <p className="text-sm text-muted-foreground">
+                  Show or hide the series selection dropdown in the UI
+                </p>
+              </div>
+              <Switch 
+                id="show-series" 
+                className="ml-4"
+                checked={settings.showSeriesDropdown}
+                onCheckedChange={(checked) => {
+                  try {
+                    updateShowSeriesDropdown(checked);
+                    toast({
+                      title: "Setting Updated",
+                      description: `Series dropdown will now be ${checked ? 'shown' : 'hidden'} to users`,
+                      duration: 3000,
+                    });
+                  } catch (error) {
+                    console.error("Error updating series dropdown setting:", error);
+                    toast({
+                      title: "Error",
+                      description: "Failed to update setting. Please try again.",
+                      variant: "destructive",
+                      duration: 3000,
+                    });
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </CardContent>
+        <CardFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              resetSettings();
+              toast({
+                title: "Settings Reset",
+                description: "All settings have been reset to default values",
+                duration: 3000,
+              });
+            }}
+          >
+            Reset to Defaults
+          </Button>
+        </CardFooter>
+      </Card>
+    </div>
+  );
 
   // Show loading state
   if (isLoading) {
@@ -997,91 +1059,7 @@ export default function Admin() {
 
         {/* Settings Tab */}
         <TabsContent value="settings">
-          <Card>
-            <CardHeader>
-              <CardTitle>UI Settings</CardTitle>
-              <CardDescription>
-                Configure display options for the lottery interface
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="show-series" className="font-medium">Show Series Dropdown</Label>
-                    <p className="text-sm text-muted-foreground">
-                      When disabled, users will only see the selected draw date instead of series selection
-                    </p>
-                  </div>
-                  <Switch 
-                    id="show-series" 
-                    className="ml-4"
-                    checked={settings.showSeriesDropdown}
-                    onCheckedChange={async (checked) => {
-                      try {
-                        // Update the setting via context
-                        await updateShowSeriesDropdown(checked);
-                        console.log("Series dropdown visibility changed to:", checked);
-                        
-                        // Show toast notification
-                        toast({
-                          title: "Setting Updated",
-                          description: `Series dropdown will now be ${checked ? 'shown' : 'hidden'} to users`,
-                          duration: 3000,
-                        });
-                      } catch (error) {
-                        console.error("Error updating series dropdown setting:", error);
-                        toast({
-                          title: "Error",
-                          description: "Failed to update setting. Please try again.",
-                          variant: "destructive",
-                          duration: 3000,
-                        });
-                      }
-                    }}
-                  />
-                </div>
-                
-                <div className="mt-6 p-4 bg-card/80 border rounded-md">
-                  <p className="text-sm font-medium mb-2">Preview</p>
-                  <div className="flex flex-col md:flex-row gap-4 border border-dashed border-muted-foreground/50 p-4 rounded-md">
-                    <div className="md:w-1/2">
-                      <p className="text-sm text-muted-foreground mb-1">
-                        With Series Dropdown {settings.showSeriesDropdown ? "(Current)" : ""}
-                      </p>
-                      <div className="space-y-2 border p-3 rounded-md">
-                        <Label className="text-xs">Series</Label>
-                        <div className="h-9 bg-input rounded-md flex items-center px-3 text-sm">
-                          Beginner Series
-                        </div>
-                        <Label className="text-xs">Draw</Label>
-                        <div className="h-9 bg-input rounded-md flex items-center px-3 text-sm">
-                          Draw #1
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="md:w-1/2">
-                      <p className="text-sm text-muted-foreground mb-1">
-                        Without Series Dropdown {!settings.showSeriesDropdown ? "(Current)" : ""}
-                      </p>
-                      <div className="space-y-2 border p-3 rounded-md">
-                        <Label className="text-xs">Current Draw</Label>
-                        <div className="h-9 bg-input rounded-md flex items-center px-3 text-sm font-medium">
-                          Draw #1 (04/22/25)
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="flex justify-end border-t pt-6">
-              <p className="text-sm text-muted-foreground">
-                Settings are automatically saved when changed
-              </p>
-            </CardFooter>
-          </Card>
+          {renderSettingsTab()}
         </TabsContent>
       </Tabs>
     </div>

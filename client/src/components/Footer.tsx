@@ -2,39 +2,31 @@ import React from 'react';
 import { Link } from 'wouter';
 import { Twitter, Github, ExternalLink } from 'lucide-react';
 import { FaDiscord, FaTelegram } from 'react-icons/fa';
-import { ACTIVE_LOTTERY_CONTRACT_ADDRESS, DEFAULT_CHAIN_ID, CHAIN_IDS } from '@shared/contracts';
+import { DEFAULT_NETWORK, CHAIN_IDS, getLotteryAddress } from '@/config/networks';
 
 export default function Footer() {
   // Determine the correct Etherscan URL based on the network
   const getEtherscanUrl = () => {
-    switch (DEFAULT_CHAIN_ID) {
-      case CHAIN_IDS.MAINNET:
-        return `https://etherscan.io/address/${ACTIVE_LOTTERY_CONTRACT_ADDRESS}`;
-      case CHAIN_IDS.SEPOLIA:
-        return `https://sepolia.etherscan.io/address/${ACTIVE_LOTTERY_CONTRACT_ADDRESS}`;
-      case CHAIN_IDS.GOERLI:
-        return `https://goerli.etherscan.io/address/${ACTIVE_LOTTERY_CONTRACT_ADDRESS}`;
-      case CHAIN_IDS.BSC_TESTNET:
-        return `https://testnet.bscscan.com/address/${ACTIVE_LOTTERY_CONTRACT_ADDRESS}`;
+    const contractAddress = getLotteryAddress();
+    switch (DEFAULT_NETWORK.chainId) {
+      case Number(CHAIN_IDS.MAINNET):
+        return `https://etherscan.io/address/${contractAddress}`;
+      case Number(CHAIN_IDS.SEPOLIA):
+        return `https://sepolia.etherscan.io/address/${contractAddress}`;
+      case Number(CHAIN_IDS.GOERLI):
+        return `https://goerli.etherscan.io/address/${contractAddress}`;
+      case Number(CHAIN_IDS.BSC_TESTNET):
+        return `https://testnet.bscscan.com/address/${contractAddress}`;
+      case Number(CHAIN_IDS.BSC_MAINNET):
+        return `https://bscscan.com/address/${contractAddress}`;
       default:
-        return `https://testnet.bscscan.com/address/${ACTIVE_LOTTERY_CONTRACT_ADDRESS}`;
+        return `https://testnet.bscscan.com/address/${contractAddress}`;
     }
   };
 
   // Get the network name to display
   const getNetworkName = () => {
-    switch (DEFAULT_CHAIN_ID) {
-      case CHAIN_IDS.MAINNET:
-        return 'Ethereum Mainnet';
-      case CHAIN_IDS.SEPOLIA:
-        return 'Sepolia Testnet';
-      case CHAIN_IDS.GOERLI:
-        return 'Goerli Testnet';
-      case CHAIN_IDS.BSC_TESTNET:
-        return 'BSC Testnet';
-      default:
-        return 'BSC Testnet';
-    }
+    return DEFAULT_NETWORK.name;
   };
   
   return (
@@ -118,10 +110,9 @@ export default function Footer() {
                 </a>
               </div>
               <div className="font-mono text-sm break-all">
-                {ACTIVE_LOTTERY_CONTRACT_ADDRESS}
+                {getLotteryAddress()}
               </div>
             </div>
-
           </div>
         </div>
         

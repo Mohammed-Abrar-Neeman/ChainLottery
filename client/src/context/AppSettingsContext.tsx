@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 // Define the app settings interface
 interface AppSettings {
   showSeriesDropdown: boolean;
+  // Add more settings here as needed
 }
 
 // Default settings
@@ -15,11 +16,15 @@ interface AppSettingsContextType {
   settings: AppSettings;
   loading: boolean;
   error: Error | null;
-  updateShowSeriesDropdown: (show: boolean) => Promise<void>;
+  updateShowSeriesDropdown: (show: boolean) => void;
+  resetSettings: () => void;
 }
 
 // Create the context
 const AppSettingsContext = createContext<AppSettingsContextType | undefined>(undefined);
+
+// Local storage key
+const STORAGE_KEY = 'app_settings';
 
 // Custom hook to use the app settings context
 export const useAppSettings = () => {
@@ -40,56 +45,55 @@ export const AppSettingsProvider: React.FC<AppSettingsProviderProps> = ({ childr
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
 
-  // Fetch the settings on component mount
+  // Load settings from localStorage on mount
   useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch('/api/settings');
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch settings: ${response.status} ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        setSettings(data);
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching app settings:', err);
-        setError(err instanceof Error ? err : new Error('Failed to fetch app settings'));
-      } finally {
-        setLoading(false);
+    try {
+      setLoading(true);
+      const storedSettings = localStorage.getItem(STORAGE_KEY);
+      
+      if (storedSettings) {
+        const parsedSettings = JSON.parse(storedSettings);
+        // Merge with defaults to ensure all settings exist
+        setSettings({ ...defaultSettings, ...parsedSettings });
+      } else {
+        // If no stored settings, save defaults
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultSettings));
+        setSettings(defaultSettings);
       }
-    };
-
-    fetchSettings();
+      
+      setError(null);
+    } catch (err) {
+      console.error('Error loading app settings:', err);
+      setError(err instanceof Error ? err : new Error('Failed to load app settings'));
+      // Fallback to default settings
+      setSettings(defaultSettings);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   // Function to update the series dropdown visibility setting
-  const updateShowSeriesDropdown = async (show: boolean): Promise<void> => {
+  const updateShowSeriesDropdown = (show: boolean): void => {
     try {
-      setLoading(true);
-      const response = await fetch('/api/settings/seriesDropdown', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ showSeriesDropdown: show }),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to update settings: ${response.status} ${response.statusText}`);
-      }
-      
-      const updatedSettings = await response.json();
-      setSettings(updatedSettings);
+      const newSettings = { ...settings, showSeriesDropdown: show };
+      setSettings(newSettings);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newSettings));
       setError(null);
     } catch (err) {
       console.error('Error updating series dropdown setting:', err);
       setError(err instanceof Error ? err : new Error('Failed to update series dropdown setting'));
-      throw err;
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  // Function to reset settings to defaults
+  const resetSettings = (): void => {
+    try {
+      setSettings(defaultSettings);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultSettings));
+      setError(null);
+    } catch (err) {
+      console.error('Error resetting settings:', err);
+      setError(err instanceof Error ? err : new Error('Failed to reset settings'));
     }
   };
 
@@ -99,6 +103,7 @@ export const AppSettingsProvider: React.FC<AppSettingsProviderProps> = ({ childr
     loading,
     error,
     updateShowSeriesDropdown,
+    resetSettings,
   };
 
   return (

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { X, TicketIcon, AlertTriangle, CheckCircle, ExternalLink, Calendar, Clock } from 'lucide-react';
-import { useLotteryData } from '@/hooks/useLotteryData';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -43,7 +42,6 @@ export default function TicketReconfirmationModal({
   seriesIndex,
   drawId
 }: TicketReconfirmationModalProps) {
-  const { formatUSD } = useLotteryData();
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [seriesName, setSeriesName] = useState<string>('');
   const [drawInfo, setDrawInfo] = useState<{

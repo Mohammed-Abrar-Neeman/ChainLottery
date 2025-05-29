@@ -11,8 +11,6 @@ console.log('Environment variables:', {
 });
 
 // Get projectId from https://cloud.reown.com
-// Temporarily hardcoded for development
-//export const projectId = 'b56e18d47c72ab683b10814fe9495694';
 
 // TODO: Replace with environment variable once .env.local is working
 export const projectId = process.env.NEXT_PUBLIC_PROJECT_ID || 'b56e18d47c72ab683b10814fe9495694';

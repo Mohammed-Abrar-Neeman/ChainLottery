@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { useLotteryContract } from '@/hooks/useLotteryContract';
 import { useAppSettings } from '@/context/AppSettingsContext';
 import { Calendar } from 'lucide-react';
-import WalletModal from './modals/WalletModal';
 import {
   Select,
   SelectContent,
@@ -573,8 +572,6 @@ export default function HeroBanner({
         </div>
       </div>
       
-      {/* Wallet connection modal */}
-      <WalletModal open={showWalletModal} onClose={() => setShowWalletModal(false)} />
     </section>
   );
 }

@@ -3,17 +3,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import HeroBanner from '@/components/HeroBanner';
 import LotteryStats from '@/components/LotteryStats';
 import BuyTickets from '@/components/BuyTickets';
-import ParticipantsList from '@/components/ParticipantsList';
 import PastWinners from '@/components/PastWinners';
 import FAQSection from '@/components/FAQSection';
 import { useLotteryContract } from '@/hooks/useLotteryContract';
-import { toast } from '@/hooks/use-toast';
 import { useAppKitAccount } from '@reown/appkit/react';
 
 export default function Home() {
   console.log('=== Home Component Render ===');
-  
-  const queryClient = useQueryClient();
   const { isConnected, address } = useAppKitAccount();
   console.log('Wallet connection status:', { isConnected, address });
 
