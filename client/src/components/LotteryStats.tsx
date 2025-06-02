@@ -159,7 +159,7 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
             <h3 className="ml-4 text-xl font-semibold">Round</h3>
           </div>
           <p className="lotto-number text-3xl">
-            {selectedDraw && currentRound > 0 ? `#${currentRound}` : 'No Data'}
+            {currentRound > 0 ? `#${currentRound}` : 'No Data'}
           </p>
           <p className="text-gray-600 text-sm">
             {timeRemaining && timeRemaining.days === 0 && timeRemaining.hours === 0 && timeRemaining.minutes === 0 
