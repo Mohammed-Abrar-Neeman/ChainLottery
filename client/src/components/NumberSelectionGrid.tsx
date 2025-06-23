@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { RotateCcw } from 'lucide-react';
 
 interface NumberSelectionGridProps {
   onNumbersSelected: (numbers: number[], lottoNumber: number | null) => void;
@@ -13,54 +14,60 @@ export function NumberSelectionGrid({
   initialNumbers = [],
   initialLottoNumber = null
 }: NumberSelectionGridProps) {
-  const [selectedNumbers, setSelectedNumbers] = useState<number[]>(initialNumbers);
-  const [selectedLottoNumber, setSelectedLottoNumber] = useState<number | null>(initialLottoNumber);
-  
-  // Update parent when selections change
-  useEffect(() => {
-    onNumbersSelected(selectedNumbers, selectedLottoNumber);
-  }, [selectedNumbers, selectedLottoNumber, onNumbersSelected]);
-  
+  // Use props directly for controlled behavior
+  const selectedNumbers = initialNumbers;
+  const selectedLottoNumber = initialLottoNumber;
+
   // Handle main number selection
   const handleNumberClick = (num: number) => {
-    setSelectedNumbers(prev => {
-      if (prev.includes(num)) {
-        return prev.filter(n => n !== num);
-      }
-      if (prev.length < 5) {
-        return [...prev, num].sort((a, b) => a - b);
-      }
-      return prev;
-    });
+    let newNumbers;
+    if (selectedNumbers.length < 5) {
+      newNumbers = [...selectedNumbers, num];
+    } else {
+      newNumbers = [...selectedNumbers.slice(0, -1), num];
+    }
+    onNumbersSelected(newNumbers, selectedLottoNumber);
   };
-  
+
   // Handle LOTTO number selection
   const handleLottoNumberClick = (num: number) => {
-    setSelectedLottoNumber(prev => prev === num ? null : num);
+    onNumbersSelected(selectedNumbers, selectedLottoNumber === num ? null : num);
   };
-  
+
+  // Handle reset button click
+  const handleReset = () => {
+    onNumbersSelected([], null);
+  };
+
   // Generate main numbers grid (1-70)
   const renderMainNumbers = () => {
     const numbers = [];
     for (let i = 1; i <= 70; i++) {
+      const count = selectedNumbers.filter(n => n === i).length;
+      const isSelected = count > 0;
       numbers.push(
         <Button
           key={i}
-          variant={selectedNumbers.includes(i) ? "default" : "outline"}
-          className={`h-10 w-10 rounded-full p-0 text-sm font-medium transition-all ${
-            selectedNumbers.includes(i)
+          variant={isSelected ? "default" : "outline"}
+          className={`h-10 w-10 rounded-full p-0 text-sm font-medium transition-all relative ${
+            isSelected
               ? 'bg-primary text-black hover:bg-primary/90'
               : 'bg-black/50 text-white hover:bg-black/70'
           }`}
           onClick={() => handleNumberClick(i)}
         >
           {i < 10 ? `0${i}` : i}
+          {count > 1 && (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+              {count}
+            </span>
+          )}
         </Button>
       );
     }
     return numbers;
   };
-  
+
   // Generate LOTTO numbers grid (1-30)
   const renderLottoNumbers = () => {
     const numbers = [];
@@ -82,22 +89,34 @@ export function NumberSelectionGrid({
     }
     return numbers;
   };
-  
+
   return (
     <div className="space-y-8">
       {/* Main Numbers Selection */}
       <div>
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-bold text-white">Select 5 Main Numbers</h3>
-          <Badge variant="outline" className="text-white/70">
-            {selectedNumbers.length}/5 Selected
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-white/70">
+              {selectedNumbers.length}/5 Selected
+            </Badge>
+            {(selectedNumbers.length > 0 || selectedLottoNumber !== null) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleReset}
+                className="h-8 px-2 py-0 text-xs border-red-500/30 text-red-400 hover:bg-red-500/20 hover:text-red-300"
+              >
+                <RotateCcw className="h-3 w-3 mr-1" />
+                Reset
+              </Button>
+            )}
+          </div>
         </div>
         <div className="grid grid-cols-7 sm:grid-cols-10 gap-2">
           {renderMainNumbers()}
         </div>
       </div>
-      
       {/* LOTTO Number Selection */}
       <div>
         <div className="flex justify-between items-center mb-4">

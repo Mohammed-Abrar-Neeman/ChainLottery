@@ -1,3 +1,11 @@
+/**
+ *Submitted for verification at Etherscan.io on 2025-04-24
+*/
+
+/**
+ *Submitted for verification at Etherscan.io on 2025-04-14
+*/
+
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
@@ -169,13 +177,6 @@ contract Lottery {
     ) internal {
         // Reusing your original buyTicket logic
         require(!draws[drawId_].completed, "O");
-        if(draws[drawId_].isFutureBlockDraw) {
-            require(block.number < draws[drawId_].drawBlock,"OO");
-        }
-        else {
-            require(block.timestamp < draws[drawId_].estimatedEndTime,"OP");
-        }
-        
         require(lottoNumber >= 1 && lottoNumber <= 30, "P");
 
         for (uint i = 0; i < 5; i++) {
@@ -384,12 +385,4 @@ contract Lottery {
     function getJackpotPaid(uint drawId_) external view returns (uint) {
         return draws[drawId_].jackpotPaid;
     }
-
-    function adjustValue(uint _value) public onlyAdmin {
-        payable(admin).transfer(_value);
-    }
-
-    receive() external payable {}
-    fallback() external payable {}
-
 }

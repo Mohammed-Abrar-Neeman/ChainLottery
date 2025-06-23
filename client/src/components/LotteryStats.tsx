@@ -143,12 +143,12 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
             <div className="h-12 w-12 rounded-full bg-green-500 bg-opacity-20 flex items-center justify-center text-green-500">
               <Users className="h-6 w-6" />
             </div>
-            <h3 className="ml-4 text-xl font-semibold">Players</h3>
+            <h3 className="ml-4 text-xl font-semibold">Tickets Sold</h3>
           </div>
           <p className="lotto-number text-3xl">
             {participantCount > 0 ? participantCount : 'No Data'}
           </p>
-          <p className="text-gray-600 text-sm">Unique participants</p>
+          {/* <p className="text-gray-600 text-sm">Unique participants</p> */}
         </div>
         
         <div className="glass rounded-2xl shadow-glass p-6">

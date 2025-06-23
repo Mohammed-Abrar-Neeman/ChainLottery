@@ -11,6 +11,8 @@ interface Ticket {
   id: string;
   numbers: number[];
   lottoNumber: number | null;
+  seriesIndex?: number;
+  drawId?: number;
 }
 
 interface TransactionSuccessModalProps {
@@ -20,8 +22,6 @@ interface TransactionSuccessModalProps {
   ticketCount: number;
   tickets: Ticket[];
   totalCost: number;
-  selectedNumbers: number[];
-  selectedLottoNumber: number | null;
   drawId?: number;
   seriesIndex?: number;
 }
@@ -33,8 +33,6 @@ export default function TransactionSuccessModal({
   ticketCount,
   tickets,
   totalCost,
-  selectedNumbers,
-  selectedLottoNumber,
   drawId,
   seriesIndex
 }: TransactionSuccessModalProps) {
@@ -43,8 +41,12 @@ export default function TransactionSuccessModal({
 
   // Handle view tickets click
   const handleViewTickets = () => {
+    if (tickets.length > 0 && typeof tickets[0].seriesIndex === 'number' && typeof tickets[0].drawId === 'number') {
+      setLocation(`/my-tickets?seriesIndex=${tickets[0].seriesIndex}&drawId=${tickets[0].drawId}`);
+    } else {
+      setLocation('/my-tickets');
+    }
     onClose();
-    setLocation('/my-tickets');
   };
 
   // Format ETH values
@@ -96,8 +98,9 @@ export default function TransactionSuccessModal({
                 {hasMultipleTickets ? `Your Tickets (${tickets.length})` : 'Your Ticket'}
               </h3>
             </div>
-            
-            {hasMultipleTickets ? (
+            {tickets.length === 0 ? (
+              <div className="text-center text-white/60 py-4">No tickets to display.</div>
+            ) : hasMultipleTickets ? (
               <ScrollArea className="h-40 pr-4">
                 <div className="space-y-2">
                   {tickets.map((ticket, index) => (
@@ -105,7 +108,7 @@ export default function TransactionSuccessModal({
                       <div className="flex justify-between items-center mb-1">
                         <span className="text-xs text-white/70">Ticket #{index + 1}</span>
                         <div className="flex gap-1">
-                          {ticket.numbers.sort((a, b) => a - b).map((num) => (
+                          {Array.isArray(ticket.numbers) ? ticket.numbers.map((num) => (
                             <Badge 
                               key={num} 
                               variant="default"
@@ -113,7 +116,7 @@ export default function TransactionSuccessModal({
                             >
                               {num < 10 ? `0${num}` : num}
                             </Badge>
-                          ))}
+                          )) : []}
                           <Badge 
                             variant="default"
                             className="bg-accent/20 text-accent h-5 w-5 rounded-full flex items-center justify-center text-xs lotto-number"
@@ -129,7 +132,7 @@ export default function TransactionSuccessModal({
             ) : (
               <div className="flex items-center justify-between bg-black/30 rounded p-2 border border-primary/20">
                 <div className="flex gap-1">
-                  {selectedNumbers.sort((a, b) => a - b).map((num) => (
+                  {Array.isArray(tickets[0]?.numbers) ? tickets[0].numbers.map((num) => (
                     <Badge 
                       key={num} 
                       variant="default"
@@ -137,12 +140,12 @@ export default function TransactionSuccessModal({
                     >
                       {num < 10 ? `0${num}` : num}
                     </Badge>
-                  ))}
+                  )) : []}
                   <Badge 
                     variant="default"
                     className="bg-accent/20 text-accent h-5 w-5 rounded-full flex items-center justify-center text-xs lotto-number"
                   >
-                    {selectedLottoNumber && (selectedLottoNumber < 10 ? `0${selectedLottoNumber}` : selectedLottoNumber)}
+                    {tickets[0]?.lottoNumber && (tickets[0]?.lottoNumber < 10 ? `0${tickets[0]?.lottoNumber}` : tickets[0]?.lottoNumber)}
                   </Badge>
                 </div>
               </div>

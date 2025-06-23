@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Wallet, Shuffle, Plus, Calendar } from 'lucide-react';
 import { useAppKitAccount } from '@reown/appkit/react';
@@ -11,8 +11,8 @@ import TransactionSuccessModal from './modals/TransactionSuccessModal';
 import TicketReconfirmationModal from './modals/TicketReconfirmationModal';
 
 // Stable default numbers for non-connected state
-const DEFAULT_SELECTED_NUMBERS = [7, 14, 21, 42, 63];
-const DEFAULT_LOTTO_NUMBER = 17;
+const DEFAULT_SELECTED_NUMBERS: number[] = [];
+const DEFAULT_LOTTO_NUMBER: number | null = null;
 
 // Props interface for shared state
 interface BuyTicketsProps {
@@ -26,15 +26,16 @@ const BuyTickets = React.memo(function BuyTickets({
   sharedSeriesIndex,
   sharedDrawId
 }: BuyTicketsProps) {
-  // State for selected numbers (5 main numbers + 1 LOTTO number)
-  const [selectedNumbers, setSelectedNumbers] = useState<number[]>(DEFAULT_SELECTED_NUMBERS);
-  const [selectedLottoNumber, setSelectedLottoNumber] = useState<number | null>(DEFAULT_LOTTO_NUMBER);
-  
   // Multiple ticket system - each ticket has unique numbers
-  const [tickets, setTickets] = useState<Array<{id: string, numbers: number[], lottoNumber: number | null}>>([
-    {id: `ticket-${Date.now()}`, numbers: [...DEFAULT_SELECTED_NUMBERS], lottoNumber: DEFAULT_LOTTO_NUMBER}
+  const [tickets, setTickets] = useState<Array<{id: string, numbers: number[], lottoNumber: number | null, seriesIndex: number, drawId: number}>>([
+    {id: `ticket-${Date.now()}`, numbers: [], lottoNumber: null, seriesIndex: sharedSeriesIndex ?? 0, drawId: sharedDrawId ?? 0}
   ]);
   const [activeTicketIndex, setActiveTicketIndex] = useState(0);
+  // Ref to always have the latest activeTicketIndex
+  const activeTicketIndexRef = useRef(activeTicketIndex);
+  useEffect(() => {
+    activeTicketIndexRef.current = activeTicketIndex;
+  }, [activeTicketIndex]);
   
   // UI states
   const [showBuyConfirmModal, setShowBuyConfirmModal] = useState(false);
@@ -42,7 +43,6 @@ const BuyTickets = React.memo(function BuyTickets({
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [transactionHash, setTransactionHash] = useState('');
   const [ticketPrice, setTicketPrice] = useState(0);
-  const [gridKey, setGridKey] = useState(0);
   
   // Buy transaction states
   const [isBuying, setIsBuying] = useState(false);
@@ -61,6 +61,14 @@ const BuyTickets = React.memo(function BuyTickets({
   const [showReconfirmModal, setShowReconfirmModal] = useState(false);
   const [isDrawAvailable, setIsDrawAvailable] = useState(true);
   const [isDrawCompleted, setIsDrawCompleted] = useState(false);
+  
+  // Ref to track previous values and prevent infinite loops
+  const prevValuesRef = useRef<{numbers: number[], lottoNumber: number | null}>({numbers: [], lottoNumber: null});
+  
+  // Add purchasedTickets, purchasedSeriesIndex, and purchasedDrawId state
+  const [purchasedTickets, setPurchasedTickets] = useState<Array<{id: string, numbers: number[], lottoNumber: number | null, seriesIndex?: number, drawId?: number}>>([]);
+  const [purchasedSeriesIndex, setPurchasedSeriesIndex] = useState<number | null>(null);
+  const [purchasedDrawId, setPurchasedDrawId] = useState<number | null>(null);
   
   // Fetch ticket price when connected or draw changes
   useEffect(() => {
@@ -121,19 +129,18 @@ const BuyTickets = React.memo(function BuyTickets({
   
   // Add a new ticket to the list
   const addNewTicket = () => {
-    const quickPick = generateQuickPick(); // Generate new numbers for the new ticket
     const newTicketId = `ticket-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    setTickets(prev => [...prev, { 
-      id: newTicketId, 
-      numbers: quickPick.numbers,
-      lottoNumber: quickPick.lottoNumber
-    }]);
+    setTickets(prev => [
+      ...prev,
+      {
+        id: newTicketId,
+        numbers: [],
+        lottoNumber: null,
+        seriesIndex: sharedSeriesIndex ?? 0,
+        drawId: sharedDrawId ?? 0
+      }
+    ]);
     setActiveTicketIndex(tickets.length);
-    
-    // Update selected numbers to match the new ticket
-    setSelectedNumbers(quickPick.numbers);
-    setSelectedLottoNumber(quickPick.lottoNumber);
-    setGridKey(prev => prev + 1);
   };
   
   // Remove a ticket
@@ -163,8 +170,6 @@ const BuyTickets = React.memo(function BuyTickets({
       // If no tickets left, reset to defaults
       console.log('No tickets left, resetting to defaults');
       setActiveTicketIndex(0);
-      setSelectedNumbers([...DEFAULT_SELECTED_NUMBERS]);
-      setSelectedLottoNumber(DEFAULT_LOTTO_NUMBER);
     } else {
       // If we removed the active ticket
       if (ticketIndex === activeTicketIndex) {
@@ -172,9 +177,6 @@ const BuyTickets = React.memo(function BuyTickets({
         const newIndex = newTickets.length - 1;
         console.log('Setting new active ticket index:', newIndex);
         setActiveTicketIndex(newIndex);
-        // Use the numbers from the last remaining ticket
-        setSelectedNumbers([...newTickets[newIndex].numbers]);
-        setSelectedLottoNumber(newTickets[newIndex].lottoNumber);
       } else if (ticketIndex < activeTicketIndex) {
         // If we removed a ticket before the active one, adjust the active index
         console.log('Adjusting active ticket index');
@@ -182,9 +184,6 @@ const BuyTickets = React.memo(function BuyTickets({
       }
       // If we removed a ticket after the active one, no need to change anything
     }
-    
-    // Force grid refresh
-    setGridKey(prev => prev + 1);
     
     console.log('=== Ticket Removal Complete ===');
   };
@@ -198,64 +197,65 @@ const BuyTickets = React.memo(function BuyTickets({
     // Update active ticket index
     setActiveTicketIndex(index);
     
-    // Get the selected ticket's numbers
-    const selectedTicket = tickets[index];
-    console.log('Selected ticket:', selectedTicket);
-    
-    // Update the number selection grid with the selected ticket's numbers
-    setSelectedNumbers([...selectedTicket.numbers]);
-    setSelectedLottoNumber(selectedTicket.lottoNumber);
-    
-    // Force grid refresh
-    setGridKey(prev => prev + 1);
-    
     console.log('=== Ticket Selection Complete ===');
   };
   
   // Handle quick pick generation
   const handleQuickPick = useCallback(() => {
     const quickPick = generateQuickPick();
-    setSelectedNumbers(quickPick.numbers);
-    setSelectedLottoNumber(quickPick.lottoNumber);
-    setGridKey(prev => prev + 1);
     
     // Update active ticket
     setTickets(prev => {
+      const idx = activeTicketIndexRef.current;
       const newTickets = [...prev];
-      newTickets[activeTicketIndex] = {
-        ...newTickets[activeTicketIndex],
+      newTickets[idx] = {
+        ...newTickets[idx],
         numbers: quickPick.numbers,
-        lottoNumber: quickPick.lottoNumber
+        lottoNumber: quickPick.lottoNumber,
+        seriesIndex: sharedSeriesIndex ?? 0,
+        drawId: sharedDrawId ?? 0
       };
       return newTickets;
     });
-  }, [generateQuickPick, activeTicketIndex]);
+  }, [generateQuickPick, activeTicketIndex, sharedSeriesIndex, sharedDrawId]);
   
   // Handle number selection
-  const handleNumbersSelected = useCallback((numbers: number[], lottoNumber: number | null) => {
+  const handleNumbersSelected = (numbers: number[], lottoNumber: number | null) => {
     console.log('=== Updating Numbers ===');
     console.log('New numbers:', numbers);
     console.log('New lotto number:', lottoNumber);
-    console.log('Active ticket index:', activeTicketIndex);
+    console.log('Active ticket index:', activeTicketIndexRef.current);
     
-    // Update selected numbers state
-    setSelectedNumbers(numbers);
-    setSelectedLottoNumber(lottoNumber);
+    // Check if the values have actually changed to prevent infinite loops
+    const prevValues = prevValuesRef.current;
+    const numbersChanged = JSON.stringify(prevValues.numbers) !== JSON.stringify(numbers) ||
+                          prevValues.lottoNumber !== lottoNumber;
     
-    // Update the active ticket's numbers
+    if (!numbersChanged) {
+      console.log('Numbers unchanged, skipping update');
+      return;
+    }
+    
+    // Update the ref with new values
+    prevValuesRef.current = {numbers: [...numbers], lottoNumber};
+    
+    // Update the active ticket's numbers using the latest index
     setTickets(prev => {
+      const idx = activeTicketIndexRef.current;
       const newTickets = [...prev];
-      newTickets[activeTicketIndex] = {
-        ...newTickets[activeTicketIndex],
+      newTickets[idx] = {
+        ...newTickets[idx],
         numbers: [...numbers],
-        lottoNumber
+        lottoNumber,
+        seriesIndex: sharedSeriesIndex ?? 0,
+        drawId: sharedDrawId ?? 0
       };
       console.log('Updated tickets:', newTickets);
       return newTickets;
     });
     
     console.log('=== Numbers Update Complete ===');
-  }, [activeTicketIndex]);
+  };
 
   // Handle buy click
   const handleBuyClick = async () => {
@@ -268,7 +268,7 @@ const BuyTickets = React.memo(function BuyTickets({
       return;
     }
     
-    if (selectedNumbers.length !== 5 || selectedLottoNumber === null) {
+    if (tickets[activeTicketIndex]?.numbers.length !== 5 || tickets[activeTicketIndex]?.lottoNumber === null) {
       toast({
         title: "Invalid Selection",
         description: "Please select 5 main numbers and 1 LOTTO number.",
@@ -305,7 +305,7 @@ const BuyTickets = React.memo(function BuyTickets({
   
   // Handle initial confirmation
   const handleInitialConfirm = () => {
-    if (selectedNumbers.length !== 5 || selectedLottoNumber === null) {
+    if (tickets[activeTicketIndex]?.numbers.length !== 5 || tickets[activeTicketIndex]?.lottoNumber === null) {
       return;
     }
     
@@ -417,13 +417,20 @@ const BuyTickets = React.memo(function BuyTickets({
 
       setTransactionHash(result.txHash);
           setShowPendingModal(false);
+      setPurchasedTickets([...tickets]);
+      const firstWithSeries = tickets.find(t => typeof t.seriesIndex === 'number');
+      const firstWithDraw = tickets.find(t => typeof t.drawId === 'number');
+      setPurchasedSeriesIndex(firstWithSeries ? firstWithSeries.seriesIndex! : null);
+      setPurchasedDrawId(firstWithDraw ? firstWithDraw.drawId! : null);
       setShowSuccessModal(true);
       
       // Reset to a single ticket after successful purchase
       setTickets([{
-        id: `ticket-${Date.now()}`, 
-        numbers: [...DEFAULT_SELECTED_NUMBERS], 
-        lottoNumber: DEFAULT_LOTTO_NUMBER
+        id: `ticket-${Date.now()}`,
+        numbers: [],
+        lottoNumber: null,
+        seriesIndex: sharedSeriesIndex ?? 0,
+        drawId: sharedDrawId ?? 0
       }]);
       setActiveTicketIndex(0);
           
@@ -499,6 +506,17 @@ const BuyTickets = React.memo(function BuyTickets({
     setShowSuccessModal(false);
     setBuyError(null);
     setIsBuying(false);
+    setTickets([{
+      id: `ticket-${Date.now()}`,
+      numbers: [],
+      lottoNumber: null,
+      seriesIndex: sharedSeriesIndex ?? 0,
+      drawId: sharedDrawId ?? 0
+    }]);
+    setActiveTicketIndex(0);
+    setPurchasedTickets([]);
+    setPurchasedSeriesIndex(null);
+    setPurchasedDrawId(null);
   };
   
   // Render ticket summary section
@@ -531,7 +549,7 @@ const BuyTickets = React.memo(function BuyTickets({
                   size="sm"
                   className="h-8 px-2 py-0 rounded-md text-xs"
                   onClick={addNewTicket}
-                  disabled={tickets.length >= 20}
+                  disabled={tickets.length >= 20 || tickets[activeTicketIndex]?.numbers.length !== 5 || tickets[activeTicketIndex]?.lottoNumber === null}
                 >
                   <Plus className="h-3 w-3 mr-1" /> Add Ticket
                 </Button>
@@ -582,8 +600,8 @@ const BuyTickets = React.memo(function BuyTickets({
                 </Button>
               </div>
               <div className="flex flex-wrap gap-1 mb-2">
-                {tickets[activeTicketIndex]?.numbers.sort((a, b) => a - b).map((num) => (
-                  <span key={num} className="inline-block h-6 w-6 rounded-full bg-primary/20 text-primary text-center text-xs leading-6 lotto-number">
+                {tickets[activeTicketIndex]?.numbers.map((num, index) => (
+                  <span key={`${num}-${index}`} className="inline-block h-6 w-6 rounded-full bg-primary/20 text-primary text-center text-xs leading-6 lotto-number">
                     {num < 10 ? `0${num}` : num}
                   </span>
                 ))}
@@ -724,12 +742,11 @@ const BuyTickets = React.memo(function BuyTickets({
             {/* Number Selection Grid */}
             <div className="mb-8">
               <NumberSelectionGrid
-                key={gridKey}
                 onNumbersSelected={handleNumbersSelected}
                 initialNumbers={tickets[activeTicketIndex]?.numbers || []}
                 initialLottoNumber={tickets[activeTicketIndex]?.lottoNumber || null}
               />
-              </div>
+            </div>
             
             {/* Display Selected Numbers */}
             <div className="mb-6">
@@ -757,7 +774,7 @@ const BuyTickets = React.memo(function BuyTickets({
             ) : (
               <Button
                 onClick={handleBuyClick}
-                disabled={selectedNumbers.length !== 5 || selectedLottoNumber === null}
+                disabled={tickets[activeTicketIndex]?.numbers.length !== 5 || tickets[activeTicketIndex]?.lottoNumber === null}
                 className="btn-glow w-full bg-gradient-to-r from-primary to-yellow-600 hover:from-yellow-600 hover:to-primary text-black font-bold rounded-lg py-5 h-14 text-lg transition-all shadow-lg"
               >
                 Buy Ticket Now
@@ -777,8 +794,6 @@ const BuyTickets = React.memo(function BuyTickets({
         ticketPrice={ticketPrice}
         totalTicketsPrice={totalTicketsPrice}
         totalCost={totalCost}
-        selectedNumbers={selectedNumbers}
-        selectedLottoNumber={selectedLottoNumber}
         tickets={tickets}
         isConnected={isConnected}
       />
@@ -791,8 +806,6 @@ const BuyTickets = React.memo(function BuyTickets({
         ticketPrice={ticketPrice}
         totalTicketsPrice={totalTicketsPrice}
         totalCost={totalCost}
-        selectedNumbers={selectedNumbers}
-        selectedLottoNumber={selectedLottoNumber}
         seriesIndex={sharedSeriesIndex}
         drawId={sharedDrawId}
       />
@@ -809,13 +822,11 @@ const BuyTickets = React.memo(function BuyTickets({
         open={showSuccessModal}
         onClose={handleModalClose}
         transactionHash={transactionHash}
-        ticketCount={tickets.length}
-        tickets={tickets}
+        ticketCount={purchasedTickets.length}
+        tickets={purchasedTickets}
         totalCost={totalCost}
-        selectedNumbers={selectedNumbers}
-        selectedLottoNumber={selectedLottoNumber}
-        drawId={sharedDrawId}
-        seriesIndex={sharedSeriesIndex}
+        drawId={purchasedDrawId ?? undefined}
+        seriesIndex={purchasedSeriesIndex ?? undefined}
       />
     </section>
   );

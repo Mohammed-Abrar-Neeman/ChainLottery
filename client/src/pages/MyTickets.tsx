@@ -8,6 +8,7 @@ import { formatAddress } from '@/lib/web3';
 import { useLotteryContract } from '@/hooks/useLotteryContract';
 import { useAppKitAccount } from '@reown/appkit/react';
 import { ethers } from 'ethers';
+import { useLocation } from 'wouter';
 
 interface TicketData {
   ticketIndex: number;
@@ -21,6 +22,16 @@ interface TicketData {
   seriesIndex: number;
 }
 
+function getQueryParams() {
+  if (typeof window === 'undefined') return {};
+  const params = new URLSearchParams(window.location.search);
+  return {
+    seriesIndex: params.get('seriesIndex') ? Number(params.get('seriesIndex')) : undefined,
+    drawId: params.get('drawId') ? Number(params.get('drawId')) : undefined,
+  };
+}
+const { seriesIndex: querySeriesIndex, drawId: queryDrawId } = getQueryParams();
+
 export default function MyTickets() {
   const { toast } = useToast();
   const { address, isConnected } = useAppKitAccount();
@@ -30,9 +41,13 @@ export default function MyTickets() {
   const [seriesList, setSeriesList] = useState<any[]>([]);
   const [drawsList, setDrawsList] = useState<any[]>([]);
   
+  // Read navigation state for preselecting series/draw
+  const [location] = useLocation();
+  const navState = location && typeof location === 'object' && 'state' in location ? (location as any).state : {};
+
   // Local state for dropdown values
-  const [localSeriesIndex, setLocalSeriesIndex] = useState<number | undefined>(undefined);
-  const [localDrawId, setLocalDrawId] = useState<number | undefined>(undefined);
+  const [localSeriesIndex, setLocalSeriesIndex] = useState<number | undefined>(querySeriesIndex);
+  const [localDrawId, setLocalDrawId] = useState<number | undefined>(queryDrawId);
 
   const {
     getSeriesList,
@@ -60,7 +75,7 @@ export default function MyTickets() {
     try {
       const series = await getSeriesList();
       setSeriesList(series);
-      if (series.length > 0) {
+      if (series.length > 0 && querySeriesIndex === undefined) {
         setLocalSeriesIndex(0);
       }
     } catch (error) {
@@ -71,14 +86,14 @@ export default function MyTickets() {
         variant: "destructive"
       });
     }
-  }, [getSeriesList, toast]);
+  }, [getSeriesList, toast, querySeriesIndex]);
 
   // Load draws for selected series
   const loadDraws = useCallback(async (seriesIndex: number) => {
     try {
       const draws = await getSeriesDraws(seriesIndex);
       setDrawsList(draws);
-      if (draws.length > 0) {
+      if (draws.length > 0 && queryDrawId === undefined) {
         setLocalDrawId(draws[0].drawId);
       }
     } catch (error) {
@@ -89,7 +104,7 @@ export default function MyTickets() {
         variant: "destructive"
       });
     }
-  }, [getSeriesDraws, toast]);
+  }, [getSeriesDraws, toast, queryDrawId]);
 
   // Load user tickets
   const loadUserTickets = useCallback(async (drawId: number) => {
@@ -156,6 +171,48 @@ export default function MyTickets() {
       loadSeriesList();
     }
   }, [isConnected, loadSeriesList]);
+
+  // Add effect to set localSeriesIndex from query param after seriesList loads
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const newSeriesIndex = Number(params.get('seriesIndex'));
+    if (
+      params.has('seriesIndex') &&
+      Number.isFinite(newSeriesIndex) &&
+      seriesList.some(s => s.index === newSeriesIndex) &&
+      newSeriesIndex !== localSeriesIndex
+    ) {
+      setLocalSeriesIndex(newSeriesIndex);
+    }
+    if (
+      !params.has('seriesIndex') &&
+      seriesList.length > 0 &&
+      localSeriesIndex === undefined
+    ) {
+      setLocalSeriesIndex(seriesList[0].index);
+    }
+  }, [seriesList, localSeriesIndex]);
+
+  // Add effect to set localDrawId from query param after drawsList loads
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const newDrawId = Number(params.get('drawId'));
+    if (
+      params.has('drawId') &&
+      Number.isFinite(newDrawId) &&
+      drawsList.some(d => d.drawId === newDrawId) &&
+      newDrawId !== localDrawId
+    ) {
+      setLocalDrawId(newDrawId);
+    }
+    if (
+      !params.has('drawId') &&
+      drawsList.length > 0 &&
+      localDrawId === undefined
+    ) {
+      setLocalDrawId(drawsList[0].drawId);
+    }
+  }, [drawsList, localDrawId]);
 
   // If not connected, show connect wallet prompt
   if (!isConnected) {

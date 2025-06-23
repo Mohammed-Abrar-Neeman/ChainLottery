@@ -20,8 +20,6 @@ interface BuyConfirmationModalProps {
   ticketPrice: number;
   totalTicketsPrice: number;
   totalCost: number;
-  selectedNumbers: number[];
-  selectedLottoNumber: number | null;
   tickets: Array<{id: string, numbers: number[], lottoNumber: number | null}>;
   isConnected: boolean;
 }
@@ -33,8 +31,6 @@ export default function BuyConfirmationModal({
   ticketPrice,
   totalTicketsPrice,
   totalCost,
-  selectedNumbers,
-  selectedLottoNumber,
   tickets,
   isConnected
 }: BuyConfirmationModalProps) {
@@ -73,7 +69,7 @@ export default function BuyConfirmationModal({
                       <div className="flex justify-between items-center mb-1">
                         <span className="text-xs text-white/70">Ticket #{index + 1}</span>
                         <div className="flex gap-1">
-                          {ticket.numbers.sort((a, b) => a - b).map((num) => (
+                          {ticket.numbers.map((num) => (
                             <Badge 
                               key={num} 
                               variant="default"
@@ -97,7 +93,7 @@ export default function BuyConfirmationModal({
             ) : (
               <div className="flex items-center justify-between bg-black/30 rounded p-2 border border-primary/20">
                 <div className="flex gap-1">
-                  {selectedNumbers.sort((a, b) => a - b).map((num) => (
+                  {(tickets[0]?.numbers || []).map((num) => (
                     <Badge 
                       key={num} 
                       variant="default"
@@ -110,7 +106,7 @@ export default function BuyConfirmationModal({
                     variant="default"
                     className="bg-accent/20 text-accent h-5 w-5 rounded-full flex items-center justify-center text-xs lotto-number"
                   >
-                    {selectedLottoNumber && (selectedLottoNumber < 10 ? `0${selectedLottoNumber}` : selectedLottoNumber)}
+                    {tickets[0]?.lottoNumber && (tickets[0]?.lottoNumber < 10 ? `0${tickets[0]?.lottoNumber}` : tickets[0]?.lottoNumber)}
                   </Badge>
                 </div>
               </div>
