@@ -31,7 +31,7 @@ export const NETWORKS = {
       rpc: process.env.NEXT_PUBLIC_BSC_TESTNET_RPC || "https://data-seed-prebsc-1-s1.binance.org:8545",
       chainId: 97,
       name: "BSC Testnet",
-      lotteryContract: "0x6745689775ECd4f761839bE7d179e6980C577aC7"
+      lotteryContract: "0x4D3789B756E80A72AC2d5574CE67565C6435E8Ae"
     }
   },
   local: {
