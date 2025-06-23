@@ -73,7 +73,7 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
 
   // Get the current round number
   const getCurrentRound = () => {
-    if (!sharedDrawId) return 1;
+    if (!sharedDrawId || !lotteryData) return null; // or return undefined
     return sharedDrawId;
   };
 
@@ -162,12 +162,14 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
             {currentRound > 0 ? `#${currentRound}` : 'No Data'}
           </p>
           <p className="text-gray-600 text-sm">
-            {timeRemaining && timeRemaining.days === 0 && timeRemaining.hours === 0 && timeRemaining.minutes === 0 
-              ? 'Draw completed' 
-              : timeRemaining && (timeRemaining.days > 0 || timeRemaining.hours > 0 || timeRemaining.minutes > 0)
-                ? `Ends in ${formatTimeRemaining()}`
-                : 'Time Ended'}
-          </p>
+  {currentRound
+    ? (timeRemaining && timeRemaining.days === 0 && timeRemaining.hours === 0 && timeRemaining.minutes === 0 
+        ? 'Draw completed' 
+        : timeRemaining && (timeRemaining.days > 0 || timeRemaining.hours > 0 || timeRemaining.minutes > 0)
+          ? `Ends in ${formatTimeRemaining()}`
+          : 'Time Ended')
+    : ''}
+</p>
         </div>
       </div>
     </section>
