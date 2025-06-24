@@ -10,8 +10,7 @@ import { AlertCircle, KeyRound, ChevronRight, Lock, Unlock, RefreshCw, CheckCirc
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAppKitProvider, useAppKitAccount } from "@reown/appkit/react";
-import { BrowserProvider, Contract } from "ethers";
-import { CONTRACTS, LOTTERY_ABI } from '@/config/contracts';
+import { CONTRACTS } from '@/config/contracts';
 import { ethers } from 'ethers';
 import { useLotteryContract } from '@/hooks/useLotteryContract';
 
@@ -27,7 +26,7 @@ export default function Admin() {
   // AppKit hooks
   const { address, isConnected } = useAppKitAccount();
   const { walletProvider } = useAppKitProvider("eip155");
-  const { checkIsAdmin, getContract } = useLotteryContract();
+  const { checkIsAdmin, getContract, getCurrentBlockNumber } = useLotteryContract();
 
   // Add currentBlock state
   const [currentBlock, setCurrentBlock] = useState<number | null>(null);
@@ -55,6 +54,7 @@ export default function Admin() {
   // Add state for block gap
   const [blockGap, setBlockGap] = useState<number>(0);
   const [currentBlockGap, setCurrentBlockGap] = useState<number>(0);
+
 
   // Check admin status
   const checkAdminStatus = async () => {
@@ -105,10 +105,26 @@ export default function Admin() {
     }
   };
 
+   // Function to get current block gap
+   const getCurrentBlockNo = async () => {
+    try {
+      const currentBlockNo = await getCurrentBlockNumber();
+      setCurrentBlock(Number(currentBlockNo));
+    } catch (error) {
+      console.error('Error getting block number:', error);
+      toast({
+        title: "Error",
+        description: "Failed to get current block number",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Effect to get current block gap when connected
   useEffect(() => {
     if (isConnected && isAdmin) {
       getCurrentBlockGap();
+      getCurrentBlockNo();
     }
   }, [isConnected, isAdmin]);
 
@@ -123,6 +139,8 @@ export default function Admin() {
   const handleSeriesChange = (value: string) => {
     setSeriesIndex(parseInt(value));
   };
+
+
   
   // Update validation functions
   const validateTicketPrice = (price: string) => {
@@ -557,6 +575,8 @@ export default function Admin() {
     );
   }
   
+  
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">

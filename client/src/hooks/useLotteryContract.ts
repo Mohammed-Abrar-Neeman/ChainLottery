@@ -519,6 +519,25 @@ export const useLotteryContract = () => {
     }
   }, [getContract]);
 
+  // Add getCurrentBlockNumber
+  const getCurrentBlockNumber = useCallback(async (): Promise<number | null> => {
+    try {
+      if (isConnected && address && walletProvider) {
+        const ethersProvider = new ethers.BrowserProvider(walletProvider as any);
+        return await ethersProvider.getBlockNumber();
+      } else if (fallbackProvider) {
+        return await fallbackProvider.getBlockNumber();
+      } else {
+        // fallback to direct JsonRpcProvider if fallbackProvider is not available
+        const fallback = new ethers.JsonRpcProvider(DEFAULT_NETWORK.rpc);
+        return await fallback.getBlockNumber();
+      }
+    } catch (error) {
+      console.error('Error fetching current block number:', error);
+      return null;
+    }
+  }, [isConnected, address, walletProvider, fallbackProvider]);
+
   return {
     getContract,
     getLotteryData,
@@ -532,6 +551,7 @@ export const useLotteryContract = () => {
     address,
     getTicketPrice,
     buyMultipleTickets,
-    checkIsAdmin
+    checkIsAdmin,
+    getCurrentBlockNumber,
   };
 }; 
