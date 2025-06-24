@@ -55,6 +55,8 @@ export default function Admin() {
   const [blockGap, setBlockGap] = useState<number>(0);
   const [currentBlockGap, setCurrentBlockGap] = useState<number>(0);
 
+  // Add state for fetched block hash loading
+  const [isFetchingBlockHash, setIsFetchingBlockHash] = useState(false);
 
   // Check admin status
   const checkAdminStatus = async () => {
@@ -517,6 +519,40 @@ export default function Admin() {
     }
   }, [isConnected, isAdmin]);
 
+  // Function to fetch block hash for a given draw ID
+  const fetchBlockHashForDraw = async () => {
+    if (!drawId) {
+      toast({ title: 'Error', description: 'Please enter a draw ID', variant: 'destructive' });
+      return;
+    }
+    setIsFetchingBlockHash(true);
+    try {
+      const contract = await getContract();
+      if (!contract) throw new Error('Contract not initialized');
+      // Get draw details (similar to getLotteryData)
+      const drawDetails = await contract.getDrawDetails(Number(drawId));
+      // drawBlock is usually at a specific index; adjust if needed
+      const drawBlock = drawDetails.drawBlock !== undefined ? drawDetails.drawBlock : drawDetails[5];
+      if (!drawBlock || isNaN(Number(drawBlock))) throw new Error('Draw block not found');
+      // Use provider to get block hash
+      let provider;
+      if (isConnected && walletProvider) {
+        provider = new ethers.BrowserProvider(walletProvider as any);
+      } else {
+        provider = new ethers.JsonRpcProvider();
+      }
+      const block = await provider.getBlock(Number(drawBlock));
+      if (!block || !block.hash) throw new Error('Block not found');
+      setBlockHash(block.hash);
+      toast({ title: 'Success', description: `Block hash fetched: ${block.hash}`, variant: 'success' });
+    } catch (error) {
+      console.error('Error fetching block hash:', error);
+      toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to fetch block hash', variant: 'destructive' });
+    } finally {
+      setIsFetchingBlockHash(false);
+    }
+  };
+
   // Show loading state
   if (isLoading) {
     return (
@@ -685,7 +721,9 @@ export default function Admin() {
                     onChange={(e) => setDrawId(e.target.value)}
                   />
                 </div>
-                
+                <Button onClick={fetchBlockHashForDraw} disabled={isFetchingBlockHash} className="w-full">
+                  {isFetchingBlockHash ? 'Fetching Block Hash...' : 'Fetch Block Hash'}
+                </Button>
                 <div className="grid gap-2">
                   <Label htmlFor="blockHash">Block Hash</Label>
                   <Input 
