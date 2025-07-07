@@ -1,35 +1,22 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { useConfigData } from '@/hooks/useConfigData';
 
 export default function FAQSection() {
-  // FAQ data
-  const faqItems = [
-    {
-      question: "How does the lottery work?",
-      answer: "CryptoLotto is a decentralized lottery running on Ethereum. Each ticket costs <span class=\"crypto-value\">0.01 ETH</span>. When you purchase tickets, your entry is recorded on the blockchain. At the end of each round (approximately 24 hours), a winner is selected randomly using Chainlink VRF (Verifiable Random Function), ensuring fairness and transparency. The winner automatically receives <span class=\"lotto-number\">70%</span> of the pool, <span class=\"lotto-number\">20%</span> goes to the next round's starting pot, and <span class=\"lotto-number\">10%</span> goes to the treasury."
-    },
-    {
-      question: "How do I know the lottery is fair?",
-      answer: "The lottery uses Chainlink VRF (Verifiable Random Function) to guarantee that winners are selected in a provably fair and verifiable manner. All code is open-source and can be audited. The smart contract is deployed on the Ethereum blockchain, making all transactions transparent and verifiable."
-    },
-    {
-      question: "When do I receive my winnings?",
-      answer: "If you win, the prize is automatically sent to your wallet address immediately after the winner is selected. There's no need to claim your prize manually. You can verify the transaction on the Ethereum blockchain."
-    },
-    {
-      question: "What are the gas fees for entering?",
-      answer: "Gas fees depend on the current network congestion of the Ethereum network. The DApp will display an estimated gas fee before you confirm your transaction. You can adjust the gas price to potentially speed up or slow down your transaction."
-    },
-    {
-      question: "Can I buy tickets from any country?",
-      answer: "CryptoLotto is a decentralized application running on the blockchain, so technically anyone with an Ethereum wallet can participate. However, it's your responsibility to ensure that participating in blockchain-based lotteries complies with your local laws and regulations."
-    }
-  ];
+  const { data: config, isLoading, error } = useConfigData();
+  const faqItems = config?.faqSectionItems || [];
+
+  if (isLoading) {
+    return <div className="text-center py-12 text-gray-400">Loading FAQs...</div>;
+  }
+  if (error) {
+    return <div className="text-center py-12 text-red-500">Failed to load FAQs.</div>;
+  }
 
   return (
     <section className="mb-16">
@@ -37,7 +24,7 @@ export default function FAQSection() {
       
       <div className="glass rounded-2xl shadow-glass p-6 lg:p-8">
         <Accordion type="single" collapsible className="space-y-6">
-          {faqItems.map((item, index) => (
+          {faqItems.map((item: any, index: number) => (
             <AccordionItem key={index} value={`item-${index}`} className="border-b border-gray-200 pb-6 last:border-b-0 last:pb-0">
               <AccordionTrigger className="text-lg font-semibold hover:no-underline">
                 {item.question}

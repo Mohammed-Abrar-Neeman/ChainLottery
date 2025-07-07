@@ -1,10 +1,12 @@
 import { Link } from 'wouter';
-import { blogPosts } from '@/data/blogPosts';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
+import { useConfigData } from '@/hooks/useConfigData';
 
 export default function Blogs() {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const { data: config, isLoading, error } = useConfigData();
+  const blogPosts = config?.blogPosts || [];
 
   const nextSlide = () => {
     const isMobile = window.innerWidth < 768;
@@ -21,6 +23,13 @@ export default function Blogs() {
       prevIndex === 0 ? maxIndex : prevIndex - 1
     );
   };
+
+  if (isLoading) {
+    return <div className="text-center py-12 text-gray-400">Loading blogs...</div>;
+  }
+  if (error) {
+    return <div className="text-center py-12 text-red-500">Failed to load blogs.</div>;
+  }
 
   return (
     <div className="space-y-8">
@@ -59,7 +68,7 @@ export default function Blogs() {
               transform: `translateX(-${currentIndex * (window.innerWidth < 768 ? 100 : 100/3)}%)` 
             }}
           >
-            {blogPosts.map((post) => (
+            {blogPosts.map((post: any) => (
               <div key={post.id} className="w-full md:w-1/3 flex-shrink-0 px-2">
                 <Link href={`/blogs/${post.id}`}>
                   <article className="casino-card group cursor-pointer transition-all duration-300 hover:scale-[1.02] h-full flex flex-col">

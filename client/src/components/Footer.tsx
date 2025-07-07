@@ -3,8 +3,12 @@ import { Link } from 'wouter';
 import { Twitter, Github, ExternalLink } from 'lucide-react';
 import { FaDiscord, FaTelegram } from 'react-icons/fa';
 import { DEFAULT_NETWORK, CHAIN_IDS, getLotteryAddress } from '@/config/networks';
+import { useConfigData } from '@/hooks/useConfigData';
 
 export default function Footer() {
+  const { data: config, isLoading, error } = useConfigData();
+  const footer = config?.footerConfig;
+
   // Determine the correct Etherscan URL based on the network
   const getEtherscanUrl = () => {
     const contractAddress = getLotteryAddress();
@@ -28,7 +32,14 @@ export default function Footer() {
   const getNetworkName = () => {
     return DEFAULT_NETWORK.name;
   };
-  
+
+  if (isLoading) {
+    return <footer className="bg-card border-t border-border text-center py-8 text-gray-400">Loading footer...</footer>;
+  }
+  if (error || !footer) {
+    return <footer className="bg-card border-t border-border text-center py-8 text-red-500">Failed to load footer.</footer>;
+  }
+
   return (
     <footer className="bg-card border-t border-border">
       <div className="container mx-auto px-8 md:px-12 lg:px-16 py-8">
@@ -36,33 +47,33 @@ export default function Footer() {
           <div>
             <div className="flex items-center mb-6">
               <img 
-                src="/images/lottologo.jpeg" 
-                alt="Company Logo" 
+                src={footer.logoUrl} 
+                alt={footer.logoAlt || 'Company Logo'} 
                 className="h-12 w-12 mr-3" 
               />
               <div>
                 <h2 className="text-3xl font-bold bg-gradient-to-r from-primary via-yellow-500 to-amber-500 text-transparent bg-clip-text">
-                  CryptoLotto
+                  {footer.projectName}
                 </h2>
-                <div className="text-xs text-primary/80 font-mono -mt-1">BLOCKCHAIN LOTTERY</div>
+                <div className="text-xs text-primary/80 font-mono -mt-1">{footer.projectTagline}</div>
               </div>
             </div>
             <p className="text-gray-400 mb-6">
-              The fairest, most transparent blockchain lottery powered by smart contracts and verifiable randomness.
+              {footer.description}
             </p>
             <div className="flex space-x-4">
-              <a href="#" className="text-gray-400 hover:text-white transition">
-                <Twitter className="h-5 w-5" />
-              </a>
-              <a href="#" className="text-gray-400 hover:text-white transition">
-                <FaDiscord className="h-5 w-5" />
-              </a>
-              <a href="#" className="text-gray-400 hover:text-white transition">
-                <FaTelegram className="h-5 w-5" />
-              </a>
-              <a href="#" className="text-gray-400 hover:text-white transition">
-                <Github className="h-5 w-5" />
-              </a>
+              {footer.socialLinks?.map((link: any, i: number) => {
+                let icon = null;
+                if (link.icon === 'twitter') icon = <Twitter className="h-5 w-5" />;
+                if (link.icon === 'discord') icon = <FaDiscord className="h-5 w-5" />;
+                if (link.icon === 'telegram') icon = <FaTelegram className="h-5 w-5" />;
+                if (link.icon === 'github') icon = <Github className="h-5 w-5" />;
+                return (
+                  <a key={i} href={link.href} className="text-gray-400 hover:text-white transition" target="_blank" rel="noopener noreferrer">
+                    {icon}
+                  </a>
+                );
+              })}
             </div>
           </div>
           
@@ -122,9 +133,9 @@ export default function Footer() {
         </div>
         
         <div className="mt-12 pt-8 border-t border-gray-700 text-center text-gray-400 text-sm">
-          <p>© {new Date().getFullYear()} CryptoLotto. All rights reserved.</p>
+          <p>{footer?.copyright?.replace('{year}', String(new Date().getFullYear()))}</p>
           <p className="mt-2">
-            CryptoLotto is not a gambling service. It's a decentralized lottery running on the Ethereum blockchain with verifiable randomness.
+            {footer.disclaimer}
           </p>
         </div>
       </div>

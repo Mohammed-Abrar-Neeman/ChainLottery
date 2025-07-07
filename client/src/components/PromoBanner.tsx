@@ -2,54 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { TutorialModal } from '@/components/modals/TutorialModal';
-
-// Banner images with promotional content and fallback colors
-const bannerImages = [
-  {
-    id: 1,
-    url: 'https://images.pexels.com/photos/844124/pexels-photo-844124.jpeg?auto=compress&cs=tinysrgb&w=800',
-    fallbackColor: 'bg-gradient-to-r from-indigo-500 to-purple-800',
-    title: 'JACKPOT ALERT',
-    description: 'Current Jackpot Over $10 Million!'
-  },
-  {
-    id: 2,
-    url: 'https://images.pexels.com/photos/3943716/pexels-photo-3943716.jpeg?auto=compress&cs=tinysrgb&w=800',
-    fallbackColor: 'bg-gradient-to-r from-blue-700 to-blue-900',
-    title: 'NEW PLAYERS BONUS',
-    description: 'Get 20% Extra on Your First Ticket Purchase'
-  },
-  {
-    id: 3,
-    url: 'https://images.pexels.com/photos/259249/pexels-photo-259249.jpeg?auto=compress&cs=tinysrgb&w=800',
-    fallbackColor: 'bg-gradient-to-r from-emerald-600 to-teal-800',
-    title: 'WINNERS EVERY DAY',
-    description: 'Join Thousands of Winners This Month'
-  },
-  {
-    id: 4,
-    url: 'https://images.pexels.com/photos/1820770/pexels-photo-1820770.jpeg?auto=compress&cs=tinysrgb&w=800',
-    fallbackColor: 'bg-gradient-to-r from-red-600 to-purple-900',
-    title: 'PLAY RESPONSIBLY',
-    description: 'Set Limits and Enjoy The Game'
-  },
-  {
-    id: 5,
-    url: 'https://images.pexels.com/photos/7821487/pexels-photo-7821487.jpeg?auto=compress&cs=tinysrgb&w=800',
-    fallbackColor: 'bg-gradient-to-r from-amber-500 to-orange-700',
-    title: 'WEEKLY DRAWS',
-    description: 'Every Tuesday and Friday - Never Miss Out!'
-  },
-  {
-    id: 6,
-    url: 'https://images.pexels.com/photos/7654418/pexels-photo-7654418.jpeg?auto=compress&cs=tinysrgb&w=800',
-    fallbackColor: 'bg-gradient-to-r from-fuchsia-600 to-pink-900',
-    title: 'CRYPTO PAYOUTS',
-    description: 'Instant Withdrawals in ETH or BNB'
-  }
-];
+import { useConfigData } from '@/hooks/useConfigData';
 
 export default function PromoBanner() {
+  const { data: config, isLoading, error } = useConfigData();
+  const bannerImages = config?.promoBanners || [];
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [autoplay, setAutoplay] = useState(true);
   const [imageLoadError, setImageLoadError] = useState<Record<number, boolean>>({});
@@ -57,35 +15,31 @@ export default function PromoBanner() {
 
   // Function to advance to the next slide
   const goToNextSlide = useCallback(() => {
-    setCurrentIndex((prevIndex) => (prevIndex + 1) % bannerImages.length);
-  }, []);
+    setCurrentIndex((prevIndex) => bannerImages.length > 0 ? (prevIndex + 1) % bannerImages.length : 0);
+  }, [bannerImages.length]);
 
   // Function to go to the previous slide
   const goToPrevSlide = useCallback(() => {
-    setCurrentIndex((prevIndex) => (prevIndex - 1 + bannerImages.length) % bannerImages.length);
-  }, []);
+    setCurrentIndex((prevIndex) => bannerImages.length > 0 ? (prevIndex - 1 + bannerImages.length) % bannerImages.length : 0);
+  }, [bannerImages.length]);
 
   // Set up autoplay
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
-    
-    if (autoplay) {
+    if (autoplay && bannerImages.length > 1) {
       intervalId = setInterval(() => {
         goToNextSlide();
       }, 5000);
     }
-    
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [autoplay, goToNextSlide]);
+  }, [autoplay, goToNextSlide, bannerImages.length]);
 
   // Reset autoplay when user manually changes the slide
   const handleManualNavigation = (index: number) => {
     setCurrentIndex(index);
     setAutoplay(false);
-    
-    // Resume autoplay after 10 seconds of inactivity
     setTimeout(() => {
       setAutoplay(true);
     }, 10000);
@@ -99,17 +53,23 @@ export default function PromoBanner() {
     }));
   };
 
-  // Check if current image has a load error
+  // Preload the current image and check for errors
   useEffect(() => {
-    // Preload the current image
-    const img = new Image();
-    img.src = bannerImages[currentIndex].url;
+    if (!bannerImages.length) return;
+    const img = new window.Image();
+    img.src = bannerImages[currentIndex]?.url;
     img.onerror = () => handleImageError(currentIndex);
-    
     return () => {
       img.onerror = null;
     };
-  }, [currentIndex]);
+  }, [currentIndex, bannerImages]);
+
+  if (isLoading) {
+    return <div className="w-full h-96 flex items-center justify-center text-gray-400 bg-black">Loading banners...</div>;
+  }
+  if (error || !bannerImages.length) {
+    return <div className="w-full h-96 flex items-center justify-center text-red-500 bg-black">Failed to load banners.</div>;
+  }
 
   // Get the current banner
   const currentBanner = bannerImages[currentIndex];
@@ -151,7 +111,7 @@ export default function PromoBanner() {
 
       {/* Navigation dots */}
       <div className="absolute bottom-8 left-0 right-0 flex justify-center gap-3">
-        {bannerImages.map((_, index) => (
+        {bannerImages.map((_: unknown, index: number) => (
           <button
             key={index}
             className={`w-4 h-4 rounded-full transition-all ${

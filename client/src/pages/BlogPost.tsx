@@ -1,11 +1,20 @@
 import { useRoute } from 'wouter';
-import { blogPosts } from '@/data/blogPosts';
 import { Calendar, ArrowLeft } from 'lucide-react';
 import { Link } from 'wouter';
+import { useConfigData } from '@/hooks/useConfigData';
 
 export default function BlogPost() {
   const [, params] = useRoute('/blogs/:id');
-  const post = blogPosts.find(p => p.id === params?.id);
+  const { data: config, isLoading, error } = useConfigData();
+
+  if (isLoading) {
+    return <div className="text-center py-12 text-gray-400">Loading blog post...</div>;
+  }
+  if (error || !config) {
+    return <div className="text-center py-12 text-red-500">Failed to load blog post.</div>;
+  }
+
+  const post = config.blogPosts?.find((p: any) => p.id === params?.id);
 
   if (!post) {
     return (
@@ -62,7 +71,7 @@ export default function BlogPost() {
 
       {/* Content */}
       <div className="prose prose-invert max-w-none">
-        {post.sections.map((section, index) => (
+        {post.sections.map((section: any, index: number) => (
           <div key={index} className="mb-12">
             <div className={`grid ${section.photo ? 'md:grid-cols-2' : 'md:grid-cols-1'} gap-8 items-center ${index > 0 ? 'mt-12' : ''}`}>
               {/* Content - Alternates between left and right */}
