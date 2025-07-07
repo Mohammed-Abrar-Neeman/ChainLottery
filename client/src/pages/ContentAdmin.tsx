@@ -22,6 +22,7 @@ const ContentAdmin: React.FC = () => {
   const [error, setError] = useState<string>("");
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string>("");
+  const [deleting, setDeleting] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
 
@@ -130,7 +131,12 @@ const ContentAdmin: React.FC = () => {
           method: "POST",
           body: formData,
         });
-        if (!res.ok) throw new Error();
+        if (!res.ok) {
+          const err = await res.json();
+          setUploadStatus((prev) => prev + ` ${file.name}: ${err.error || 'Failed.'}`);
+          failCount++;
+          continue;
+        }
         successCount++;
       } catch {
         failCount++;
@@ -145,6 +151,28 @@ const ContentAdmin: React.FC = () => {
       setUploadStatus((prev) => prev + ` ${failCount} file(s) failed.`);
     }
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  // Delete image logic
+  const handleDelete = async (filename: string) => {
+    if (!window.confirm(`Are you sure you want to delete ${filename}?`)) return;
+    setDeleting(filename);
+    setUploadStatus("");
+    try {
+      const res = await fetch(`${API_URL}/api/images/${encodeURIComponent(filename)}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        setUploadStatus(`Failed to delete: ${err.error || 'Unknown error'}`);
+      } else {
+        setUploadStatus("Image deleted successfully.");
+        fetchImages();
+      }
+    } catch {
+      setUploadStatus("Failed to delete image.");
+    }
+    setDeleting("");
   };
 
   return (
@@ -247,6 +275,14 @@ const ContentAdmin: React.FC = () => {
                     onError={(e) => ((e.currentTarget.style.display = "none"))}
                   />
                   <span className="mt-2 text-xs text-muted-foreground break-all">{img}</span>
+                  <button
+                    className="mt-2 px-3 py-1 rounded bg-red-600 text-white text-xs font-semibold hover:bg-red-700 transition disabled:opacity-60"
+                    onClick={() => handleDelete(img)}
+                    disabled={deleting === img}
+                    type="button"
+                  >
+                    {deleting === img ? 'Deleting...' : 'Delete'}
+                  </button>
                 </div>
               ))}
             </div>

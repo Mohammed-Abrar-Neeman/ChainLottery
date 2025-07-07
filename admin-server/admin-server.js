@@ -67,6 +67,23 @@ app.post('/api/upload', (req, res) => {
   });
 });
 
+// DELETE /api/images/:filename - delete an image
+app.delete('/api/images/:filename', (req, res) => {
+  const filename = req.params.filename;
+  if (!/\.(jpg|jpeg|png|gif|webp)$/i.test(filename)) {
+    return res.status(400).json({ error: 'Invalid file type' });
+  }
+  const filePath = path.join(imagesDir, filename);
+  fs.unlink(filePath, err => {
+    if (err && err.code === 'ENOENT') {
+      return res.status(404).json({ error: 'File not found' });
+    } else if (err) {
+      return res.status(500).json({ error: 'Failed to delete file' });
+    }
+    res.json({ success: true });
+  });
+});
+
 // GET /api/images - list all images
 app.get('/api/images', (req, res) => {
   fs.readdir(imagesDir, (err, files) => {
