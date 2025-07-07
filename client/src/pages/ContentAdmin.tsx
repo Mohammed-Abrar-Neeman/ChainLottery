@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import ReactJson from 'react-json-view';
 
 const API_URL = "http://localhost:3001";
 
@@ -220,13 +221,20 @@ const ContentAdmin: React.FC = () => {
           </div>
           {status && <div className="mb-2 text-green-600 text-sm">{status}</div>}
           {error && <div className="mb-2 text-red-600 text-sm">{error}</div>}
-          <textarea
-            className="w-full font-mono text-sm text-foreground bg-muted rounded-lg p-4 border border-border max-h-[400px] min-h-[200px] overflow-y-auto resize-vertical"
-            value={configText}
-            onChange={e => setConfigText(e.target.value)}
-            disabled={loadingConfig}
-            spellCheck={false}
-          />
+          <div className="bg-muted rounded-lg p-4 border border-border max-h-[400px] overflow-y-auto">
+            <ReactJson
+              src={config ? config : {}}
+              name={null}
+              theme="monokai"
+              style={{ fontSize: 14 }}
+              displayDataTypes={false}
+              displayObjectSize={false}
+              enableClipboard={false}
+              onEdit={e => setConfigText(JSON.stringify(e.updated_src, null, 2))}
+              onAdd={e => setConfigText(JSON.stringify(e.updated_src, null, 2))}
+              onDelete={e => setConfigText(JSON.stringify(e.updated_src, null, 2))}
+            />
+          </div>
         </section>
       )}
 
