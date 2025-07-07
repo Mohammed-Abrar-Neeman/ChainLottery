@@ -20,6 +20,17 @@ app.get('/api/config', (req, res) => {
   res.status(200).json(JSON.parse(data));
 });
 
+// GET /api/images - list all images
+app.get('/api/images', (req, res) => {
+  const imagesDir = path.join(__dirname, 'public', 'images');
+  fs.readdir(imagesDir, (err, files) => {
+    if (err) return res.status(500).json({ error: 'Failed to list images' });
+    // Filter only image files
+    const imageFiles = files.filter(f => /\.(jpg|jpeg|png|gif|webp)$/i.test(f));
+    res.json(imageFiles);
+  });
+});
+
 // Serve images statically
 app.use('/images', express.static(path.join(__dirname, 'public', 'images')));
 
