@@ -3,6 +3,18 @@ import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { useConfigData } from '@/hooks/useConfigData';
 
+const API_URL =
+  typeof window !== 'undefined' && window.location.hostname === 'localhost'
+    ? 'http://localhost:3001'
+    : 'http://167.172.76.74:3001';
+
+function getImageUrl(url: string) {
+  if (url?.startsWith('/images/')) {
+    return API_URL + url;
+  }
+  return url;
+}
+
 export default function Blogs() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const { data: config, isLoading, error } = useConfigData();
@@ -74,7 +86,7 @@ export default function Blogs() {
                   <article className="casino-card group cursor-pointer transition-all duration-300 hover:scale-[1.02] h-full flex flex-col">
                     <div className="relative aspect-[16/9] overflow-hidden rounded-t-lg">
                       <img
-                        src={post.bannerPhoto}
+                        src={getImageUrl(post.bannerPhoto)}
                         alt={post.title}
                         className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-110"
                       />

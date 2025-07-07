@@ -3,6 +3,18 @@ import { Calendar, ArrowLeft } from 'lucide-react';
 import { Link } from 'wouter';
 import { useConfigData } from '@/hooks/useConfigData';
 
+const API_URL =
+  typeof window !== 'undefined' && window.location.hostname === 'localhost'
+    ? 'http://localhost:3001'
+    : 'http://167.172.76.74:3001';
+
+function getImageUrl(url: string) {
+  if (url?.startsWith('/images/')) {
+    return API_URL + url;
+  }
+  return url;
+}
+
 export default function BlogPost() {
   const [, params] = useRoute('/blogs/:id');
   const { data: config, isLoading, error } = useConfigData();
@@ -43,7 +55,7 @@ export default function BlogPost() {
       {post.bannerPhoto && (
         <div className="relative h-[400px] rounded-xl overflow-hidden mb-8">
           <img
-            src={post.bannerPhoto}
+            src={getImageUrl(post.bannerPhoto)}
             alt={post.title}
             className="w-full h-full object-cover"
           />
@@ -85,7 +97,7 @@ export default function BlogPost() {
               {section.photo && (
                 <div className={`relative h-[300px] rounded-lg overflow-hidden ${index % 2 === 0 ? 'order-2' : 'order-1'}`}>
                   <img
-                    src={section.photo}
+                    src={getImageUrl(section.photo)}
                     alt={`Section ${index + 1} illustration`}
                     className="w-full h-full object-cover"
                   />
