@@ -2,12 +2,32 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const multer = require('multer');
 
 const app = express();
 const PORT = 3001;
 
 app.use(cors());
 app.use(express.json());
+
+// Multer setup for image uploads
+const imagesDir = path.join(__dirname, 'public', 'images');
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, imagesDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const base = path.basename(file.originalname, ext);
+    cb(null, base + '-' + Date.now() + ext);
+  }
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (req, file, cb) => {
+    if (/\.(jpg|jpeg|png|gif|webp)$/i.test(file.originalname)) cb(null, true);
+    else cb(new Error('Only image files (jpg, jpeg, png, gif, webp) are allowed'));
+  }
+});
 
 // Path to config.json
 const configPath = path.join(__dirname, 'public', 'config.json');
@@ -31,9 +51,24 @@ app.post('/api/config', (req, res) => {
   }
 });
 
+// POST /api/upload - upload an image
+app.post('/api/upload', (req, res) => {
+  upload.single('image')(req, res, function (err) {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: 'File too large. Max 10MB allowed.' });
+      }
+      return res.status(400).json({ error: err.message });
+    } else if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    res.json({ url: `/images/${req.file.filename}` });
+  });
+});
+
 // GET /api/images - list all images
 app.get('/api/images', (req, res) => {
-  const imagesDir = path.join(__dirname, 'public', 'images');
   fs.readdir(imagesDir, (err, files) => {
     if (err) return res.status(500).json({ error: 'Failed to list images' });
     // Filter only image files

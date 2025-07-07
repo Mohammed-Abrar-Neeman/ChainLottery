@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 
 const API_URL = "http://localhost:3001";
 
@@ -20,6 +20,10 @@ const ContentAdmin: React.FC = () => {
   const [loadingImages, setLoadingImages] = useState(true);
   const [status, setStatus] = useState<string>("");
   const [error, setError] = useState<string>("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
 
   // Load config
   const fetchConfig = () => {
@@ -45,12 +49,17 @@ const ContentAdmin: React.FC = () => {
   }, []);
 
   // Load images
-  useEffect(() => {
+  const fetchImages = () => {
+    setLoadingImages(true);
     fetch(`${API_URL}/api/images`)
       .then((res) => res.json())
       .then((data) => setImages(data))
       .catch(() => setImages([]))
       .finally(() => setLoadingImages(false));
+  };
+
+  useEffect(() => {
+    fetchImages();
   }, []);
 
   // Save config
@@ -76,6 +85,66 @@ const ContentAdmin: React.FC = () => {
     } catch (e) {
       setError("Failed to save config.");
     }
+  };
+
+  // Image upload logic
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      uploadFiles(e.target.files);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (dropRef.current) dropRef.current.classList.remove("ring-2");
+    if (e.dataTransfer.files) {
+      uploadFiles(e.dataTransfer.files);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (dropRef.current) dropRef.current.classList.add("ring-2");
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (dropRef.current) dropRef.current.classList.remove("ring-2");
+  };
+
+  const uploadFiles = async (files: FileList) => {
+    setUploading(true);
+    setUploadStatus("");
+    let successCount = 0;
+    let failCount = 0;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!file.type.startsWith("image/")) {
+        failCount++;
+        continue;
+      }
+      const formData = new FormData();
+      formData.append("image", file);
+      try {
+        const res = await fetch(`${API_URL}/api/upload`, {
+          method: "POST",
+          body: formData,
+        });
+        if (!res.ok) throw new Error();
+        successCount++;
+      } catch {
+        failCount++;
+      }
+    }
+    setUploading(false);
+    if (successCount > 0) {
+      setUploadStatus(`${successCount} image(s) uploaded successfully.`);
+      fetchImages();
+    }
+    if (failCount > 0) {
+      setUploadStatus((prev) => prev + ` ${failCount} file(s) failed.`);
+    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   return (
@@ -136,6 +205,33 @@ const ContentAdmin: React.FC = () => {
       {activeTab === "images" && (
         <section>
           <h2 className="text-xl font-semibold mb-2 text-muted-foreground">Images</h2>
+          {/* Upload Area */}
+          <div className="mb-6">
+            <div
+              ref={dropRef}
+              className={`flex flex-col items-center justify-center border-2 border-dashed border-border rounded-lg bg-muted p-8 mb-2 transition ring-primary/50 ${uploading ? 'opacity-60 pointer-events-none' : ''}`}
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              style={{ cursor: uploading ? 'not-allowed' : 'pointer' }}
+              onClick={() => fileInputRef.current && fileInputRef.current.click()}
+            >
+              <div className="text-4xl mb-2">📁</div>
+              <div className="font-semibold mb-1">Drag & drop images here or click to select</div>
+              <div className="text-xs text-muted-foreground">JPG, PNG, GIF, WebP (Max 10MB each)</div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={handleFileInput}
+                disabled={uploading}
+              />
+            </div>
+            {uploading && <div className="text-primary text-sm mb-2">Uploading...</div>}
+            {uploadStatus && <div className="text-green-600 text-sm mb-2">{uploadStatus}</div>}
+          </div>
           {loadingImages ? (
             <div className="text-muted-foreground">Loading images...</div>
           ) : images.length === 0 ? (
