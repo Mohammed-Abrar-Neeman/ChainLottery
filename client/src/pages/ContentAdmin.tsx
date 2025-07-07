@@ -265,18 +265,18 @@ const ContentAdmin: React.FC = () => {
           ) : images.length === 0 ? (
             <div className="text-muted-foreground">No images found.</div>
           ) : (
-            <div className="flex flex-wrap gap-6">
+            <div className="flex flex-col gap-4 w-full overflow-x-auto max-h-[400px] overflow-y-auto">
               {images.map((img) => (
-                <div key={img} className="flex flex-col items-center">
+                <div key={img} className="flex items-center gap-4 bg-muted rounded-lg border border-border p-3 w-full min-w-[320px] max-w-full">
                   <img
                     src={`${API_URL}/images/${img}`}
                     alt={img}
-                    className="w-48 h-32 object-cover rounded-lg border border-border bg-muted"
+                    className="w-24 h-16 object-cover rounded border border-border bg-background"
                     onError={(e) => ((e.currentTarget.style.display = "none"))}
                   />
-                  <span className="mt-2 text-xs text-muted-foreground break-all">{img}</span>
+                  <span className="flex-1 text-xs text-muted-foreground break-all">{img}</span>
                   <button
-                    className="mt-2 px-3 py-1 rounded bg-red-600 text-white text-xs font-semibold hover:bg-red-700 transition disabled:opacity-60"
+                    className="px-3 py-1 rounded bg-red-600 text-white text-xs font-semibold hover:bg-red-700 transition disabled:opacity-60"
                     onClick={() => handleDelete(img)}
                     disabled={deleting === img}
                     type="button"
