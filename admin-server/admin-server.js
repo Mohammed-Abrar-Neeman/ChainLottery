@@ -17,7 +17,15 @@ const storage = multer.diskStorage({
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
     const base = path.basename(file.originalname, ext);
-    cb(null, base + '-' + Date.now() + ext);
+    const fullPath = path.join(imagesDir, file.originalname);
+    // Check if file exists
+    if (fs.existsSync(fullPath)) {
+      // Add random 6-digit suffix if exists
+      const random = Math.floor(100000 + Math.random() * 900000);
+      cb(null, `${base}-${random}${ext}`);
+    } else {
+      cb(null, file.originalname);
+    }
   }
 });
 const upload = multer({
