@@ -11,6 +11,7 @@ import Blogs from "@/pages/Blogs";
 import BlogPost from "@/pages/BlogPost";
 import { WalletProvider } from "./context/WalletContext";
 import Contact from "@/pages/Contact";
+import ContentAdmin from "@/pages/ContentAdmin";
 
 function Router() {
   return (
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/blogs" component={Blogs} />
       <Route path="/blogs/:id" component={BlogPost} />
       <Route path="/contact" component={Contact} />
+      <Route path="/content-admin" component={ContentAdmin} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>
