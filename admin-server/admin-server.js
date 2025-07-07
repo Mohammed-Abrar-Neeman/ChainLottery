@@ -7,6 +7,7 @@ const app = express();
 const PORT = 3001;
 
 app.use(cors());
+app.use(express.json());
 
 // Path to config.json
 const configPath = path.join(__dirname, 'public', 'config.json');
@@ -18,6 +19,16 @@ app.get('/api/config', (req, res) => {
   }
   const data = fs.readFileSync(configPath, 'utf-8');
   res.status(200).json(JSON.parse(data));
+});
+
+// POST /api/config - update config.json
+app.post('/api/config', (req, res) => {
+  try {
+    fs.writeFileSync(configPath, JSON.stringify(req.body, null, 2));
+    res.status(200).json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save config' });
+  }
 });
 
 // GET /api/images - list all images

@@ -14,17 +14,34 @@ const TABS = [
 const ContentAdmin: React.FC = () => {
   const [activeTab, setActiveTab] = useState("config");
   const [config, setConfig] = useState<ConfigType | null>(null);
+  const [configText, setConfigText] = useState<string>("");
   const [images, setImages] = useState<string[]>([]);
   const [loadingConfig, setLoadingConfig] = useState(true);
   const [loadingImages, setLoadingImages] = useState(true);
+  const [status, setStatus] = useState<string>("");
+  const [error, setError] = useState<string>("");
 
   // Load config
-  useEffect(() => {
+  const fetchConfig = () => {
+    setLoadingConfig(true);
     fetch(`${API_URL}/api/config`)
       .then((res) => res.json())
-      .then((data) => setConfig(data))
-      .catch(() => setConfig(null))
+      .then((data) => {
+        setConfig(data);
+        setConfigText(JSON.stringify(data, null, 2));
+        setError("");
+      })
+      .catch(() => {
+        setConfig(null);
+        setConfigText("");
+        setError("Failed to load config.");
+      })
       .finally(() => setLoadingConfig(false));
+  };
+
+  useEffect(() => {
+    fetchConfig();
+    // eslint-disable-next-line
   }, []);
 
   // Load images
@@ -35,6 +52,31 @@ const ContentAdmin: React.FC = () => {
       .catch(() => setImages([]))
       .finally(() => setLoadingImages(false));
   }, []);
+
+  // Save config
+  const saveConfig = async () => {
+    setStatus("");
+    setError("");
+    let parsed;
+    try {
+      parsed = JSON.parse(configText);
+    } catch (e) {
+      setError("Invalid JSON format.");
+      return;
+    }
+    try {
+      const res = await fetch(`${API_URL}/api/config`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsed, null, 2),
+      });
+      if (!res.ok) throw new Error("Failed to save config");
+      setStatus("Config saved successfully.");
+      setConfig(parsed);
+    } catch (e) {
+      setError("Failed to save config.");
+    }
+  };
 
   return (
     <div className="max-w-3xl mx-auto mt-10 p-6 bg-background rounded-xl shadow-lg border border-border">
@@ -61,15 +103,33 @@ const ContentAdmin: React.FC = () => {
       {activeTab === "config" && (
         <section className="mb-10">
           <h2 className="text-xl font-semibold mb-2 text-muted-foreground">Config</h2>
-          <div className="bg-muted rounded-lg p-4 border border-border overflow-x-auto max-h-[400px] overflow-y-auto">
-            <pre className="text-sm text-foreground">
-              {loadingConfig
-                ? "Loading..."
-                : config
-                ? JSON.stringify(config, null, 2)
-                : "Failed to load config."}
-            </pre>
+          <div className="flex gap-2 mb-2">
+            <button
+              className="px-4 py-1 rounded bg-primary text-white font-semibold hover:bg-primary/90 transition"
+              onClick={saveConfig}
+              disabled={loadingConfig}
+              type="button"
+            >
+              Save
+            </button>
+            <button
+              className="px-4 py-1 rounded bg-muted text-foreground border border-border font-semibold hover:bg-muted/80 transition"
+              onClick={fetchConfig}
+              disabled={loadingConfig}
+              type="button"
+            >
+              Reload
+            </button>
           </div>
+          {status && <div className="mb-2 text-green-600 text-sm">{status}</div>}
+          {error && <div className="mb-2 text-red-600 text-sm">{error}</div>}
+          <textarea
+            className="w-full font-mono text-sm text-foreground bg-muted rounded-lg p-4 border border-border max-h-[400px] min-h-[200px] overflow-y-auto resize-vertical"
+            value={configText}
+            onChange={e => setConfigText(e.target.value)}
+            disabled={loadingConfig}
+            spellCheck={false}
+          />
         </section>
       )}
 
