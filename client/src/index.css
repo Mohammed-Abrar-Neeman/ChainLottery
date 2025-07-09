@@ -184,3 +184,46 @@
     animation: highlight-pulse 1.5s ease-out forwards;
   }
 }
+
+/* GTranslate Dropdown Custom Theme */
+.gtranslate_wrapper {
+  background: transparent !important;
+  padding: 0 !important;
+  border: none !important;
+}
+
+.gtranslate_wrapper select,
+.gtranslate_wrapper .gt_selector,
+.gtranslate_wrapper .gtranslate_dropdown {
+  background: #18181b !important; /* Very dark gray */
+  color: #f4f4f5 !important;      /* Light text */
+  border: 1px solid #333 !important;
+  border-radius: 0.5rem !important;
+  font-size: 1rem !important;
+  padding: 0.5rem 2rem 0.5rem 1rem !important;
+  min-width: 120px !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+}
+
+.gtranslate_wrapper select option,
+.gtranslate_wrapper .gt_selector option {
+  background: #18181b !important;
+  color: #f4f4f5 !important;
+}
+
+/* Remove default arrow and add a custom one if desired */
+.gtranslate_wrapper select {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  background-image: url("data:image/svg+xml,%3Csvg fill='white' viewBox='0 0 20 20'%3E%3Cpath d='M7 7l3-3 3 3m0 6l-3 3-3-3'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1.25em 1.25em;
+}
+
+/* Optional: style the dropdown on hover/focus */
+.gtranslate_wrapper select:focus,
+.gtranslate_wrapper select:hover {
+  border-color: #ffc851 !important; /* Casino gold */
+  outline: none !important;
+}

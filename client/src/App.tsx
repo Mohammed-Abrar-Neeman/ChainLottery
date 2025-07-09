@@ -12,6 +12,7 @@ import BlogPost from "@/pages/BlogPost";
 import { WalletProvider } from "./context/WalletContext";
 import Contact from "@/pages/Contact";
 import ContentAdmin from "@/pages/ContentAdmin";
+import GTranslateWidget from "@/components/GTranslateWidget";
 
 function Router() {
   return (
@@ -46,6 +47,7 @@ function App() {
     <WalletProvider cookies={null}>
           <AppContent />
           <Toaster />
+          <GTranslateWidget />
     </WalletProvider>
   );
 }
