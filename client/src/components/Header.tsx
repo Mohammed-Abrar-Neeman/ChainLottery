@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { Wallet, Menu, X, ShieldCheck, Ticket, Home, History, HelpCircle, BookOpen } from 'lucide-react';
-import { useAppKitAccount } from "@reown/appkit/react";
+import { useAppKitAccount, useAppKit } from "@reown/appkit/react";
 import { useLotteryContract } from '@/hooks/useLotteryContract';
 
 export default function Header() {
@@ -20,6 +20,7 @@ export default function Header() {
 
   // AppKit hooks
   const { address, isConnected } = useAppKitAccount();
+  const { open } = useAppKit();
   const { checkIsAdmin } = useLotteryContract();
 
   // Check admin status
@@ -55,6 +56,33 @@ export default function Header() {
 
   const toggleMobileMenu = () => {
     setIsOpen(!isOpen);
+  };
+
+  // Utility to truncate address
+  const truncateAddress = (addr: string) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : '';
+
+  // Custom wallet button (no balance)
+  const WalletButton = () => {
+    if (!isConnected) {
+      return (
+        <Button
+          variant="outline"
+          className="bg-primary/10 text-primary border-primary hover:bg-primary/20 rounded-full px-4 py-2 font-semibold"
+          onClick={() => open()}
+        >
+          <Wallet className="inline-block mr-2 h-5 w-5" /> Connect Wallet
+        </Button>
+      );
+    }
+    return (
+      <Button
+            variant="outline"
+            className="bg-primary/10 text-primary border-primary hover:bg-primary/20 rounded-full px-4 py-2 font-mono font-semibold"
+            onClick={() => open()}
+          >
+            <Wallet className="inline-block mr-2 h-5 w-5" /> {truncateAddress(address || '')}
+          </Button>
+    );
   };
 
   // Custom link component for navigation
@@ -96,7 +124,7 @@ export default function Header() {
   };
 
   return (
-    <header className="bg-card border-b border-border">
+    <header className="bg-[hsl(220,13%,12%)] border-b border-border">
       <div className="container mx-auto px-8 md:px-12 lg:px-16">
         <nav className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -171,7 +199,7 @@ export default function Header() {
           {/* Wallet Connection Button */}
           <div className="hidden lg:block">
             <div className="border border-primary rounded-full p-[2px]">
-              <appkit-button/>
+              <WalletButton />
             </div>
           </div>
         </nav>
@@ -214,7 +242,7 @@ export default function Header() {
             <AdminMenuItem isMobile />
             
             {/* Mobile wallet connection */}
-            <appkit-button/>
+            <WalletButton />
           </div>
         </div>
       )}

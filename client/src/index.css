@@ -83,11 +83,13 @@
   
   /* Casino-inspired styles */
   .glass {
-    @apply bg-card/90 backdrop-blur-sm border border-primary/30 shadow-lg;
+    @apply backdrop-blur-sm border border-primary/30 shadow-lg;
+    background-color: #18181b !important;
   }
   
   .glass-dark {
-    @apply bg-secondary/90 backdrop-blur-sm border border-primary/20 text-white shadow-lg;
+    @apply backdrop-blur-sm border border-primary/20 text-white shadow-lg;
+    background-color: #18181b !important;
   }
   
   .truncate-address {
@@ -96,14 +98,16 @@
   
   /* Card styles */
   .casino-card {
-    @apply relative bg-card shadow-xl border border-primary/30 rounded-lg overflow-hidden;
+    @apply relative shadow-xl border border-primary/30 rounded-lg overflow-hidden;
+    background-color: #18181b !important;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 
                 0 0 0 1px rgba(255, 200, 81, 0.15), 
                 0 0 10px rgba(255, 200, 81, 0.1);
   }
   
   .casino-card-header {
-    @apply relative bg-gradient-to-r from-secondary to-secondary border-b border-primary/30 p-4;
+    @apply relative border-b border-primary/30 p-4;
+    background-color: #18181b !important;
   }
   
   .casino-card-header::before {

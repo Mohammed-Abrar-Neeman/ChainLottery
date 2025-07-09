@@ -522,7 +522,7 @@ const BuyTickets = React.memo(function BuyTickets({
   // Render ticket summary section
   const renderTicketSummary = () => {
     return (
-      <div className="bg-black/30 border border-primary/20 rounded-lg p-5 space-y-4">
+      <div className="bg-black/40 border border-primary/20 rounded-lg p-5 space-y-4">
         {/* Draw information */}
         <div className="mb-2 text-center">
           <div className="text-sm text-white/80 mb-1 font-medium">
@@ -587,13 +587,13 @@ const BuyTickets = React.memo(function BuyTickets({
             </div>
             
             {/* Active ticket details */}
-            <div className="bg-black/20 rounded-md p-3 text-sm">
+            <div className="bg-black/20 rounded-md p-3 text-sm border border-primary/20">
               <div className="flex justify-between mb-2">
                 <span className="text-white/70">Selected Numbers:</span>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 px-2 py-0 text-xs"
+                  className="h-6 px-2 py-0 text-xs border border-primary/20"
                   onClick={handleQuickPick}
                 >
                   <Shuffle className="h-3 w-3 mr-1" /> Quick Pick
@@ -617,7 +617,7 @@ const BuyTickets = React.memo(function BuyTickets({
           </div>
 
           {/* Price Summary */}
-          <div className="bg-black/20 rounded-md p-3 space-y-2">
+          <div className="bg-black/20 rounded-md p-3 space-y-2 border border-primary/20">
             <div className="flex justify-between">
               <span className="text-white/70">Ticket Price:</span>
             <span className="crypto-value text-white">

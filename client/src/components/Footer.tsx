@@ -41,7 +41,7 @@ export default function Footer() {
   }
 
   return (
-    <footer className="bg-card border-t border-border">
+    <footer className="bg-[hsl(220,13%,12%)] border-t border-border">
       <div className="container mx-auto px-8 md:px-12 lg:px-16 py-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>

@@ -323,7 +323,7 @@ export default function HeroBanner({
               </p>
             </div>
             
-            <div className="bg-card/40 backdrop-blur-sm rounded-lg p-6 mb-8 border border-primary/20">
+            <div className="bg-black/30 backdrop-blur-sm rounded-lg p-6 mb-8 border border-primary/20">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
                   <span className="animate-pulse">🎲</span>
@@ -371,7 +371,7 @@ export default function HeroBanner({
               </div>
             </div>
             
-            <div className="bg-card bg-opacity-90 pt-16 pb-8 px-8 lg:px-12 h-full flex flex-col border-l border-primary/20">
+            <div className="bg-gray-750 bg-opacity-90 pt-16 pb-8 px-8 lg:px-12 h-full flex flex-col border-l border-primary/20">
               {/* Series and Draw Selection */}
               <div className="mb-6 flex space-x-4">
                 <div className="w-1/2">
@@ -383,7 +383,7 @@ export default function HeroBanner({
                     onValueChange={handleSeriesChange}
                     disabled={isLoading}
                   >
-                    <SelectTrigger className="bg-secondary border border-primary/30 text-white">
+                    <SelectTrigger className="bg-black/30 border border-primary/30 text-white">
                       <SelectValue placeholder={isLoading ? "Loading..." : "Select series"} />
                     </SelectTrigger>
                     <SelectContent className="border border-primary/30">
@@ -415,7 +415,7 @@ export default function HeroBanner({
                     onValueChange={handleDrawChange}
                     disabled={isLoading}
                   >
-                    <SelectTrigger className="bg-secondary border border-primary/30 text-white">
+                    <SelectTrigger className="bg-black/30 border border-primary/30 text-white">
                       <SelectValue placeholder={isLoading ? "Loading..." : "Select draw"} />
                     </SelectTrigger>
                     <SelectContent className="border border-primary/30">
@@ -441,7 +441,7 @@ export default function HeroBanner({
               
               <div className="flex-1">
                 {!isDrawAvailable && (
-                  <div className="bg-card border border-primary/20 rounded-lg p-4 mb-6">
+                  <div className="bg-black/30 border border-primary/20 rounded-lg p-4 mb-6">
                     <p className="text-lg font-semibold mb-1 text-white">No Active Draws Available</p>
                     <p className="text-sm opacity-75">
                       The admin must start a new lottery draw. Check back soon!
@@ -450,7 +450,7 @@ export default function HeroBanner({
                 )}
                 
                 <div className="mb-8 relative">
-                  <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 via-primary/40 to-primary/20 rounded-xl blur"></div>
+                  <div className="absolute -inset-1 bg-gradient-to-r from-primary/10 via-primary/10 to-primary/10 rounded-xl blur"></div>
                   <div className="relative bg-black/30 backdrop-blur-sm rounded-lg border border-primary/30 p-6">
                     <span className="text-xs font-mono uppercase tracking-wider text-primary/80">Current Jackpot</span>
                     <div className="flex items-baseline">
