@@ -13,7 +13,7 @@ console.log('Environment variables:', {
 // Get projectId from https://cloud.reown.com
 
 // TODO: Replace with environment variable once .env.local is working
-export const projectId = process.env.NEXT_PUBLIC_PROJECT_ID || 'b56e18d47c72ab683b10814fe9495694';
+export const projectId = process.env.NEXT_PUBLIC_PROJECT_ID || 'bc92d98ba3be558059c45443385417a3';
 
 if (!projectId) {
   console.error('Project ID is not defined');

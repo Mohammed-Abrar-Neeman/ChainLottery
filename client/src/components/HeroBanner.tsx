@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAppKitAccount } from '@reown/appkit/react';
+import { useMaticPrice } from "@/hooks/useEthPrice";
 
 // Props interface for shared state
 interface HeroBannerProps {
@@ -70,6 +71,16 @@ export default function HeroBanner({
   const { getLotteryData, getSeriesList, getSeriesDraws } = useLotteryContract();
   const { address, isConnected } = useAppKitAccount();
   const [showWalletModal, setShowWalletModal] = React.useState(false);
+
+  const maticPrice = useMaticPrice();
+
+  // Utility function to format USD
+  const formatUSD = (maticAmount: string) => {
+    if (maticPrice === undefined) return <span className="inline-flex items-center"><svg className="animate-spin h-4 w-4 mr-1 text-gray-400" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>Loading...</span>;
+    if (maticPrice === null) return 'Unavailable';
+    const usdAmount = parseFloat(maticAmount) * maticPrice;
+    return `$${usdAmount.toFixed(5)}`;
+  };
 
   // Fetch lottery data for the selected series and draw
   const { data: lotteryData } = useQuery({
@@ -459,9 +470,9 @@ export default function HeroBanner({
                       </span>
                       <span className="ml-2 text-xl bg-gradient-to-r from-primary to-yellow-400 text-transparent bg-clip-text font-bold">POL</span>
                     </div>
-                    {/* <span className="text-sm font-mono text-white/60">
+                    <span className="text-sm font-mono text-white/60">
                       ≈ {formatUSD(getJackpotAmount())}
-                    </span> */}
+                    </span>
                   </div>
                 </div>
                 

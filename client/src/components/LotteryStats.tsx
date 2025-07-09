@@ -4,6 +4,7 @@ import { useLotteryContract } from '@/hooks/useLotteryContract';
 import { Ticket, DollarSign, Users, History } from 'lucide-react';
 import { ethers } from 'ethers';
 import { useAppKitAccount } from '@reown/appkit/react';
+import { useMaticPrice } from "@/hooks/useEthPrice";
 
 // Add prop types for shared state
 interface LotteryStatsProps {
@@ -17,19 +18,20 @@ interface TimeRemaining {
   minutes: number;
 }
 
-// Utility function to format USD
-const formatUSD = (ethAmount: string) => {
-  const ethPrice = 2000; // TODO: Get this from an API
-  const usdAmount = parseFloat(ethAmount) * ethPrice;
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD'
-  }).format(usdAmount);
-};
+
 
 export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: LotteryStatsProps) {
   const { getLotteryData, getSeriesDraws } = useLotteryContract();
   const { address, isConnected } = useAppKitAccount();
+  const maticPrice = useMaticPrice();
+
+  // Utility function to format USD
+const formatUSD = (maticAmount: string) => {
+  if (maticPrice === undefined) return <span className="inline-flex items-center"><svg className="animate-spin h-4 w-4 mr-1 text-gray-400" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>Loading...</span>;
+  if (maticPrice === null) return 'Unavailable';
+  const usdAmount = parseFloat(maticAmount) * maticPrice;
+  return `$${usdAmount.toFixed(5)}`;
+};
 
   // Fetch lottery data for the selected series and draw
   const { data: lotteryData } = useQuery({
@@ -80,7 +82,7 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
   // Get values from lottery data
   const ticketPrice = lotteryData?.ticketPrice || "0.0";
   const jackpotAmount = lotteryData?.jackpotAmount || "0.0";
-  const currentRound = getCurrentRound();
+  const currentRound = getCurrentRound() ?? 0;
   const participantCount = lotteryData?.participantCount || 0;
 
   // Calculate time remaining
@@ -115,10 +117,10 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
             {ticketPrice && parseFloat(ticketPrice) > 0 ? 
               `${parseFloat(ticketPrice).toFixed(5)} POL` : 'No Data'}
           </p>
-          {/* <p className="text-gray-600 text-sm">
+          <p className="text-gray-600 text-sm">
             {ticketPrice && parseFloat(ticketPrice) > 0 ? 
               `≈ ${formatUSD(ticketPrice)}` : 'Unavailable'}
-          </p> */}
+          </p>
         </div>
         
         <div className="glass rounded-2xl shadow-glass p-6">
@@ -132,10 +134,10 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
             {jackpotAmount && parseFloat(jackpotAmount) > 0 ? 
               `${parseFloat(jackpotAmount).toFixed(5)} POL` : 'No Data'}
           </p>
-          {/* <p className="text-gray-600 text-sm">
+          <p className="text-gray-600 text-sm">
             {jackpotAmount && parseFloat(jackpotAmount) > 0 ? 
               `≈ ${formatUSD(jackpotAmount)}` : 'Unavailable'}
-          </p> */}
+          </p>
         </div>
         
         <div className="glass rounded-2xl shadow-glass p-6">
