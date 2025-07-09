@@ -90,7 +90,7 @@ export default function TicketReconfirmationModal({
     }
   }, [open, seriesIndex, drawId, getContract]);
 
-  // Format ETH values
+  // Format POL values
   const formatETH = (value: number) => {
     return value < 0.0001 ? value.toFixed(6) : value.toFixed(4);
   };
@@ -160,7 +160,7 @@ export default function TicketReconfirmationModal({
               <div className="flex items-center justify-between">
                 <span className="text-white/70">Current Jackpot:</span>
                 <span className="text-primary font-medium">
-                  {drawInfo.jackpot} ETH
+                  {drawInfo.jackpot} POL
                 </span>
               </div>
             </div>
@@ -236,20 +236,20 @@ export default function TicketReconfirmationModal({
             <div className="flex justify-between text-sm">
               <span className="text-white/70">Price per ticket:</span>
               <span className="text-white">
-                {formatETH(ticketPrice)} ETH
+                {formatETH(ticketPrice)} POL
               </span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-white/70">Total price:</span>
               <span className="text-white">
-                {formatETH(totalTicketsPrice)} ETH
+                {formatETH(totalTicketsPrice)} POL
               </span>
             </div>
             <div className="border-t border-white/10 pt-2 mt-2 flex justify-between font-semibold">
               <span className="text-white">Total:</span>
               <div className="text-right">
                 <div className="text-white">
-                  {formatETH(totalCost)} ETH
+                  {formatETH(totalCost)} POL
                 </div>
                 <div className="text-xs text-white/50">
                   ≈ ${(totalCost * 3000).toFixed(2)} {/* Using a fixed rate for demo */}

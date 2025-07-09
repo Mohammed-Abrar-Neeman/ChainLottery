@@ -49,7 +49,7 @@ export default function TransactionSuccessModal({
     onClose();
   };
 
-  // Format ETH values
+  // Format POL values
   const formatETH = (value: number) => {
     return value < 0.0001 ? value.toFixed(6) : value.toFixed(4);
   };
@@ -86,7 +86,7 @@ export default function TransactionSuccessModal({
             
             <div className="flex justify-between text-sm">
               <span className="text-white/70">Total Amount:</span>
-              <span className="text-white">{formatETH(totalCost)} ETH</span>
+              <span className="text-white">{formatETH(totalCost)} POL</span>
             </div>
           </div>
           

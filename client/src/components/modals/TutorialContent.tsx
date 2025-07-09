@@ -15,7 +15,7 @@ export function TutorialContent() {
           <ul className="list-disc pl-6 space-y-2">
             <li>Connect your Ethereum wallet by clicking the "Connect Wallet" button in the header.</li>
             <li>Make sure you're on the Sepolia test network to participate in the lottery.</li>
-            <li>You can get test ETH from the Sepolia faucet if needed for transactions.</li>
+            <li>You can get test POL from the Sepolia faucet if needed for transactions.</li>
           </ul>
         </section>
         
@@ -25,7 +25,7 @@ export function TutorialContent() {
             <li>Choose a lottery series from the dropdown menu.</li>
             <li>Each lottery series has a different difficulty level and prize structure.</li>
             <li>Buy tickets for the current draw by clicking the "Buy Tickets" button.</li>
-            <li>Each ticket costs 0.0001 ETH.</li>
+            <li>Each ticket costs 0.0001 POL.</li>
             <li>For a Quick Pick, click "Generate Random Numbers" to get 5 numbers plus 1 LOTTO number.</li>
             <li>Alternatively, you can select your own numbers manually.</li>
             <li>Confirm your purchase by signing the transaction with your wallet.</li>
@@ -67,7 +67,7 @@ export function TutorialContent() {
         
         <div className="mt-8 p-4 bg-black/10 rounded-lg">
           <p className="text-lg italic">
-            Note: This is a DApp running on the Sepolia testnet. While the gameplay mirrors a real lottery, it uses test ETH, not real currency.
+            Note: This is a DApp running on the Sepolia testnet. While the gameplay mirrors a real lottery, it uses test POL, not real currency.
           </p>
         </div>
       </div>

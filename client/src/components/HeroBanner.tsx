@@ -457,7 +457,7 @@ export default function HeroBanner({
                       <span className="text-4xl lg:text-6xl crypto-value animate-glow">
                         {getJackpotAmount()}
                       </span>
-                      <span className="ml-2 text-xl bg-gradient-to-r from-primary to-yellow-400 text-transparent bg-clip-text font-bold">ETH</span>
+                      <span className="ml-2 text-xl bg-gradient-to-r from-primary to-yellow-400 text-transparent bg-clip-text font-bold">POL</span>
                     </div>
                     {/* <span className="text-sm font-mono text-white/60">
                       ≈ {formatUSD(getJackpotAmount())}

@@ -464,7 +464,7 @@ const BuyTickets = React.memo(function BuyTickets({
           console.log('Error Type: Insufficient Funds');
           toast({
             title: "Insufficient Funds",
-            description: "You don't have enough ETH to complete this transaction",
+            description: "You don't have enough POL to complete this transaction",
             variant: "destructive"
           });
         } else if (errorMessage.includes('gas required exceeds allowance')) {
@@ -621,7 +621,7 @@ const BuyTickets = React.memo(function BuyTickets({
             <div className="flex justify-between">
               <span className="text-white/70">Ticket Price:</span>
             <span className="crypto-value text-white">
-                {isConnected ? `${ticketPrice.toFixed(5)} ETH` : "Connect wallet to see price"}
+                {isConnected ? `${ticketPrice.toFixed(5)} POL` : "Connect wallet to see price"}
             </span>
           </div>
             <div className="flex justify-between">
@@ -631,7 +631,7 @@ const BuyTickets = React.memo(function BuyTickets({
             <div className="flex justify-between">
               <span className="text-white/70">Total Cost:</span>
             <span className="crypto-value text-white">
-                {isConnected ? `${totalCost.toFixed(5)} ETH` : "Connect wallet to see price"}
+                {isConnected ? `${totalCost.toFixed(5)} POL` : "Connect wallet to see price"}
             </span>
             </div>
           </div>
@@ -665,7 +665,7 @@ const BuyTickets = React.memo(function BuyTickets({
               2
             </div>
             <div>
-              <p className="text-white font-medium">Purchase your ticket using ETH</p>
+              <p className="text-white font-medium">Purchase your ticket using POL</p>
             </div>
           </div>
           

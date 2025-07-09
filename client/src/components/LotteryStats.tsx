@@ -113,7 +113,7 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
           </div>
           <p className="crypto-value text-3xl">
             {ticketPrice && parseFloat(ticketPrice) > 0 ? 
-              `${parseFloat(ticketPrice).toFixed(5)} ETH` : 'No Data'}
+              `${parseFloat(ticketPrice).toFixed(5)} POL` : 'No Data'}
           </p>
           {/* <p className="text-gray-600 text-sm">
             {ticketPrice && parseFloat(ticketPrice) > 0 ? 
@@ -130,7 +130,7 @@ export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: Lotter
           </div>
           <p className="crypto-value text-3xl">
             {jackpotAmount && parseFloat(jackpotAmount) > 0 ? 
-              `${parseFloat(jackpotAmount).toFixed(5)} ETH` : 'No Data'}
+              `${parseFloat(jackpotAmount).toFixed(5)} POL` : 'No Data'}
           </p>
           {/* <p className="text-gray-600 text-sm">
             {jackpotAmount && parseFloat(jackpotAmount) > 0 ? 

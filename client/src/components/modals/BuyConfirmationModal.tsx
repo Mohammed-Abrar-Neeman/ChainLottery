@@ -38,7 +38,7 @@ export default function BuyConfirmationModal({
   const hasMultipleTickets = tickets.length > 1;
   const ticketCount = hasMultipleTickets ? tickets.length : 1;
 
-  // Format ETH values
+  // Format POL values
   const formatETH = (value: number | undefined) => {
     if (value === undefined || value === null) return '0.0000';
     return value < 0.0001 ? value.toFixed(6) : value.toFixed(4);
@@ -122,20 +122,20 @@ export default function BuyConfirmationModal({
             <div className="flex justify-between text-sm">
               <span className="text-white/70">Price per ticket:</span>
               <span className="text-white">
-                {formatETH(ticketPrice)} ETH
+                {formatETH(ticketPrice)} POL
               </span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-white/70">Total price:</span>
               <span className="text-white">
-                {formatETH(totalTicketsPrice)} ETH
+                {formatETH(totalTicketsPrice)} POL
               </span>
             </div>
             <div className="border-t border-white/10 pt-2 mt-2 flex justify-between font-semibold">
               <span className="text-white">Total:</span>
               <div className="text-right">
                 <div className="text-white">
-                  {formatETH(totalCost)} ETH
+                  {formatETH(totalCost)} POL
                 </div>
                 <div className="text-xs text-white/50">
                   ≈ ${(totalCost * 3000).toFixed(2)} {/* Using a fixed rate for demo */}
