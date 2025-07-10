@@ -20,11 +20,13 @@ export default function Footer() {
       case Number(CHAIN_IDS.GOERLI):
         return `https://goerli.etherscan.io/address/${contractAddress}`;
       case Number(CHAIN_IDS.BSC_TESTNET):
-        return `https://testnet.bscscan.com/address/${contractAddress}`;
+        return `https://polygonscan.com/address/${contractAddress}`;
       case Number(CHAIN_IDS.BSC_MAINNET):
         return `https://bscscan.com/address/${contractAddress}`;
+      case Number(CHAIN_IDS.POLYGON_MAINNET):
+        return `https://polygonscan.com/address/${contractAddress}`;
       default:
-        return `https://testnet.bscscan.com/address/${contractAddress}`;
+        return `https://polygonscan.com/address/${contractAddress}`;
     }
   };
 

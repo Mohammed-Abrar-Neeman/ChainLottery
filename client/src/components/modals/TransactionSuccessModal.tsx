@@ -74,7 +74,7 @@ export default function TransactionSuccessModal({
             <div className="flex justify-between text-sm">
               <span className="text-white/70">Transaction Hash:</span>
               <a 
-                href={`https://testnet.bscscan.com/tx/${transactionHash}`}
+                href={`https://polygonscan.com/tx/${transactionHash}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-primary hover:text-primary/80 flex items-center gap-1"

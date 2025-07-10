@@ -60,6 +60,6 @@ export const useWalletContext = () => {
     account: address,
     chainId: chainId?.toString() || null,
     disconnect,
-    isWrongNetwork: chainId !== 11155111
+    isWrongNetwork: chainId !== 137
   };
 };

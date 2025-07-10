@@ -20,7 +20,7 @@ export default function TransactionPendingModal({
   error
 }: TransactionPendingModalProps) {
   const getExplorerUrl = (hash: string) => {
-    return `https://testnet.bscscan.com/tx/${hash}`;
+    return `https://polygonscan.com/tx/${hash}`;
   };
 
   return (

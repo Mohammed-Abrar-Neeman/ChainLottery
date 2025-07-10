@@ -34,6 +34,14 @@ export const NETWORKS = {
       lotteryContract: "0x4D3789B756E80A72AC2d5574CE67565C6435E8Ae"
     }
   },
+  polygon: {
+    mainnet: {
+      rpc: process.env.NEXT_PUBLIC_POLYGON_MAINNET_RPC || "https://polygon-mainnet.infura.io",
+      chainId: 137,
+      name: "Polygon Mainnet",
+      lotteryContract: "0x05E865DE0375463d447caeEd6DF713b6F282A41d"
+    }
+  },
   local: {
     hardhat: {
       rpc: "http://localhost:8545",
@@ -45,7 +53,7 @@ export const NETWORKS = {
 } as const;
 
 // Default network to use
-export const DEFAULT_NETWORK = NETWORKS.bsc.testnet;
+export const DEFAULT_NETWORK = NETWORKS.polygon.mainnet;
 
 // Get the currently active chain ID
 export const getActiveChainId = (): string => {
@@ -79,5 +87,6 @@ export const CHAIN_IDS = {
   GOERLI: '5',
   LOCAL: '1337',
   BSC_TESTNET: '97',
-  BSC_MAINNET: '56'
+  BSC_MAINNET: '56',
+  POLYGON_MAINNET: '137'
 } as const; 

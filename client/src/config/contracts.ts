@@ -2,8 +2,8 @@
 console.log('Loading contract address from env:', process.env.NEXT_PUBLIC_LOTTERY_CONTRACT_ADDRESS);
 
 export const CONTRACTS = {
-  // BSC Testnet Lottery Contract - must be set in .env.local
-  LOTTERY: process.env.NEXT_PUBLIC_LOTTERY_CONTRACT_ADDRESS || '0x4D3789B756E80A72AC2d5574CE67565C6435E8Ae',
+  // Polygon Mainnet Lottery Contract - must be set in .env.local
+  LOTTERY: process.env.NEXT_PUBLIC_LOTTERY_CONTRACT_ADDRESS || '0x05E865DE0375463d447caeEd6DF713b6F282A41d',
 } as const;
 
 // Contract ABIs
