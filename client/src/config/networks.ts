@@ -36,7 +36,7 @@ export const NETWORKS = {
   },
   polygon: {
     mainnet: {
-      rpc: process.env.NEXT_PUBLIC_POLYGON_MAINNET_RPC || "https://polygon-mainnet.infura.io",
+      rpc: process.env.NEXT_PUBLIC_POLYGON_MAINNET_RPC || "https://polygon-rpc.com",
       chainId: 137,
       name: "Polygon Mainnet",
       lotteryContract: "0x05E865DE0375463d447caeEd6DF713b6F282A41d"
