@@ -39,4 +39,10 @@ export default defineConfig({
     outDir: path.resolve(__dirname, "dist/public"),
     emptyOutDir: true,
   },
+  preview: {
+    allowedHosts: [
+      'localhost',
+      'lottoblokk.com'
+    ]
+  }
 });

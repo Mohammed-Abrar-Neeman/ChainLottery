@@ -7,7 +7,7 @@ import { AlertCircle, Lock, RefreshCw } from 'lucide-react';
 
 const API_URL = typeof window !== 'undefined' && window.location.hostname === 'localhost'
 ? 'http://localhost:3001'
-: 'http://167.172.76.74:3001';
+: 'https://api.lottoblokk.com';
   
 
 type ConfigType = {

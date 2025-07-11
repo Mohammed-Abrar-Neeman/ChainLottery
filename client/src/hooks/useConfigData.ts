@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 
 const API_URL = typeof window !== 'undefined' && window.location.hostname === 'localhost'
 ? 'http://localhost:3001'
-: 'http://167.172.76.74:3001';
+: 'https://api.lottoblokk.com';
 
 export function useConfigData() {
   // The config is cached by react-query

@@ -10,6 +10,12 @@ export default defineConfig({
     strictPort: true,
     host: true
   },
+  preview: {
+    allowedHosts: [
+      'localhost',
+      'lottoblokk.com'
+    ]
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
