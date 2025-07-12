@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Wallet, Shuffle, Plus, Calendar } from 'lucide-react';
-import { useAppKitAccount } from '@reown/appkit/react';
+import { useAppKitAccount, useAppKit } from '@reown/appkit/react';
 import { useToast } from '@/hooks/use-toast';
 import { useLotteryContract } from '@/hooks/useLotteryContract';
 import { NumberSelectionGrid } from './NumberSelectionGrid';
@@ -49,7 +49,8 @@ const BuyTickets = React.memo(function BuyTickets({
   const [isBuying, setIsBuying] = useState(false);
   const [buyError, setBuyError] = useState<string | null>(null);
   
-  const { isConnected } = useAppKitAccount();
+  const { address, isConnected } = useAppKitAccount();
+  const { open } = useAppKit();
   const { toast } = useToast();
   const { 
     generateQuickPick,
@@ -622,7 +623,7 @@ const BuyTickets = React.memo(function BuyTickets({
             <div className="flex justify-between">
               <span className="text-white/70">Ticket Price:</span>
               <span className="crypto-value text-white text-right">
-                {isConnected ? `${ticketPrice.toFixed(5)} POL` : "Connect wallet to see price"}
+                {isConnected ? `${ticketPrice.toFixed(5)} POL` : "-"}
                 <br />
                 <span className="text-xs text-gray-400">{isConnected ? formatUSD(ticketPrice) : ''}</span>
               </span>
@@ -634,7 +635,7 @@ const BuyTickets = React.memo(function BuyTickets({
             <div className="flex justify-between">
               <span className="text-white/70">Total Cost:</span>
               <span className="crypto-value text-white text-right">
-                {isConnected ? `${totalCost.toFixed(5)} POL` : "Connect wallet to see price"}
+                {isConnected ? `${totalCost.toFixed(5)} POL` : "-"}
                 <br />
                 <span className="text-xs text-gray-400">{isConnected ? formatUSD(totalCost) : ''}</span>
               </span>
@@ -773,10 +774,10 @@ const BuyTickets = React.memo(function BuyTickets({
             {/* Buy Button */}
             {!isConnected ? (
               <Button
-                disabled
-                className="w-full bg-gray-600 text-gray-300 font-bold rounded-lg py-5 h-14 text-lg transition-all shadow-lg cursor-not-allowed"
+                onClick={() => open()}
+                className="w-full bg-gray-600 text-gray-300 font-bold rounded-lg py-5 h-14 text-lg transition-all shadow-lg"
               >
-                Wallet Not Connected
+                Connect Wallet
               </Button>
             ) : !isDrawAvailable || isDrawCompleted ? (
               <Button

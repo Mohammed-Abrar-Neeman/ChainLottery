@@ -40,7 +40,7 @@ pm2 startup
 ```
 
 - The backend will run on port **3001** by default.
-- API endpoint: `http://your_server_ip:3001/api/config`
+- API endpoint: `http://your_server_ip:3001/config`
 
 ---
 

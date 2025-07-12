@@ -85,7 +85,7 @@ const ContentAdmin: React.FC = () => {
   // --- Config fetch logic ---
   const fetchConfig = () => {
     setLoadingConfig(true);
-    fetch(`${API_URL}/api/config`)
+    fetch(`${API_URL}/config`)
       .then((res) => {
         if (!res.ok) throw new Error('Config fetch failed');
         return res.json();
@@ -112,7 +112,7 @@ const ContentAdmin: React.FC = () => {
   // --- Images fetch logic ---
   const fetchImages = () => {
     setLoadingImages(true);
-    fetch(`${API_URL}/api/images`)
+    fetch(`${API_URL}/images`)
       .then((res) => res.json())
       .then((data) => setImages(data))
       .catch((e) => {
@@ -138,7 +138,7 @@ const ContentAdmin: React.FC = () => {
       return;
     }
     try {
-      const res = await fetch(`${API_URL}/api/config`, {
+      const res = await fetch(`${API_URL}/config`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(parsed, null, 2),
@@ -190,7 +190,7 @@ const ContentAdmin: React.FC = () => {
       const formData = new FormData();
       formData.append("image", file);
       try {
-        const res = await fetch(`${API_URL}/api/upload`, {
+        const res = await fetch(`${API_URL}/upload`, {
           method: "POST",
           body: formData,
         });
@@ -222,7 +222,7 @@ const ContentAdmin: React.FC = () => {
     setDeleting(filename);
     setUploadStatus("");
     try {
-      const res = await fetch(`${API_URL}/api/images/${encodeURIComponent(filename)}`, {
+      const res = await fetch(`${API_URL}/images/${encodeURIComponent(filename)}`, {
         method: "DELETE",
       });
       if (!res.ok) {

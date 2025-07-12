@@ -58,6 +58,8 @@ export default function FAQ() {
               <a
                 key={i}
                 href={link.href}
+                target="_blank" 
+                rel="noopener noreferrer"
                 className="border border-primary/30 text-primary hover:bg-primary/10 font-medium rounded-lg px-4 py-2 text-sm transition flex items-center"
                 dangerouslySetInnerHTML={{ __html: link.svgIcon + link.label }}
               />

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'wouter';
 import { Twitter, Github, ExternalLink } from 'lucide-react';
-import { FaDiscord, FaTelegram } from 'react-icons/fa';
+import { FaDiscord, FaInstagram, FaTelegram, FaYoutube } from 'react-icons/fa';
 import { DEFAULT_NETWORK, CHAIN_IDS, getLotteryAddress } from '@/config/networks';
 import { useConfigData } from '@/hooks/useConfigData';
 
@@ -69,7 +69,8 @@ export default function Footer() {
                 if (link.icon === 'twitter') icon = <Twitter className="h-5 w-5" />;
                 if (link.icon === 'discord') icon = <FaDiscord className="h-5 w-5" />;
                 if (link.icon === 'telegram') icon = <FaTelegram className="h-5 w-5" />;
-                if (link.icon === 'github') icon = <Github className="h-5 w-5" />;
+                if (link.icon === 'youtube') icon = <FaYoutube className="h-5 w-5" />;
+                if (link.icon === 'insta') icon = <FaInstagram className="h-5 w-5" />;
                 return (
                   <a key={i} href={link.href} className="text-gray-400 hover:text-white transition" target="_blank" rel="noopener noreferrer">
                     {icon}

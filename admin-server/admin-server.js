@@ -40,8 +40,8 @@ const upload = multer({
 // Path to config.json
 const configPath = path.join(__dirname, 'public', 'config.json');
 
-// GET /api/config
-app.get('/api/config', (req, res) => {
+// GET /config
+app.get('/config', (req, res) => {
   if (!fs.existsSync(configPath)) {
     return res.status(404).json({ error: 'Config not found' });
   }
@@ -49,8 +49,8 @@ app.get('/api/config', (req, res) => {
   res.status(200).json(JSON.parse(data));
 });
 
-// POST /api/config - update config.json
-app.post('/api/config', (req, res) => {
+// POST /config - update config.json
+app.post('/config', (req, res) => {
   try {
     fs.writeFileSync(configPath, JSON.stringify(req.body, null, 2));
     res.status(200).json({ success: true });
@@ -59,8 +59,8 @@ app.post('/api/config', (req, res) => {
   }
 });
 
-// POST /api/upload - upload an image
-app.post('/api/upload', (req, res) => {
+// POST /upload - upload an image
+app.post('/upload', (req, res) => {
   upload.single('image')(req, res, function (err) {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
@@ -75,8 +75,8 @@ app.post('/api/upload', (req, res) => {
   });
 });
 
-// DELETE /api/images/:filename - delete an image
-app.delete('/api/images/:filename', (req, res) => {
+// DELETE /images/:filename - delete an image
+app.delete('/images/:filename', (req, res) => {
   const filename = req.params.filename;
   if (!/\.(jpg|jpeg|png|gif|webp)$/i.test(filename)) {
     return res.status(400).json({ error: 'Invalid file type' });
@@ -92,8 +92,8 @@ app.delete('/api/images/:filename', (req, res) => {
   });
 });
 
-// GET /api/images - list all images
-app.get('/api/images', (req, res) => {
+// GET /images - list all images
+app.get('/images', (req, res) => {
   fs.readdir(imagesDir, (err, files) => {
     if (err) return res.status(500).json({ error: 'Failed to list images' });
     // Filter only image files
