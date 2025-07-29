@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
 
-export function useMaticPrice() {
-  const [maticPrice, setMaticPrice] = useState<number | null>(null);
+export function useEthPrice() {
+  const [ethPrice, setEthPrice] = useState<number | null>(null);
 
   useEffect(() => {
-    fetch("https://api.coingecko.com/api/v3/simple/price?ids=matic-network&vs_currencies=usd")
+    fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd")
       .then(res => res.json())
       .then(data => {
-        setMaticPrice(data["matic-network"].usd);
+        setEthPrice(data["ethereum"].usd);
       })
-      .catch(() => setMaticPrice(null));
+      .catch(() => setEthPrice(null));
   }, []);
 
-  return maticPrice;
+  return ethPrice;
 } 

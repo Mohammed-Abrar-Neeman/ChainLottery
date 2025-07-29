@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAppKitAccount } from '@reown/appkit/react';
-import { useMaticPrice } from "@/hooks/useEthPrice";
+import { useEthPrice } from "@/hooks/useEthPrice";
 
 // Props interface for shared state
 interface HeroBannerProps {
@@ -72,7 +72,7 @@ export default function HeroBanner({
   const { address, isConnected } = useAppKitAccount();
   const [showWalletModal, setShowWalletModal] = React.useState(false);
 
-  const maticPrice = useMaticPrice();
+  const maticPrice = useEthPrice();
 
   // Utility function to format USD
   const formatUSD = (maticAmount: string) => {

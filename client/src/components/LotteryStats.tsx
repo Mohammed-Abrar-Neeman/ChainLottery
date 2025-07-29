@@ -4,7 +4,7 @@ import { useLotteryContract } from '@/hooks/useLotteryContract';
 import { Ticket, DollarSign, Users, History } from 'lucide-react';
 import { ethers } from 'ethers';
 import { useAppKitAccount } from '@reown/appkit/react';
-import { useMaticPrice } from "@/hooks/useEthPrice";
+import { useEthPrice } from "@/hooks/useEthPrice";
 
 // Add prop types for shared state
 interface LotteryStatsProps {
@@ -23,7 +23,7 @@ interface TimeRemaining {
 export default function LotteryStats({ sharedSeriesIndex, sharedDrawId }: LotteryStatsProps) {
   const { getLotteryData, getSeriesDraws } = useLotteryContract();
   const { address, isConnected } = useAppKitAccount();
-  const maticPrice = useMaticPrice();
+  const maticPrice = useEthPrice();
 
   // Utility function to format USD
 const formatUSD = (maticAmount: string) => {
