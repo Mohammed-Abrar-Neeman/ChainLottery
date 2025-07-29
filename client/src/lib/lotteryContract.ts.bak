@@ -1046,7 +1046,7 @@ export const getUserTicketsCount = async (
   provider?: ethers.BrowserProvider | null
 ): Promise<number> => {
   try {
-    // Use default Sepolia chain ID - the getLotteryAddress function handles all contract address logic
+    // Use default BASE chain ID - the getLotteryAddress function handles all contract address logic
     const chainId = ACTIVE_CHAIN_ID;
     const contractAddress = getLotteryAddress(chainId);
     
@@ -1128,7 +1128,7 @@ export const getUserTickets = async (
   console.log(`[DEBUG] getUserTickets - Using provider:`, provider ? "Available" : "Not available");
   
   try {
-    // Use default Sepolia chain ID - the getLotteryAddress function handles all contract address logic
+    // Use default BASE chain ID - the getLotteryAddress function handles all contract address logic
     const chainId = ACTIVE_CHAIN_ID;
     const contractAddress = getLotteryAddress(chainId);
     console.log(`[DEBUG] getUserTickets - Using chainId: ${chainId} with address ${contractAddress}`);

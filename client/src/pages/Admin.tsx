@@ -448,7 +448,7 @@ export default function Admin() {
       } else if (error?.code === "ACTION_REJECTED") {
         errorMessage = "Transaction was rejected. Please try again.";
       } else if (error?.code === "INSUFFICIENT_FUNDS") {
-        errorMessage = "Insufficient funds for gas. Please add more POL to your wallet.";
+        errorMessage = "Insufficient funds for gas. Please add more ETH to your wallet.";
       } else if (error?.message) {
         errorMessage = error.message;
       }
@@ -891,7 +891,7 @@ export default function Admin() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="timeDrawTicketPrice">Ticket Price (POL)</Label>
+                    <Label htmlFor="timeDrawTicketPrice">Ticket Price (ETH)</Label>
                     <Input 
                       id="timeDrawTicketPrice" 
                       type="number" 
@@ -903,7 +903,7 @@ export default function Admin() {
                   </div>
                   
                   <div className="grid gap-2">
-                    <Label htmlFor="timeDrawJackpot">Initial Jackpot (POL)</Label>
+                    <Label htmlFor="timeDrawJackpot">Initial Jackpot (ETH)</Label>
                     <Input 
                       id="timeDrawJackpot" 
                       type="number" 
@@ -970,7 +970,7 @@ export default function Admin() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="blockDrawTicketPrice">Ticket Price (POL)</Label>
+                    <Label htmlFor="blockDrawTicketPrice">Ticket Price (ETH)</Label>
                     <Input 
                       id="blockDrawTicketPrice" 
                       type="number" 
@@ -982,7 +982,7 @@ export default function Admin() {
                   </div>
                   
                   <div className="grid gap-2">
-                    <Label htmlFor="blockDrawJackpot">Initial Jackpot (POL)</Label>
+                    <Label htmlFor="blockDrawJackpot">Initial Jackpot (ETH)</Label>
                     <Input 
                       id="blockDrawJackpot" 
                       type="number" 

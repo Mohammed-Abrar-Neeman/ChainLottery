@@ -57,7 +57,7 @@
       "url": "https://images.pexels.com/photos/7654418/pexels-photo-7654418.jpeg?auto=compress&cs=tinysrgb&w=800",
       "fallbackColor": "bg-gradient-to-r from-fuchsia-600 to-pink-900",
       "title": "CRYPTO PAYOUTS",
-      "description": "Instant Withdrawals in POL"
+      "description": "Instant Withdrawals in ETH"
     }
   ],
   "faqCategories": [
@@ -66,11 +66,11 @@
       "items": [
         {
           "question": "What is CryptoLotto?",
-          "answer": "CryptoLotto is a decentralized lottery running on the Polygon blockchain. It allows users to buy tickets POL and participate in regular lottery draws. The platform ensures transparency and fairness through smart contracts and verifiable randomness."
+          "answer": "CryptoLotto is a decentralized lottery running on the BASE blockchain. It allows users to buy tickets ETH and participate in regular lottery draws. The platform ensures transparency and fairness through smart contracts and verifiable randomness."
         },
         {
           "question": "How does the lottery work?",
-          "answer": "CryptoLotto is a decentralized lottery running on Polygon. Each ticket costs 0.01 POL. When you purchase tickets, your entry is recorded on the blockchain. At the end of each round (approximately 24 hours), a winner is selected randomly using Chainlink VRF (Verifiable Random Function), ensuring fairness and transparency. The winner automatically receives 70% of the pool, 20% goes to the next round's starting pot, and 10% goes to the treasury."
+          "answer": "CryptoLotto is a decentralized lottery running on BASE. Each ticket costs 0.01 ETH. When you purchase tickets, your entry is recorded on the blockchain. At the end of each round (approximately 24 hours), a winner is selected randomly using Chainlink VRF (Verifiable Random Function), ensuring fairness and transparency. The winner automatically receives 70% of the pool, 20% goes to the next round's starting pot, and 10% goes to the treasury."
         },
         {
           "question": "How frequently are lottery draws held?",
@@ -83,7 +83,7 @@
       "items": [
         {
           "question": "How much does a ticket cost?",
-          "answer": "Each lottery ticket costs 0.01 POL. You can purchase multiple tickets (up to 100) in a single transaction to increase your winning chances."
+          "answer": "Each lottery ticket costs 0.01 ETH. You can purchase multiple tickets (up to 100) in a single transaction to increase your winning chances."
         },
         {
           "question": "How many tickets can I buy?",
@@ -91,7 +91,7 @@
         },
         {
           "question": "Can I buy tickets from any country?",
-          "answer": "CryptoLotto is a decentralized application running on the blockchain, so technically anyone with an Polygon wallet can participate. However, it's your responsibility to ensure that participating in blockchain-based lotteries complies with your local laws and regulations."
+          "answer": "CryptoLotto is a decentralized application running on the blockchain, so technically anyone with an BASE wallet can participate. However, it's your responsibility to ensure that participating in blockchain-based lotteries complies with your local laws and regulations."
         }
       ]
     },
@@ -104,7 +104,7 @@
         },
         {
           "question": "How do I receive my winnings?",
-          "answer": "If you win, the prize is automatically sent to your wallet address immediately after the winner is selected. There's no need to claim your prize manually. You can verify the transaction on the Polygon blockchain."
+          "answer": "If you win, the prize is automatically sent to your wallet address immediately after the winner is selected. There's no need to claim your prize manually. You can verify the transaction on the BASE blockchain."
         },
         {
           "question": "How is the prize distributed?",
@@ -117,11 +117,11 @@
       "items": [
         {
           "question": "How do I know the lottery is fair?",
-          "answer": "The lottery uses Chainlink VRF (Verifiable Random Function) to guarantee that winners are selected in a provably fair and verifiable manner. All code is open-source and can be audited. The smart contract is deployed on the Polygon blockchain, making all transactions transparent and verifiable."
+          "answer": "The lottery uses Chainlink VRF (Verifiable Random Function) to guarantee that winners are selected in a provably fair and verifiable manner. All code is open-source and can be audited. The smart contract is deployed on the BASE blockchain, making all transactions transparent and verifiable."
         },
         {
           "question": "What are the gas fees for entering?",
-          "answer": "Gas fees depend on the current network congestion of the Polygon network. The DApp will display an estimated gas fee before you confirm your transaction. You can adjust the gas price to potentially speed up or slow down your transaction."
+          "answer": "Gas fees depend on the current network congestion of the BASE network. The DApp will display an estimated gas fee before you confirm your transaction. You can adjust the gas price to potentially speed up or slow down your transaction."
         },
         {
           "question": "Is the smart contract audited?",
@@ -158,23 +158,23 @@
   "faqSectionItems": [
     {
       "question": "How does the lottery work?",
-      "answer": "CryptoLotto is a decentralized lottery running on Polygon. Each ticket costs <span class=\"crypto-value\">0.01 POL</span>. When you purchase tickets, your entry is recorded on the blockchain. At the end of each round (approximately 24 hours), a winner is selected randomly using Chainlink VRF (Verifiable Random Function), ensuring fairness and transparency. The winner automatically receives <span class=\"lotto-number\">70%</span> of the pool, <span class=\"lotto-number\">20%</span> goes to the next round's starting pot, and <span class=\"lotto-number\">10%</span> goes to the treasury."
+      "answer": "CryptoLotto is a decentralized lottery running on BASE. Each ticket costs <span class=\"crypto-value\">0.01 ETH</span>. When you purchase tickets, your entry is recorded on the blockchain. At the end of each round (approximately 24 hours), a winner is selected randomly using Chainlink VRF (Verifiable Random Function), ensuring fairness and transparency. The winner automatically receives <span class=\"lotto-number\">70%</span> of the pool, <span class=\"lotto-number\">20%</span> goes to the next round's starting pot, and <span class=\"lotto-number\">10%</span> goes to the treasury."
     },
     {
       "question": "How do I know the lottery is fair?",
-      "answer": "The lottery uses Chainlink VRF (Verifiable Random Function) to guarantee that winners are selected in a provably fair and verifiable manner. All code is open-source and can be audited. The smart contract is deployed on the Polygon blockchain, making all transactions transparent and verifiable."
+      "answer": "The lottery uses Chainlink VRF (Verifiable Random Function) to guarantee that winners are selected in a provably fair and verifiable manner. All code is open-source and can be audited. The smart contract is deployed on the BASE blockchain, making all transactions transparent and verifiable."
     },
     {
       "question": "When do I receive my winnings?",
-      "answer": "If you win, the prize is automatically sent to your wallet address immediately after the winner is selected. There's no need to claim your prize manually. You can verify the transaction on the Polygon blockchain."
+      "answer": "If you win, the prize is automatically sent to your wallet address immediately after the winner is selected. There's no need to claim your prize manually. You can verify the transaction on the BASE blockchain."
     },
     {
       "question": "What are the gas fees for entering?",
-      "answer": "Gas fees depend on the current network congestion of the Polygon network. The DApp will display an estimated gas fee before you confirm your transaction. You can adjust the gas price to potentially speed up or slow down your transaction."
+      "answer": "Gas fees depend on the current network congestion of the BASE network. The DApp will display an estimated gas fee before you confirm your transaction. You can adjust the gas price to potentially speed up or slow down your transaction."
     },
     {
       "question": "Can I buy tickets from any country?",
-      "answer": "CryptoLotto is a decentralized application running on the blockchain, so technically anyone with an Polygon wallet can participate. However, it's your responsibility to ensure that participating in blockchain-based lotteries complies with your local laws and regulations."
+      "answer": "CryptoLotto is a decentralized application running on the blockchain, so technically anyone with an BASE wallet can participate. However, it's your responsibility to ensure that participating in blockchain-based lotteries complies with your local laws and regulations."
     }
   ],
   "footerConfig": {
@@ -206,7 +206,7 @@
       }
     ],
     "copyright": "© {year} CryptoLotto. All rights reserved.",
-    "disclaimer": "CryptoLotto is not a gambling service. It's a decentralized lottery running on the Polygon blockchain with verifiable randomness."
+    "disclaimer": "CryptoLotto is not a gambling service. It's a decentralized lottery running on the BASE blockchain with verifiable randomness."
   },
   "blogPosts": [
     {

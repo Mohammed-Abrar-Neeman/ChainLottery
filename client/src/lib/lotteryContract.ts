@@ -1643,7 +1643,7 @@ export const getUserTicketsCount = async (
   provider?: ethers.BrowserProvider | null
 ): Promise<number> => {
   try {
-    // Use default Sepolia chain ID - the getLotteryAddress function handles all contract address logic
+    // Use default BASE chain ID - the getLotteryAddress function handles all contract address logic
     const chainId = ACTIVE_CHAIN_ID;
     const contractAddress = getLotteryAddress(chainId);
     

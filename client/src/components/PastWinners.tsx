@@ -13,7 +13,7 @@ const formatUSD = (ethAmount: string): string => {
     const amount = parseFloat(ethAmount);
     if (isNaN(amount)) return '$0.00';
     
-    // Assuming 1 POL = $3,000 (this would be dynamic in production)
+    // Assuming 1 ETH = $3,000 (this would be dynamic in production)
     const usdValue = amount * 3000;
     return new Intl.NumberFormat('en-US', { 
       style: 'currency', 
@@ -207,7 +207,7 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex, isLoading
                   <div className="p-4">
                     <div className="mb-4">
                       <div className="text-sm text-white/70 mb-1">Prize Amount</div>
-                      <div className="crypto-value text-xl text-primary">{winner.amountWon} POL</div>
+                      <div className="crypto-value text-xl text-primary">{winner.amountWon} ETH</div>
                     </div>
                     
                     {winner.winningNumbers && winner.winningNumbers.length > 0 && (

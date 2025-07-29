@@ -36,7 +36,7 @@ const MOCK_HISTORY = [
     seriesIndex: 0,
     drawId: 1,
     endTime: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
-    jackpotAmount: "1000000000000000000", // 1 POL
+    jackpotAmount: "1000000000000000000", // 1 ETH
     participantCount: 150,
     winningNumbers: [1, 2, 3, 4, 5, 6],
     winnerAddress: "0x1234567890123456789012345678901234567890",
@@ -46,7 +46,7 @@ const MOCK_HISTORY = [
     seriesIndex: 0,
     drawId: 2,
     endTime: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000), // 14 days ago
-    jackpotAmount: "2000000000000000000", // 2 POL
+    jackpotAmount: "2000000000000000000", // 2 ETH
     participantCount: 200,
     winningNumbers: [7, 8, 9, 10, 11, 12],
     winnerAddress: "0x0987654321098765432109876543210987654321",
@@ -183,17 +183,17 @@ export default function History() {
     setSelectedDrawId(undefined); // Reset draw selection
   };
 
-  // Format POL amount with 4 decimal places
+  // Format ETH amount with 4 decimal places
   const formatEthAmount = (amount: string | number) => {
     try {
       console.log('Formatting amount:', amount); // Debug log
-      // Amount is already in POL, just format it
+      // Amount is already in ETH, just format it
       const ethAmount = Number(amount);
-      console.log('POL amount:', ethAmount); // Debug log
+      console.log('ETH amount:', ethAmount); // Debug log
       // Use toFixed(5) to show more precision and avoid rounding
       return ethAmount.toFixed(5);
     } catch (error) {
-      console.error('Error formatting POL amount:', error);
+      console.error('Error formatting ETH amount:', error);
       return "0.00000";
     }
   };
@@ -333,7 +333,7 @@ export default function History() {
                             {formatDate(entry.endTime)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap font-mono text-sm text-white">
-                            {formatEthAmount(entry.jackpotAmount)} POL
+                            {formatEthAmount(entry.jackpotAmount)} ETH
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
                             {entry.participantCount}

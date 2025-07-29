@@ -470,7 +470,7 @@ export default function MyTickets() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         {ticket.isWinner ? (
                           <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-900/20 text-yellow-400 border border-yellow-500/30">
-                            {ticket.prizeAmount} POL
+                            {ticket.prizeAmount} ETH
                           </span>
                         ) : (
                           <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-900/20 text-gray-400 border border-gray-500/30">
