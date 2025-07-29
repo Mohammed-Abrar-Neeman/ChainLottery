@@ -1,7 +1,9 @@
 import React from 'react';
 import { Link } from 'wouter';
-import { Twitter, Github, ExternalLink } from 'lucide-react';
+import { Github, ExternalLink } from 'lucide-react';
 import { FaDiscord, FaInstagram, FaTelegram, FaYoutube } from 'react-icons/fa';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faXTwitter } from '@fortawesome/free-brands-svg-icons';
 import { DEFAULT_NETWORK, CHAIN_IDS, getLotteryAddress } from '@/config/networks';
 import { useConfigData } from '@/hooks/useConfigData';
 
@@ -25,8 +27,12 @@ export default function Footer() {
         return `https://bscscan.com/address/${contractAddress}`;
       case Number(CHAIN_IDS.POLYGON_MAINNET):
         return `https://polygonscan.com/address/${contractAddress}`;
+      case Number(CHAIN_IDS.BASE_MAINNET):
+        return `https://basescan.org/address/${contractAddress}`;
+      case Number(CHAIN_IDS.BASE_SEPOLIA):
+        return `https://sepolia.basescan.org/address/${contractAddress}`;
       default:
-        return `https://polygonscan.com/address/${contractAddress}`;
+        return `https://basescan.org/address/${contractAddress}`;
     }
   };
 
@@ -66,9 +72,10 @@ export default function Footer() {
             <div className="flex space-x-4">
               {footer.socialLinks?.map((link: any, i: number) => {
                 let icon = null;
-                if (link.icon === 'twitter') icon = <Twitter className="h-5 w-5" />;
+                if (link.icon === 'twitter') icon = <FontAwesomeIcon icon={faXTwitter} className="h-5 w-5" />;
                 if (link.icon === 'discord') icon = <FaDiscord className="h-5 w-5" />;
                 if (link.icon === 'telegram') icon = <FaTelegram className="h-5 w-5" />;
+                if (link.icon === 'github') icon = <Github className="h-5 w-5" />;
                 if (link.icon === 'youtube') icon = <FaYoutube className="h-5 w-5" />;
                 if (link.icon === 'insta') icon = <FaInstagram className="h-5 w-5" />;
                 return (

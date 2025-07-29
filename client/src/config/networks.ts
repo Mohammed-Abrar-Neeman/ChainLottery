@@ -34,6 +34,20 @@ export const NETWORKS = {
       lotteryContract: "0x4D3789B756E80A72AC2d5574CE67565C6435E8Ae"
     }
   },
+  base: {
+    mainnet: {
+      rpc: process.env.NEXT_PUBLIC_BASE_MAINNET_RPC || "https://mainnet.base.org",
+      chainId: 8453,
+      name: "Base Mainnet",
+      lotteryContract: "0x05E865DE0375463d447caeEd6DF713b6F282A41d" // Add when deploying to Base mainnet
+    },
+    sepolia: {
+      rpc: process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC || "https://sepolia.base.org",
+      chainId: 84532,
+      name: "Base Sepolia Testnet",
+      lotteryContract: "0x05E865DE0375463d447caeEd6DF713b6F282A41d" // Add when deploying to Base Sepolia
+    }
+  },
   polygon: {
     mainnet: {
       rpc: process.env.NEXT_PUBLIC_POLYGON_MAINNET_RPC || "https://polygon-rpc.com",
@@ -53,7 +67,7 @@ export const NETWORKS = {
 } as const;
 
 // Default network to use
-export const DEFAULT_NETWORK = NETWORKS.polygon.mainnet;
+export const DEFAULT_NETWORK = NETWORKS.base.mainnet;
 
 // Get the currently active chain ID
 export const getActiveChainId = (): string => {
@@ -88,5 +102,7 @@ export const CHAIN_IDS = {
   LOCAL: '1337',
   BSC_TESTNET: '97',
   BSC_MAINNET: '56',
-  POLYGON_MAINNET: '137'
+  POLYGON_MAINNET: '137',
+  BASE_MAINNET: '8453',
+  BASE_SEPOLIA: '84532'
 } as const; 

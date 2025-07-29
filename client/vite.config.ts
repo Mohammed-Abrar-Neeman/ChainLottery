@@ -21,4 +21,8 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  define: {
+    'process.env.NEXT_PUBLIC_BASE_MAINNET_RPC': JSON.stringify(process.env.NEXT_PUBLIC_BASE_MAINNET_RPC),
+    'process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC': JSON.stringify(process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC),
+  },
 }) 

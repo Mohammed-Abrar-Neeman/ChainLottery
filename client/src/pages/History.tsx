@@ -218,7 +218,7 @@ export default function History() {
 
   // Get blockchain explorer URL
   const getExplorerUrl = (hash: string) => {
-    return `https://polygonscan.com/tx/${hash}`;
+    return `https://basescan.org/tx/${hash}`;
   };
   
   return (
@@ -362,7 +362,7 @@ export default function History() {
                                 {entry.winners.map((winner, idx) => (
                                   <a 
                                     key={idx}
-                                    href={`https://polygonscan.com/address/${winner.winnerAddress}`}
+                                    href={`https://basescan.org/address/${winner.winnerAddress}`}
                                     target="_blank" 
                                     rel="noopener noreferrer"
                                     className="text-primary hover:text-white transition flex items-center"

@@ -237,7 +237,7 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex, isLoading
                     {winner.transactionHash && (
                       <div className="flex justify-end">
                         <a 
-                          href={`https://polygonscan.com/tx/${winner.transactionHash}`}
+                          href={`https://basescan.org/tx/${winner.transactionHash}`}
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="text-primary hover:text-accent transition flex items-center text-sm"

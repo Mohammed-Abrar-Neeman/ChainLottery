@@ -13,7 +13,7 @@ export default function GTranslateWidget() {
       window.gtranslateSettings = {
         default_language: "en",
         detect_browser_language: true,
-        languages: ["en", "af"],
+        languages: ["en","es","mt","de","ko","ja","fr","it","ro","nl","pt","vi","tr","id","sl"],
         wrapper_selector: ".gtranslate_wrapper",
         horizontal_position: "left",
         vertical_position: "bottom"
