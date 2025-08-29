@@ -8,6 +8,19 @@ export default function PromoBanner() {
   const { data: config, isLoading, error } = useConfigData();
   const bannerImages = config?.promoBanners || [];
 
+  const API_URL =
+    typeof window !== 'undefined' && window.location.hostname === 'localhost'
+      ? 'http://localhost:3001'
+      : 'https://api.lottoblokk.com';
+
+  const getImageUrl = (url?: string) => {
+    if (!url) return '';
+    if (url.startsWith('/images/')) {
+      return API_URL + url;
+    }
+    return url;
+  };
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [autoplay, setAutoplay] = useState(true);
   const [imageLoadError, setImageLoadError] = useState<Record<number, boolean>>({});
@@ -57,7 +70,7 @@ export default function PromoBanner() {
   useEffect(() => {
     if (!bannerImages.length) return;
     const img = new window.Image();
-    img.src = bannerImages[currentIndex]?.url;
+    img.src = getImageUrl(bannerImages[currentIndex]?.url);
     img.onerror = () => handleImageError(currentIndex);
     return () => {
       img.onerror = null;
@@ -74,6 +87,29 @@ export default function PromoBanner() {
   // Get the current banner
   const currentBanner = bannerImages[currentIndex];
   const hasImageError = imageLoadError[currentIndex];
+  const cta = (currentBanner as any)?.cta as
+    | { label?: string; href?: string; action?: string; modal?: string }
+    | undefined;
+
+  const handleCta = () => {
+    if (!cta) {
+      setTutorialOpen(true);
+      return;
+    }
+    if (cta.action === 'openModal' && cta.modal === 'tutorial') {
+      setTutorialOpen(true);
+      return;
+    }
+    if (cta.action === 'external' && cta.href) {
+      window.open(cta.href, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (cta.action === 'navigate' && cta.href) {
+      window.location.href = cta.href;
+      return;
+    }
+    setTutorialOpen(true);
+  };
 
   return (
     <div className="relative w-full overflow-hidden bg-black">
@@ -82,35 +118,38 @@ export default function PromoBanner() {
         key={currentBanner.id}
         className="relative w-full h-96 md:h-[32rem] transition-opacity duration-500"
       >
-        <div
-          className={`absolute inset-0 bg-cover bg-center transition-transform duration-700 ease-in-out ${hasImageError ? currentBanner.fallbackColor : ''}`}
-          style={{ 
-            backgroundImage: hasImageError ? 'none' : `url(${currentBanner.url})`,
-            transform: 'scale(1.05)'
-          }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-transparent" />
-        </div>
-        <div className="container mx-auto relative z-10 flex flex-col justify-center h-full py-8 lg:py-12">
-          <div className="max-w-2xl">
-            <h2 className="text-4xl md:text-6xl font-bold text-white mb-4 md:mb-6">
-              {currentBanner.title}
-            </h2>
-            <p className="text-xl md:text-2xl text-white/90 mb-4 md:mb-8 max-w-xl leading-relaxed">
-              {currentBanner.description}
-            </p>
-            <Button 
-              className="mt-4 md:mt-6 w-48 md:w-56 h-14 md:h-16 text-lg md:text-xl bg-primary hover:bg-primary/90 font-semibold"
-              onClick={() => setTutorialOpen(true)}
-            >
-              Learn More
-            </Button>
+        <div className={`absolute inset-0 ${hasImageError ? currentBanner.fallbackColor : 'bg-transparent'}`} />
+        <div className="container mx-auto relative z-10 h-full py-8 lg:py-12">
+          <div className="h-full flex flex-col md:flex-row items-center md:items-stretch gap-6">
+            <div className="max-w-2xl md:flex-1 md:self-center">
+              <h2 className="text-4xl md:text-6xl font-bold text-white mb-4 md:mb-6">
+                {currentBanner.title}
+              </h2>
+              <p className="text-xl md:text-2xl text-white/90 mb-4 md:mb-8 max-w-xl leading-relaxed">
+                {currentBanner.description}
+              </p>
+              <Button 
+                className="mt-4 md:mt-6 w-48 md:w-56 h-14 md:h-16 text-lg md:text-xl bg-primary hover:bg-primary/90 font-semibold"
+                onClick={handleCta}
+              >
+                {cta?.label ?? 'Learn More'}
+              </Button>
+            </div>
+            <div className="hidden md:block md:flex-1 h-full">
+              {!hasImageError ? (
+                <img
+                  src={getImageUrl(currentBanner.url)}
+                  alt={currentBanner.title}
+                  className="w-full h-full object-contain"
+                />
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Navigation dots */}
-      <div className="absolute bottom-8 left-0 right-0 flex justify-center gap-3">
+      <div className="absolute bottom-8 left-0 right-0 hidden md:flex justify-center gap-3">
         {bannerImages.map((_: unknown, index: number) => (
           <button
             key={index}
