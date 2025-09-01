@@ -118,32 +118,28 @@ export default function PromoBanner() {
         key={currentBanner.id}
         className="relative w-full h-96 md:h-[32rem] transition-opacity duration-500"
       >
-        <div className={`absolute inset-0 ${hasImageError ? currentBanner.fallbackColor : 'bg-transparent'}`} />
-        <div className="container mx-auto relative z-10 h-full py-8 lg:py-12">
-          <div className="h-full flex flex-col md:flex-row items-center md:items-stretch gap-6">
-            <div className="max-w-2xl md:flex-1 md:self-center">
-              <h2 className="text-4xl md:text-6xl font-bold text-white mb-4 md:mb-6">
-                {currentBanner.title}
-              </h2>
-              <p className="text-xl md:text-2xl text-white/90 mb-4 md:mb-8 max-w-xl leading-relaxed">
-                {currentBanner.description}
-              </p>
-              <Button 
-                className="mt-4 md:mt-6 w-48 md:w-56 h-14 md:h-16 text-lg md:text-xl bg-primary hover:bg-primary/90 font-semibold"
-                onClick={handleCta}
-              >
-                {cta?.label ?? 'Learn More'}
-              </Button>
-            </div>
-            <div className="hidden md:block md:flex-1 h-full">
-              {!hasImageError ? (
-                <img
-                  src={getImageUrl(currentBanner.url)}
-                  alt={currentBanner.title}
-                  className="w-full h-full object-contain"
-                />
-              ) : null}
-            </div>
+        <div
+          className={`absolute inset-0 bg-cover bg-center transition-opacity duration-700 ease-in-out ${hasImageError ? currentBanner.fallbackColor : ''}`}
+          style={{ 
+            backgroundImage: hasImageError ? 'none' : `url(${getImageUrl(currentBanner.url)})`
+          }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-transparent" />
+        </div>
+        <div className="container mx-auto relative z-10 flex flex-col justify-center h-full py-8 lg:py-12">
+          <div className="max-w-2xl">
+            <h2 className="text-4xl md:text-6xl font-bold text-white mb-4 md:mb-6">
+              {currentBanner.title}
+            </h2>
+            <p className="text-xl md:text-2xl text-white/90 mb-4 md:mb-8 max-w-xl leading-relaxed">
+              {currentBanner.description}
+            </p>
+            <Button 
+              className="mt-4 md:mt-6 w-48 md:w-56 h-14 md:h-16 text-lg md:text-xl bg-primary hover:bg-primary/90 font-semibold"
+              onClick={handleCta}
+            >
+              {cta?.label ?? 'Learn More'}
+            </Button>
           </div>
         </div>
       </div>
