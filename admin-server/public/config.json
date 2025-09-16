@@ -19,50 +19,50 @@
   "promoBanners": [
     {
       "id": 1,
-      "url": "/images/slide1.jpeg",
+      "url": "/images/slide1.jpg",
       "fallbackColor": "bg-gradient-to-r from-indigo-500 to-purple-800",
-      "title": "LottoBlokk will be Launching Soon",
-      "description": "The world’s first decentralized lottery built on BASE.\nProvably fair. Transparent. Powered by blockchain.",
+      "title": "LottoBlokk Launching Soon",
+      "description": "The world’s first decentralized lottery built on BASE. Provably fair. Transparent.",
       "cta": { "label": "Learn More", "href": "/faq", "action": "navigate" }
     },
     {
       "id": 2,
-      "url": "/images/slide2.webp",
+      "url": "/images/slide2.jpg",
       "fallbackColor": "bg-gradient-to-r from-blue-700 to-blue-900",
-      "title": "Join the LottoCoin (LTBK) Pre-Sale / Public Sale",
-      "description": "Secure your early access to LottoBlokk’s native token, the official coin powering our lottery draws on BASE. Be part of the foundation: utility, rewards, and future governance.",
+      "title": "The LottoCoin (LTBK) Pre-Sale",
+      "description": "Secure early access to LottoBlokk’s native token, the official coin powering our lottery draws on BASE.",
       "cta": { "label": "Join the Pre-Sale", "href": "/contact", "action": "navigate" }
     },
     {
       "id": 3,
       "url": "/images/winners-everyday.jpg",
       "fallbackColor": "bg-gradient-to-r from-emerald-600 to-teal-800",
-      "title": "First Draw Begins at $100,000 to $1million + based on token sales",
-      "description": "LottoBlokk jackpots start big and scales higher with each block, each player, each ticket. The more who play, the larger the prize.",
+      "title": "First Draw Begins at $100,000",
+      "description": "LottoBlokk jackpots start big and scales higher with every ticket. The more that play, the larger the prizes.",
       "cta": { "label": "How It Works", "href": "/faq", "action": "navigate" }
     },
     {
       "id": 4,
       "url": "/images/play-responsibly.jpg",
       "fallbackColor": "bg-gradient-to-r from-red-600 to-purple-900",
-      "title": "Powerball-Verified Lottery Numbers",
-      "description": "LottoBlokk leverages official Powerball results to guarantee fairness, credibility, and complete transparency in every draw.",
+      "title": "Powerball-Verified Lottery",
+      "description": "LottoBlokk leverages official Powerball results to guarantee fairness and complete transparency in every draw.",
       "cta": { "label": "Why Powerball Verified", "href": "/blogs", "action": "navigate" }
     },
     {
       "id": 5,
-      "url": "/images/slide5.webp",
+      "url": "/images/slide5.jpg",
       "fallbackColor": "bg-gradient-to-r from-amber-500 to-orange-700",
       "title": "Join the LottoBlokk Community",
-      "description": "Stay connected and be the first to receive rewards, airdrops, and the latest LottoBlokk updates. Follow us on X and Instagram!",
+      "description": "Stay connected and be the first to receive rewards, airdrops, and the latest LottoBlokk updates.",
       "cta": { "label": "Follow Us!", "href": "#footer-social", "action": "navigate" }
     },
     {
       "id": 6,
-      "url": "/images/slide6.jpeg",
+      "url": "/images/slide6.jpg",
       "fallbackColor": "bg-gradient-to-r from-fuchsia-600 to-pink-900",
-      "title": "Play From Anywhere in the World*",
-      "description": "LottoBlokk is open to a global community of players (with the exception of certain restricted jurisdictions.) Never lose a ticket. Instant access from your phone.",
+      "title": "Play Anywhere in the World*",
+      "description": "LottoBlokk is open to a global community of players. Never lose a ticket. Instant access from your phone.",
       "cta": { "label": "Watch Our Tutorial", "href": "https://m.youtube.com/@lottoblokk", "action": "external" }
     }
   ],

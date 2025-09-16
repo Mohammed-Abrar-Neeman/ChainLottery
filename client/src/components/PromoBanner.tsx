@@ -78,10 +78,10 @@ export default function PromoBanner() {
   }, [currentIndex, bannerImages]);
 
   if (isLoading) {
-    return <div className="w-full h-96 flex items-center justify-center text-gray-400 bg-black">Loading banners...</div>;
+    return <div className="w-full h-[100svh] flex items-center justify-center text-gray-400 bg-black">Loading banners...</div>;
   }
   if (error || !bannerImages.length) {
-    return <div className="w-full h-96 flex items-center justify-center text-red-500 bg-black">Failed to load banners.</div>;
+    return <div className="w-full h-[100svh] flex items-center justify-center text-red-500 bg-black">Failed to load banners.</div>;
   }
 
   // Get the current banner
@@ -116,7 +116,7 @@ export default function PromoBanner() {
       {/* Active banner */}
       <div 
         key={currentBanner.id}
-        className="relative w-full h-96 md:h-[32rem] transition-opacity duration-500"
+        className="relative w-full min-h-[100svh] md:min-h-[92svh] lg:min-h-[88svh] transition-opacity duration-500"
       >
         <div
           className={`absolute inset-0 bg-cover bg-center transition-opacity duration-700 ease-in-out ${hasImageError ? currentBanner.fallbackColor : ''}`}
@@ -126,20 +126,26 @@ export default function PromoBanner() {
         >
           <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-transparent" />
         </div>
-        <div className="container mx-auto relative z-10 flex flex-col justify-center h-full py-8 lg:py-12">
+        <div className="container mx-auto relative z-10 flex flex-col justify-center h-full py-6 md:py-10 px-4">
           <div className="max-w-2xl">
-            <h2 className="text-4xl md:text-6xl font-bold text-white mb-4 md:mb-6">
+            <h2 className="text-3xl sm:text-4xl md:text-6xl font-bold text-white mb-3 md:mb-6 leading-tight">
               {currentBanner.title}
             </h2>
-            <p className="text-xl md:text-2xl text-white/90 mb-4 md:mb-8 max-w-xl leading-relaxed">
+            <p className="text-base sm:text-lg md:text-2xl text-white/90 mb-4 md:mb-8 max-w-xl leading-relaxed">
               {currentBanner.description}
             </p>
-            <Button 
-              className="mt-4 md:mt-6 w-48 md:w-56 h-14 md:h-16 text-lg md:text-xl bg-primary hover:bg-primary/90 font-semibold"
-              onClick={handleCta}
-            >
-              {cta?.label ?? 'Learn More'}
-            </Button>
+            {/* Mobile CTA directly under text */}
+            <div className="md:hidden">
+              <Button 
+                className={`${currentBanner.id === 4
+                  ? 'mt-2 w-40 sm:w-48 max-w-[80vw] h-auto min-h-12 sm:min-h-14 px-5 sm:px-6 py-3 text-base sm:text-lg bg-primary hover:bg-primary/90 font-semibold whitespace-normal break-words text-center leading-snug'
+                  : 'mt-2 w-40 sm:w-48 h-12 sm:h-14 text-base sm:text-lg bg-primary hover:bg-primary/90 font-semibold'
+                }`}
+                onClick={handleCta}
+              >
+                {cta?.label ?? 'Learn More'}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -184,6 +190,18 @@ export default function PromoBanner() {
       >
         <ArrowRight className="h-6 w-6" />
       </Button>
+
+      {/* Bottom-left CTA below arrows, above dots */}
+      <div className="hidden md:block absolute left-0 right-0 z-30 bottom-40 sm:bottom-36 md:bottom-24">
+        <div className="container mx-auto px-4 flex justify-start">
+          <Button
+            className="w-40 sm:w-48 md:w-56 h-12 sm:h-14 md:h-16 text-base sm:text-lg md:text-xl bg-primary hover:bg-primary/90 font-semibold"
+            onClick={handleCta}
+          >
+            {cta?.label ?? 'Learn More'}
+          </Button>
+        </div>
+      </div>
 
       {/* Tutorial Modal */}
       <TutorialModal 
