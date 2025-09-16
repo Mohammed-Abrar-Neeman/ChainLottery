@@ -79,7 +79,6 @@ export default function MyTickets() {
         setLocalSeriesIndex(0);
       }
     } catch (error) {
-      console.error('Error loading series:', error);
       toast({
         title: "Error",
         description: "Failed to load lottery series",
@@ -97,7 +96,6 @@ export default function MyTickets() {
         setLocalDrawId(draws[0].drawId);
       }
     } catch (error) {
-      console.error('Error loading draws:', error);
       toast({
         title: "Error",
         description: "Failed to load draws",
@@ -139,7 +137,6 @@ export default function MyTickets() {
       
       setUserTickets(tickets);
     } catch (error: any) {
-      console.error('Error loading tickets:', error);
       setTicketsError(error);
       toast({
         title: "Error",
@@ -246,7 +243,6 @@ export default function MyTickets() {
       // Reload tickets
       loadUserTickets(drawId);
     } catch (error: any) {
-      console.error('Error claiming prize:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to claim prize",

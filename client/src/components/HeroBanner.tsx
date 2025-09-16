@@ -59,14 +59,6 @@ export default function HeroBanner({
   setHomeDrawId,
   isInitialLoad
 }: HeroBannerProps) {
-  console.log('=== HeroBanner Component Render ===');
-  console.log('Props:', {
-    sharedSeriesIndex,
-    sharedDrawId,
-    seriesListLength: seriesList?.length,
-    seriesDrawsLength: seriesDraws?.length,
-    isLoading
-  });
 
   const { getLotteryData, getSeriesList, getSeriesDraws } = useLotteryContract();
   const { address, isConnected } = useAppKitAccount();
@@ -85,10 +77,7 @@ export default function HeroBanner({
   // Fetch lottery data for the selected series and draw
   const { data: lotteryData } = useQuery({
     queryKey: ['lotteryData', sharedSeriesIndex, sharedDrawId],
-    queryFn: () => {
-      console.log('=== HeroBanner Fetching Lottery Data ===');
-      console.log('Series index:', sharedSeriesIndex);
-      console.log('Draw ID:', sharedDrawId);
+    queryFn: () => {    
       return getLotteryData(sharedSeriesIndex, sharedDrawId);
     },
     enabled: sharedSeriesIndex !== undefined && sharedDrawId !== undefined,
@@ -141,21 +130,12 @@ export default function HeroBanner({
   
   // Set initial draw id
   useEffect(() => {
-    console.log('=== DRAW SELECTION EFFECT TRIGGERED ===');
-    console.log('Current state:', {
-      seriesDraws,
-      homeDrawId,
-      sharedDrawId: sharedDrawId,
-      isInitialLoad
-    });
 
     if (!seriesDraws || seriesDraws.length === 0) {
-      console.log('No draws available, returning');
       return;
     }
 
     if (!setHomeDrawId) {
-      console.log('setHomeDrawId is not available, returning');
       return;
     }
 
@@ -165,47 +145,36 @@ export default function HeroBanner({
       completed: draw.completed,
       isActive: !draw.completed && draw.drawId !== 0
     }));
-    console.log('All draws with status:', drawsWithStatus);
 
     // Get all active draws
     const activeDraws = seriesDraws.filter(draw => !draw.completed && draw.drawId !== 0);
-    console.log('Active draws found:', activeDraws);
+   
 
     if (activeDraws.length > 0) {
       // Sort active draws by ID to get the latest active draw
       const latestActiveDraw = activeDraws.sort((a, b) => b.drawId - a.drawId)[0];
-      console.log('Selected latest active draw:', latestActiveDraw);
+      
 
       // Update both state variables
-      console.log('Updating state with active draw:', latestActiveDraw.drawId);
+      
       if (setSharedDrawId) {
-        console.log('Setting shared draw ID to:', latestActiveDraw.drawId);
         setSharedDrawId(latestActiveDraw.drawId);
       }
-      console.log('Setting home draw ID to:', latestActiveDraw.drawId);
       setHomeDrawId(latestActiveDraw.drawId);
     } else {
-      console.log('No active draws found, looking for completed draws');
       // Get completed draws
       const completedDraws = seriesDraws
         .filter(draw => draw.drawId !== 0 && draw.completed)
         .sort((a, b) => b.drawId - a.drawId);
 
-      console.log('Completed draws found:', completedDraws);
-
       if (completedDraws.length > 0) {
         const latestCompletedDraw = completedDraws[0];
-        console.log('Selected latest completed draw:', latestCompletedDraw);
 
-        console.log('Updating state with completed draw:', latestCompletedDraw.drawId);
         if (setSharedDrawId) {
-          console.log('Setting shared draw ID to:', latestCompletedDraw.drawId);
           setSharedDrawId(latestCompletedDraw.drawId);
         }
-        console.log('Setting home draw ID to:', latestCompletedDraw.drawId);
         setHomeDrawId(latestCompletedDraw.drawId);
       } else {
-        console.log('No draws available, resetting state');
         if (setSharedDrawId) {
           setSharedDrawId(undefined);
         }
@@ -217,21 +186,13 @@ export default function HeroBanner({
   // Handle series change
   const handleSeriesChange = (value: string) => {
     const newSeriesIndex = parseInt(value);
-    console.log('=== SERIES CHANGE HANDLER ===');
-    console.log('Current state:', {
-      oldSeriesIndex: sharedSeriesIndex,
-      newSeriesIndex,
-      currentDrawId: homeDrawId
-    });
     
     // Update series index
     if (setSharedSeriesIndex) {
-      console.log('Updating series index to:', newSeriesIndex);
       setSharedSeriesIndex(newSeriesIndex);
     }
 
     // Reset draw IDs to trigger the effect
-    console.log('Resetting draw IDs');
     if (setSharedDrawId) {
       setSharedDrawId(undefined);
     }
@@ -242,9 +203,6 @@ export default function HeroBanner({
   
   const handleDrawChange = (value: string) => {
     const newDrawId = parseInt(value);
-    console.log('=== HeroBanner Draw Change ===');
-    console.log('Old draw ID:', sharedDrawId);
-    console.log('New draw ID:', newDrawId);
     
     if (setSharedDrawId && sharedDrawId !== newDrawId) {
       setSharedDrawId(newDrawId);
@@ -268,12 +226,9 @@ export default function HeroBanner({
 
   // Get participant count
   const getParticipantCount = (): string => {
-    console.log('=== Getting Participant Count ===');
-    console.log('Lottery Data:', lotteryData);
     
     // Use totalTickets from lottery data
     const count = lotteryData?.participantCount || 0;
-    console.log('Total tickets/participants:', count);
     
     // Ensure we return a string with at least 1 if there are tickets
     return count > 0 ? count.toString() : '0';

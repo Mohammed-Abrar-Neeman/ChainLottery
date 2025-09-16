@@ -57,7 +57,6 @@ export default function Contact() {
         description: "Failed to send message. Please try again.",
         variant: "destructive",
       });
-      console.error('Error sending email:', error);
     } finally {
       setIsSubmitting(false);
     }

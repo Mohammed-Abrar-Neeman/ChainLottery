@@ -186,14 +186,11 @@ export default function History() {
   // Format ETH amount with 4 decimal places
   const formatEthAmount = (amount: string | number) => {
     try {
-      console.log('Formatting amount:', amount); // Debug log
       // Amount is already in ETH, just format it
       const ethAmount = Number(amount);
-      console.log('ETH amount:', ethAmount); // Debug log
       // Use toFixed(5) to show more precision and avoid rounding
       return ethAmount.toFixed(5);
     } catch (error) {
-      console.error('Error formatting ETH amount:', error);
       return "0.00000";
     }
   };
@@ -206,7 +203,6 @@ export default function History() {
       // Use toFixed(2) for USD to show cents
       return (ethValue * ethPrice).toFixed(2);
     } catch (error) {
-      console.error('Error calculating USD value:', error);
       return "0.00";
     }
   };

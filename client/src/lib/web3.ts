@@ -37,7 +37,6 @@ export const getAccounts = async (provider: ethers.BrowserProvider | null): Prom
     const accounts = await provider.listAccounts();
     return accounts.map(account => account.address);
   } catch (error) {
-    console.error('Error getting accounts:', error);
     return [];
   }
 };
@@ -89,7 +88,6 @@ export const connectWallet = async (providerType: ProviderType): Promise<{
     
     return { provider, accounts: accountAddresses, chainId };
   } catch (error) {
-    console.error('Error connecting to wallet:', error);
     let errorMessage = "Failed to connect to wallet";
     
     if (error instanceof Error) {
@@ -120,7 +118,6 @@ export const getBalance = async (
     const balance = await provider.getBalance(address);
     return ethers.formatEther(balance);
   } catch (error) {
-    console.error('Error getting balance:', error);
     return '0';
   }
 };
@@ -136,7 +133,6 @@ export const formatEther = (wei: string | number): string => {
   try {
     return parseFloat(ethers.formatEther(wei.toString())).toFixed(4);
   } catch (error) {
-    console.error('Error formatting ether:', error);
     return '0';
   }
 };
@@ -146,7 +142,6 @@ export const parseEther = (ether: string): string => {
   try {
     return ethers.parseEther(ether).toString();
   } catch (error) {
-    console.error('Error parsing ether:', error);
     return '0';
   }
 };
@@ -229,7 +224,6 @@ export const switchNetwork = async (
           await addNetwork(chainId);
           return true;
         } catch (addError) {
-          console.error('Error adding network:', addError);
           toast({
             title: "Network Error",
             description: "Failed to add network. Please add it manually in your wallet.",
@@ -238,7 +232,6 @@ export const switchNetwork = async (
           return false;
         }
       } else {
-        console.error('Error switching network:', error);
         toast({
           title: "Network Error",
           description: "Failed to switch network. Please try again.",
@@ -248,7 +241,6 @@ export const switchNetwork = async (
       }
     }
   } catch (outerError) {
-    console.error('Unexpected error during network switch:', outerError);
     toast({
       title: "Network Error",
       description: "An unexpected error occurred. Please try again.",

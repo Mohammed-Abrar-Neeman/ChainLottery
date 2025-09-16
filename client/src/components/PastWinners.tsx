@@ -66,8 +66,7 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex, isLoading
     
     setIsLoading(true);
     setError(null);
-    
-    console.log(`PastWinners - Manual refresh triggered for Series ${sharedSeriesIndex}, Draw ${sharedDrawId}`);
+
     
     // Fetch lottery data
     getLotteryData(sharedSeriesIndex, sharedDrawId)
@@ -103,7 +102,6 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex, isLoading
         }
       })
       .catch(error => {
-        console.error('Error refreshing winners:', error);
         setError('Failed to refresh winner data. Please try again later.');
       })
       .finally(() => {
@@ -120,7 +118,6 @@ export default function PastWinners({ sharedDrawId, sharedSeriesIndex, isLoading
     const drawIdChanged = previousDrawId !== sharedDrawId;
     
     if (seriesChanged || drawIdChanged) {
-      console.log(`PastWinners - Series or Draw ID changed, refreshing data`);
       setPreviousSeriesIndex(sharedSeriesIndex);
       setPreviousDrawId(sharedDrawId);
       refreshWinners(true);

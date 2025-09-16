@@ -61,14 +61,10 @@ export default function Admin() {
   // Check admin status
   const checkAdminStatus = async () => {
     try {
-      console.log('=== Admin Check Start ===');
-      console.log('Connection status:', { isConnected, address });
       setIsLoading(true);
       const isUserAdmin = await checkIsAdmin();
-      console.log('Admin check completed:', { isUserAdmin, address });
       setIsAdmin(isUserAdmin);
     } catch (error) {
-      console.error('Error in admin check:', error);
       setIsAdmin(false);
     } finally {
       setIsLoading(false);
@@ -77,13 +73,9 @@ export default function Admin() {
 
   // Effect to check admin status when connection changes
   useEffect(() => {
-    console.log('=== Admin Check Effect ===');
-    console.log('Connection changed:', { isConnected, address });
     if (isConnected && address) {
-      console.log('Wallet connected, checking admin status for:', address);
       checkAdminStatus();
     } else {
-      console.log('Wallet not connected, resetting admin status');
       setIsAdmin(false);
       setIsLoading(false);
     }
@@ -98,7 +90,6 @@ export default function Admin() {
       const gap = await contract.blockGapInSeconds();
       setCurrentBlockGap(Number(gap));
     } catch (error) {
-      console.error('Error getting block gap:', error);
       toast({
         title: "Error",
         description: "Failed to get current block gap",
@@ -113,7 +104,6 @@ export default function Admin() {
       const currentBlockNo = await getCurrentBlockNumber();
       setCurrentBlock(Number(currentBlockNo));
     } catch (error) {
-      console.error('Error getting block number:', error);
       toast({
         title: "Error",
         description: "Failed to get current block number",
@@ -203,7 +193,6 @@ export default function Admin() {
         variant: "success",
       });
     } catch (error) {
-      console.error('Error starting time-based draw:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to start time-based draw. Please try again.",
@@ -229,12 +218,6 @@ export default function Admin() {
     if (!provider) throw new Error("Failed to get provider");
     
     const currentBlock = await provider.getBlockNumber();
-    console.log('Debug block numbers:', {
-      inputBlock: block,
-      currentBlock: currentBlock,
-      requiredBlock: currentBlock + 100,
-      difference: block - currentBlock
-    });
 
     // Check if the input block is at least 100 blocks ahead
     if (block - currentBlock < 100) {
@@ -317,7 +300,6 @@ export default function Admin() {
         variant: "success",
       });
     } catch (error) {
-      console.error('Error starting block-based draw:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to start block-based draw. Please try again.",
@@ -349,7 +331,6 @@ export default function Admin() {
         variant: "success",
       });
     } catch (error) {
-      console.error('Error completing draw:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to complete draw. Please try again.",
@@ -379,7 +360,6 @@ export default function Admin() {
         variant: "success",
       });
     } catch (error) {
-      console.error('Error completing draw with block hash:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to complete draw with block hash. Please try again.",
@@ -396,8 +376,6 @@ export default function Admin() {
       if (!isConnected || !address) {
         throw new Error("Please connect your wallet first");
       }
-
-      console.log('Getting contract instance...');
       const contract = await getContract();
       if (!contract) {
         throw new Error("Failed to initialize contract. Please try reconnecting your wallet.");
@@ -409,19 +387,9 @@ export default function Admin() {
         throw new Error("Contract does not have a valid signer. Please reconnect your wallet.");
       }
 
-      console.log('Creating new series:', newSeriesName);
-      console.log('Using contract address:', CONTRACTS.LOTTERY);
-      console.log('Connected wallet:', address);
-
-      // Create the transaction
-      console.log('Sending transaction...');
       const tx = await contract.newSeries(newSeriesName);
-      console.log('Transaction sent:', tx.hash);
 
-      // Wait for transaction confirmation
-      console.log('Waiting for transaction confirmation...');
       const receipt = await tx.wait();
-      console.log('Transaction confirmed:', receipt.hash);
 
       // Refresh series list
       await refreshSeriesList();
@@ -433,12 +401,6 @@ export default function Admin() {
         variant: "success",
       });
     } catch (error: any) {
-      console.error('Error creating new series:', {
-        message: error?.message,
-        code: error?.code,
-        data: error?.data,
-        error
-      });
 
       // Handle specific error cases
       let errorMessage = "Failed to create new series. Please try again.";
@@ -478,7 +440,6 @@ export default function Admin() {
         variant: "success",
       });
     } catch (error) {
-      console.error('Error updating block gap:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to update block gap. Please try again.",
@@ -503,7 +464,6 @@ export default function Admin() {
       
       setSeriesList(updatedSeriesList);
     } catch (error) {
-      console.error('Error refreshing series list:', error);
       toast({
         title: "Error",
         description: "Failed to refresh series list. Please try again.",
@@ -546,7 +506,6 @@ export default function Admin() {
       setBlockHash(block.hash);
       toast({ title: 'Success', description: `Block hash fetched: ${block.hash}`, variant: 'success' });
     } catch (error) {
-      console.error('Error fetching block hash:', error);
       toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to fetch block hash', variant: 'destructive' });
     } finally {
       setIsFetchingBlockHash(false);
@@ -800,7 +759,6 @@ export default function Admin() {
                       variant: "success",
                     });
                   } catch (error) {
-                    console.error('Error updating block gap:', error);
                     toast({
                       title: "Error",
                       description: error instanceof Error ? error.message : "Failed to update block gap",

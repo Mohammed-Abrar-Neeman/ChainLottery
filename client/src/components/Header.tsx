@@ -26,14 +26,10 @@ export default function Header() {
   // Check admin status
   const checkAdminStatus = async () => {
     try {
-      console.log('=== Admin Check Start ===');
-      console.log('Connection status:', { isConnected, address });
       setIsLoading(true);
       const isUserAdmin = await checkIsAdmin();
-      console.log('Admin check completed:', { isUserAdmin, address });
       setIsAdmin(isUserAdmin);
     } catch (error) {
-      console.error('Error in admin check:', error);
       setIsAdmin(false);
     } finally {
       setIsLoading(false);
@@ -42,13 +38,9 @@ export default function Header() {
 
   // Effect to check admin status when connection changes
   useEffect(() => {
-    console.log('=== Admin Check Effect ===');
-    console.log('Connection changed:', { isConnected, address });
     if (isConnected && address) {
-      console.log('Wallet connected, checking admin status for:', address);
       checkAdminStatus();
     } else {
-      console.log('Wallet not connected, resetting admin status');
       setIsAdmin(false);
       setIsLoading(false);
     }
@@ -104,15 +96,12 @@ export default function Header() {
 
   // Admin menu item component
   const AdminMenuItem = ({ isMobile = false }: { isMobile?: boolean }) => {
-    console.log('=== Admin Menu Item Render ===');
-    console.log('Admin status:', { isAdmin, isLoading, address });
+   
     
     if (!isAdmin) {
-      console.log('Admin menu not shown - user is not admin');
       return null;
     }
     
-    console.log('Rendering admin menu item for admin:', address);
     return (
       <NavLink href="/admin" label={
         <span className={`flex items-center ${isMobile ? '' : 'px-3 py-2 rounded-md hover:bg-white/5'}`}>

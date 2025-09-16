@@ -79,7 +79,6 @@ export default function TicketReconfirmationModal({
             });
           }
         } catch (error) {
-          console.error('Error fetching data:', error);
           setSeriesName(`Series #${seriesIndex}`);
         }
       }

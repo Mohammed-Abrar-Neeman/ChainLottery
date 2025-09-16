@@ -1,5 +1,5 @@
 // Contract addresses configuration
-console.log('Loading contract address from env:', process.env.NEXT_PUBLIC_LOTTERY_CONTRACT_ADDRESS);
+
 
 export const CONTRACTS = {
   // BASE Mainnet Lottery Contract - must be set in .env.local

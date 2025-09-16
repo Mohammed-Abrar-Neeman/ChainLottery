@@ -83,13 +83,11 @@ export const getLotteryAddress = (chainId: string = getActiveChainId()): string 
     ).find(network => network.chainId.toString() === chainId);
 
     if (!network) {
-      console.warn(`No network configuration found for chain ID ${chainId}, falling back to default network`);
       return DEFAULT_NETWORK.lotteryContract;
     }
 
     return network.lotteryContract;
   } catch (error) {
-    console.warn(`Error getting lottery address for chain ${chainId}, falling back to default network:`, error);
     return DEFAULT_NETWORK.lotteryContract;
   }
 };

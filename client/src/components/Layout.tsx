@@ -19,10 +19,6 @@ const Layout = ({ children }: LayoutProps) => {
 
   useEffect(() => {
     if (mounted) {
-      console.log('Route changed:', {
-        pathname: location,
-        isHomePage
-      });
     }
   }, [location, isHomePage, mounted]);
 

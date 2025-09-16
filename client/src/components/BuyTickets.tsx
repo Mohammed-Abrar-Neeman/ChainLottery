@@ -87,31 +87,25 @@ const BuyTickets = React.memo(function BuyTickets({
   useEffect(() => {
     const checkDrawAvailability = async () => {
       if (!isConnected || !sharedDrawId) {
-        console.log('Draw check: Not connected or no draw ID');
         setIsDrawAvailable(false);
         setIsDrawCompleted(false);
         return;
       }
 
       try {
-        console.log('Checking draw availability for:', { seriesIndex: sharedSeriesIndex, drawId: sharedDrawId });
         const lotteryData = await getLotteryData(sharedSeriesIndex, sharedDrawId);
-        console.log('Lottery data received:', lotteryData);
         
         if (!lotteryData) {
-          console.log('No lottery data found');
           setIsDrawAvailable(false);
           setIsDrawCompleted(false);
           return;
         }
 
         const isCompleted = lotteryData.completed || false;
-        console.log('Draw completed status:', isCompleted);
         
         setIsDrawAvailable(true);
         setIsDrawCompleted(isCompleted);
       } catch (error) {
-        console.error('Error checking draw availability:', error);
         setIsDrawAvailable(false);
         setIsDrawCompleted(false);
       }
@@ -147,22 +141,16 @@ const BuyTickets = React.memo(function BuyTickets({
   
   // Remove a ticket
   const handleRemoveTicket = (ticketId: string) => {
-    console.log('=== Removing Ticket ===');
-    console.log('Ticket ID to remove:', ticketId);
-    console.log('Current tickets:', tickets);
     
     // Find the index of the ticket to remove
     const ticketIndex = tickets.findIndex(t => t.id === ticketId);
     if (ticketIndex === -1) {
-      console.error('Ticket not found:', ticketId);
       return;
     }
     
-    console.log('Removing ticket at index:', ticketIndex);
     
     // Remove the ticket
     const newTickets = tickets.filter(t => t.id !== ticketId);
-    console.log('New tickets array:', newTickets);
     
     // Update tickets state
     setTickets(newTickets);
@@ -170,36 +158,26 @@ const BuyTickets = React.memo(function BuyTickets({
     // Handle active ticket index and numbers
     if (newTickets.length === 0) {
       // If no tickets left, reset to defaults
-      console.log('No tickets left, resetting to defaults');
       setActiveTicketIndex(0);
     } else {
       // If we removed the active ticket
       if (ticketIndex === activeTicketIndex) {
         // Select the last remaining ticket
         const newIndex = newTickets.length - 1;
-        console.log('Setting new active ticket index:', newIndex);
         setActiveTicketIndex(newIndex);
       } else if (ticketIndex < activeTicketIndex) {
         // If we removed a ticket before the active one, adjust the active index
-        console.log('Adjusting active ticket index');
         setActiveTicketIndex(activeTicketIndex - 1);
       }
       // If we removed a ticket after the active one, no need to change anything
     }
-    
-    console.log('=== Ticket Removal Complete ===');
   };
   
   // Handle ticket tab click
   const handleTicketSelect = (index: number) => {
-    console.log('=== Selecting Ticket ===');
-    console.log('Selecting ticket at index:', index);
-    console.log('Current tickets:', tickets);
     
     // Update active ticket index
     setActiveTicketIndex(index);
-    
-    console.log('=== Ticket Selection Complete ===');
   };
   
   // Handle quick pick generation
@@ -223,10 +201,6 @@ const BuyTickets = React.memo(function BuyTickets({
   
   // Handle number selection
   const handleNumbersSelected = (numbers: number[], lottoNumber: number | null) => {
-    console.log('=== Updating Numbers ===');
-    console.log('New numbers:', numbers);
-    console.log('New lotto number:', lottoNumber);
-    console.log('Active ticket index:', activeTicketIndexRef.current);
     
     // Check if the values have actually changed to prevent infinite loops
     const prevValues = prevValuesRef.current;
@@ -234,7 +208,6 @@ const BuyTickets = React.memo(function BuyTickets({
                           prevValues.lottoNumber !== lottoNumber;
     
     if (!numbersChanged) {
-      console.log('Numbers unchanged, skipping update');
       return;
     }
     
@@ -252,11 +225,8 @@ const BuyTickets = React.memo(function BuyTickets({
         seriesIndex: sharedSeriesIndex ?? 0,
         drawId: sharedDrawId ?? 0
       };
-      console.log('Updated tickets:', newTickets);
       return newTickets;
-    });
-    
-    console.log('=== Numbers Update Complete ===');
+    }); 
   };
 
   // Handle buy click
@@ -292,7 +262,6 @@ const BuyTickets = React.memo(function BuyTickets({
       return;
     }
       } catch (error) {
-        console.error('Error checking lottery data:', error);
       toast({
           title: "Error",
           description: "Failed to check draw availability. Please try again.",
@@ -316,15 +285,7 @@ const BuyTickets = React.memo(function BuyTickets({
   };
   
   // Handle final confirmation and transaction
-  const handleFinalConfirm = () => {
-    console.log('=== Starting Buy Ticket Flow ===');
-    console.log('Current State:', {
-      tickets,
-      sharedDrawId,
-      ticketPrice,
-      totalTicketsPrice,
-      totalCost
-    });
+  const handleFinalConfirm = () => {  
 
       setShowReconfirmModal(false);
     setShowPendingModal(true);
@@ -334,15 +295,11 @@ const BuyTickets = React.memo(function BuyTickets({
     // Buy tickets
     const buyTickets = async () => {
       try {
-        console.log('=== Validation Checks ===');
         if (!sharedDrawId || sharedDrawId < 0) {
-          console.error('Validation Failed: Draw ID is invalid');
           throw new Error('Please select a valid draw');
         }
-        console.log('Draw ID:', sharedDrawId);
         
         // Show initial pending state
-        console.log('=== Starting Transaction ===');
       toast({
           title: "Preparing Transaction",
           description: "Please approve the transaction in MetaMask",
@@ -354,7 +311,6 @@ const BuyTickets = React.memo(function BuyTickets({
         // Choose between single and multiple ticket purchase
     if (tickets.length === 1) {
           // Single ticket purchase
-          console.log('Using buyTicket for single ticket');
       result = await buyTicket(
             tickets[0].numbers,
             tickets[0].lottoNumber || 0,
@@ -362,17 +318,8 @@ const BuyTickets = React.memo(function BuyTickets({
       );
     } else {
           // Multiple ticket purchase
-          console.log('Using buyMultipleTickets for multiple tickets');
           const numbersList = tickets.map(ticket => ticket.numbers);
           const lottoNumbers = tickets.map(ticket => ticket.lottoNumber || 0);
-          
-          console.log('Multiple ticket purchase details:', {
-            numbersList,
-            lottoNumbers,
-            drawId: sharedDrawId,
-            ticketCount: tickets.length,
-            totalCost: totalCost
-          });
 
           // Validate ticket data before sending
           if (numbersList.length !== lottoNumbers.length) {
@@ -386,8 +333,6 @@ const BuyTickets = React.memo(function BuyTickets({
           if (lottoNumbers.some(num => num === null || num === undefined)) {
             throw new Error('Invalid ticket data: all tickets must have a lotto number');
           }
-
-          console.log('Sending multiple ticket purchase transaction...');
           result = await buyMultipleTickets(
             numbersList,
             lottoNumbers,
@@ -395,21 +340,13 @@ const BuyTickets = React.memo(function BuyTickets({
           );
         }
         
-        console.log('Raw transaction result:', result);
         
         if (!result) {
-          console.error('No result received from transaction');
           throw new Error('No response from transaction');
         }
         
-        console.log('Transaction Result:', {
-          success: result.success,
-          txHash: result.txHash,
-          fullResult: result
-        });
         
-        if (result.success && result.txHash) {
-          console.log('Transaction Successful:', result.txHash);
+        if (result.success && result.txHash) {      
           // Show transaction submitted toast
           toast({
             title: "Transaction Submitted",
@@ -443,48 +380,41 @@ const BuyTickets = React.memo(function BuyTickets({
             variant: "default"
           });
         } else {
-          console.error('Transaction Failed:', result.error || 'Unknown error');
           throw new Error(result.error || 'Transaction failed - invalid response structure');
         }
       } catch (error) {
-        console.error('=== Error Details ===');
-        console.error('Error buying tickets:', error);
         const errorMessage = error instanceof Error ? error.message : 'Failed to buy tickets';
-        console.error('Error Message:', errorMessage);
+      
         setBuyError(errorMessage);
         setShowPendingModal(false);
         
         // Show appropriate error message based on the error
         if (errorMessage.includes('user rejected')) {
-          console.log('Error Type: User Rejected');
           toast({
             title: "Transaction Cancelled",
             description: "You rejected the transaction in MetaMask",
             variant: "destructive"
           });
         } else if (errorMessage.includes('insufficient funds')) {
-          console.log('Error Type: Insufficient Funds');
           toast({
             title: "Insufficient Funds",
             description: "You don't have enough ETH to complete this transaction",
             variant: "destructive"
           });
         } else if (errorMessage.includes('gas required exceeds allowance')) {
-          console.log('Error Type: Gas Limit');
+          
           toast({
             title: "Gas Limit Too Low",
             description: "Please try again with higher gas limit",
             variant: "destructive"
           });
         } else if (errorMessage.includes('Transaction failed')) {
-          console.log('Error Type: Transaction Failed');
           toast({
             title: "Transaction Failed",
             description: "The transaction was not successful. Please try again.",
             variant: "destructive"
           });
         } else {
-          console.log('Error Type: Generic Error');
           toast({
             title: "Purchase Failed",
             description: errorMessage,
@@ -492,7 +422,6 @@ const BuyTickets = React.memo(function BuyTickets({
           });
         }
       } finally {
-        console.log('=== Buy Ticket Flow Complete ===');
         setIsBuying(false);
       }
     };

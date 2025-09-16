@@ -3,12 +3,7 @@ import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
 import { base } from '@reown/appkit/networks'
 import type { AppKitNetwork } from '@reown/appkit/networks'
 
-// Debug environment variables
-console.log('Environment variables:', {
-  projectId: process.env.NEXT_PUBLIC_PROJECT_ID,
-  contractAddress: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS,
-  lotteryContractAddress: process.env.NEXT_PUBLIC_LOTTERY_CONTRACT_ADDRESS
-});
+
 
 // Get projectId from https://cloud.reown.com
 
@@ -16,7 +11,6 @@ console.log('Environment variables:', {
 export const projectId = process.env.NEXT_PUBLIC_PROJECT_ID || 'bc92d98ba3be558059c45443385417a3';
 
 if (!projectId) {
-  console.error('Project ID is not defined');
   throw new Error('Project ID is not defined');
 }
 

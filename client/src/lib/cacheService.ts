@@ -50,7 +50,6 @@ export function getFromCache<T>(key: string): T | null {
     localStorage.removeItem(`lottery_cache_${key}`);
     return null;
   } catch (error) {
-    console.warn('Cache retrieval error:', error);
     return null;
   }
 }

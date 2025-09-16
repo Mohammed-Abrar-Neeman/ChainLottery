@@ -7,7 +7,6 @@ import { toast } from '@/hooks/use-toast';
 
 // Validate environment variables
 if (!process.env.NEXT_PUBLIC_LOTTERY_CONTRACT_ADDRESS) {
-  console.error('NEXT_PUBLIC_LOTTERY_CONTRACT_ADDRESS is not defined in environment variables');
 }
 
 export const useLotteryContract = () => {
@@ -17,10 +16,8 @@ export const useLotteryContract = () => {
   // Create a fallback provider for read-only operations
   const fallbackProvider = useMemo(() => {
     try {
-      console.log('Creating fallback provider for network:', DEFAULT_NETWORK.name);
       return new ethers.JsonRpcProvider(DEFAULT_NETWORK.rpc);
     } catch (error) {
-      console.error('Error creating fallback provider:', error);
       return null;
     }
   }, []);
@@ -28,14 +25,11 @@ export const useLotteryContract = () => {
   const getContract = useCallback(async () => {
     try {
       if (!CONTRACTS.LOTTERY) {
-        console.error('Contract address not defined in environment variables');
-        console.error('Please check your .env.local file and ensure NEXT_PUBLIC_LOTTERY_CONTRACT_ADDRESS is set');
         return null;
       }
 
       // If wallet is connected, use wallet provider
       if (isConnected && address && walletProvider) {
-        console.log('Using wallet provider for contract');
         try {
           // Create provider and get signer
           const ethersProvider = new ethers.BrowserProvider(walletProvider as any);
@@ -43,7 +37,6 @@ export const useLotteryContract = () => {
           
           // Verify signer
           const signerAddress = await signer.getAddress();
-          console.log('Got signer address:', signerAddress);
           
           if (!signerAddress) {
             throw new Error('Failed to get signer address');
@@ -54,24 +47,19 @@ export const useLotteryContract = () => {
           
           // Verify contract
           const contractAddress = await contract.getAddress();
-          console.log('Contract initialized with address:', contractAddress);
           
           return contract;
         } catch (error) {
-          console.error('Error setting up contract with signer:', error);
           return null;
         }
       }
       
       // Otherwise use fallback provider for read-only operations
       if (!fallbackProvider) {
-        console.error('Fallback provider not available');
         return null;
       }
-      console.log('Using fallback provider for contract');
       return new ethers.Contract(CONTRACTS.LOTTERY, LOTTERY_ABI, fallbackProvider);
     } catch (error) {
-      console.error('Error creating contract instance:', error);
       return null;
     }
   }, [isConnected, address, walletProvider, fallbackProvider]);
@@ -79,50 +67,26 @@ export const useLotteryContract = () => {
   // Check if current user is admin
   const checkIsAdmin = useCallback(async (): Promise<boolean> => {
     try {
-      console.log('=== Admin Check Start ===');
-      console.log('Connection status:', { isConnected, address });
-      console.log('Contract address:', CONTRACTS.LOTTERY);
       
       if (!isConnected || !address) {
-        console.log('Wallet not connected, admin check skipped');
         return false;
       }
 
       if (!CONTRACTS.LOTTERY) {
-        console.error('Contract address not defined in environment variables');
-        console.error('Please check your .env.local file and ensure NEXT_PUBLIC_LOTTERY_CONTRACT_ADDRESS is set');
         return false;
       }
 
-      console.log('Getting contract instance...');
       const contract = await getContract();
       if (!contract) {
-        console.error('Contract not initialized');
         return false;
       }
-      console.log('Contract instance created successfully');
-
-      console.log('Fetching admin address...');
       const adminAddress = await contract.admin();
-      console.log('Admin check results:', {
-        adminAddress,
-        userAddress: address,
-        adminAddressLower: adminAddress.toLowerCase(),
-        userAddressLower: address.toLowerCase(),
-        isMatch: adminAddress.toLowerCase() === address.toLowerCase()
-      });
 
       const isUserAdmin = adminAddress.toLowerCase() === address.toLowerCase();
-      console.log('Is user admin:', isUserAdmin);
+    
       
       return isUserAdmin;
     } catch (error: any) {
-      console.error('Error checking admin status:', {
-        message: error?.message,
-        code: error?.code,
-        data: error?.data,
-        stack: error?.stack
-      });
       return false;
     }
   }, [isConnected, address, getContract]);
@@ -130,23 +94,17 @@ export const useLotteryContract = () => {
   // Get lottery data for a specific series and draw
   const getLotteryData = useCallback(async (seriesIndex?: number, drawId?: number): Promise<LotteryData | null> => {
     try {
-      console.log('=== Getting Lottery Data ===');
-      console.log('Series Index:', seriesIndex);
-      console.log('Draw ID:', drawId);
 
       const contract = await getContract();
       if (!contract) return null;
 
       if (!drawId) return null;
 
-      // Get draw details in a single call
-      console.log('Fetching draw details...');
       const drawDetails = await contract.getDrawDetails(drawId);
-      console.log('Raw draw details:', drawDetails);
 
       // Get total tickets sold
       const totalTicketsSold = await contract.getTotalTicketsSold(drawId);
-      console.log('Total tickets sold:', totalTicketsSold);
+      
 
       // Parse winning ticket numbers from the tuple structure
       let winningTicketNumbers: number[] = [];
@@ -161,11 +119,9 @@ export const useLotteryContract = () => {
           }).filter(num => num !== 0);
         }
       } catch (error) {
-        console.error('Error parsing winning ticket numbers:', error);
         winningTicketNumbers = [];
       }
 
-      console.log('Parsed winning ticket numbers:', winningTicketNumbers);
 
       return {
         jackpotAmount: ethers.formatEther(drawDetails[3]), // index 3 is jackpot
@@ -179,7 +135,6 @@ export const useLotteryContract = () => {
         completed: drawDetails[7] // index 7 is completed status
       };
     } catch (error) {
-      console.error('Error fetching lottery data:', error);
       toast({
         title: "Error",
         description: "Failed to fetch lottery data",
@@ -213,7 +168,6 @@ export const useLotteryContract = () => {
 
       return series;
     } catch (error) {
-      console.error('Error fetching series list:', error);
       toast({
         title: "Error",
         description: "Failed to fetch series list",
@@ -251,7 +205,6 @@ export const useLotteryContract = () => {
 
       return draws;
     } catch (error) {
-      console.error('Error fetching series draws:', error);
       toast({
         title: "Error",
         description: "Failed to fetch series draws",
@@ -268,34 +221,21 @@ export const useLotteryContract = () => {
     drawId: number
   ): Promise<{ success: boolean; txHash?: string; error?: string }> => {
     try {
-      console.log('=== buyTicket Function Start ===');
-      console.log('Parameters:', { numbers, lottoNumber, drawId });
 
       const contract = await getContract();
       if (!contract) {
-        console.error('Contract not initialized');
         throw new Error('Contract not initialized');
       }
 
       if (!drawId) {
-        console.error('Draw ID is required');
         throw new Error('Draw ID is required');
       }
 
-      // Get ticket price for the draw
-      console.log('Fetching ticket price for draw:', drawId);
       const ticketPrice = await contract.getTicketPrice(drawId);
-      console.log('Ticket price:', ethers.formatEther(ticketPrice));
 
       // Convert numbers to uint8 array
       const uint8Numbers = numbers.map(n => Number(n)) as [number, number, number, number, number];
       
-      console.log('Sending transaction with params:', {
-        numbers: uint8Numbers,
-        lottoNumber,
-        drawId,
-        value: ethers.formatEther(ticketPrice)
-      });
 
       const tx = await contract.buyTicket(
         drawId,
@@ -304,21 +244,11 @@ export const useLotteryContract = () => {
         { value: ticketPrice }
       );
 
-      console.log('Transaction sent:', tx.hash);
-      console.log('Waiting for confirmation...');
 
       const receipt = await tx.wait();
-      console.log('Transaction confirmed:', receipt.hash);
 
       return { success: true, txHash: receipt.hash };
     } catch (error: any) {
-      console.error('=== buyTicket Error ===');
-      console.error('Error details:', {
-        message: error?.message,
-        code: error?.code,
-        data: error?.data,
-        transaction: error?.transaction
-      });
 
       // Handle specific contract errors
       if (error?.data?.message) {
@@ -382,7 +312,6 @@ export const useLotteryContract = () => {
       const prize = await contract.checkPrize(drawId, ticketIndex);
       return ethers.formatEther(prize);
     } catch (error) {
-      console.error('Error checking prize:', error);
       return '0';
     }
   }, [getContract]);
@@ -395,7 +324,6 @@ export const useLotteryContract = () => {
 
       return await contract.getUserTickets(address, drawId);//check
     } catch (error) {
-      console.error('Error getting user tickets:', error);
       return [];
     }
   }, [getContract, address]);
@@ -409,7 +337,6 @@ export const useLotteryContract = () => {
       const price = await contract.getTicketPrice(drawId ?? 0);
       return Number(ethers.formatEther(price));
     } catch (error) {
-      console.error('Error getting ticket price:', error);
       return 0;
     }
   }, [getContract]);
@@ -421,24 +348,17 @@ export const useLotteryContract = () => {
     drawId: number
   ): Promise<{ success: boolean; txHash?: string; error?: string }> => {
     try {
-      console.log('=== buyMultipleTickets Function Start ===');
-      console.log('Parameters:', { numbersList, lottoNumbers, drawId });
 
       const contract = await getContract();
       if (!contract) {
-        console.error('Contract not initialized');
         throw new Error('Contract not initialized');
       }
 
       if (!drawId) {
-        console.error('Draw ID is required');
         throw new Error('Draw ID is required');
       }
 
-      // Get ticket price for the draw
-      console.log('Fetching ticket price for draw:', drawId);
       const ticketPrice = await contract.getTicketPrice(drawId);
-      console.log('Ticket price:', ethers.formatEther(ticketPrice));
 
       // Convert numbers to uint8 arrays
       const uint8NumbersList = numbersList.map(numbers => 
@@ -447,14 +367,6 @@ export const useLotteryContract = () => {
       
       // Calculate total value
       const totalValue = ticketPrice * BigInt(numbersList.length);
-      console.log('Total value:', ethers.formatEther(totalValue));
-      
-      console.log('Sending transaction with params:', {
-        numbersList: uint8NumbersList,
-        lottoNumbers,
-        drawId,
-        value: ethers.formatEther(totalValue)
-      });
 
       const tx = await contract.buyMultipleTickets(
         drawId,
@@ -463,21 +375,11 @@ export const useLotteryContract = () => {
         { value: totalValue }
       );
 
-      console.log('Transaction sent:', tx.hash);
-      console.log('Waiting for confirmation...');
 
       const receipt = await tx.wait();
-      console.log('Transaction confirmed:', receipt.hash);
 
       return { success: true, txHash: receipt.hash };
     } catch (error: any) {
-      console.error('=== buyMultipleTickets Error ===');
-      console.error('Error details:', {
-        message: error?.message,
-        code: error?.code,
-        data: error?.data,
-        transaction: error?.transaction
-      });
 
       // Handle specific contract errors
       if (error?.data?.message) {
@@ -533,7 +435,6 @@ export const useLotteryContract = () => {
         return await fallback.getBlockNumber();
       }
     } catch (error) {
-      console.error('Error fetching current block number:', error);
       return null;
     }
   }, [isConnected, address, walletProvider, fallbackProvider]);

@@ -13,16 +13,13 @@ export const getLotteryContract = (
   
   try {
     const contractAddress = getLotteryAddress(chainId);
-    console.log(`Using lottery contract address: ${contractAddress} (from getLotteryAddress)`);
     
     if (!ethers.isAddress(contractAddress)) {
-      console.error('Invalid contract address');
       return null;
     }
     
     return new ethers.Contract(contractAddress, lotteryABI, provider);
   } catch (error) {
-    console.error('Error creating contract instance:', error);
     return null;
   }
 };
@@ -37,13 +34,11 @@ export const getAllSeriesData = async (
   try {
     const contract = getLotteryContract(provider, chainId);
     if (!contract) {
-      console.error("Failed to get contract instance for series data");
       return [];
     }
     
     // Get total series count
     const totalSeries = await contract.getTotalSeries();
-    console.log(`Total series count: ${totalSeries}`);
     
     const seriesData = [];
     
@@ -57,10 +52,8 @@ export const getAllSeriesData = async (
       }
     }
     
-    console.log("Series data from contract:", seriesData);
     return seriesData;
   } catch (error) {
-    console.error("Error getting all series data:", error);
     return [];
   }
 };
@@ -77,13 +70,11 @@ export const getLotteryContractWithSigner = async (
     const contract = getLotteryContract(provider, chainId);
     
     if (!contract) {
-      console.error("Failed to get contract instance");
       return null;
     }
     
     return contract.connect(signer) as ethers.Contract;
   } catch (error) {
-    console.error("Error getting signer or connecting contract:", error);
     return null;
   }
 };
@@ -130,7 +121,6 @@ export const getLotteryData = async (
         currentDraw = await contract.drawId();
         currentDraw = Number(currentDraw);
       } catch (e) {
-        console.error("Error getting current draw ID:", e);
         currentDraw = 1; // Default to draw 1 if there's an error
       }
     }
@@ -148,14 +138,11 @@ export const getLotteryData = async (
     let endTimestamp = 0;
     
     try {
-      // Try to get the estimatedEndTime from the contract first
-      console.log("Raw draw data from contract:", draw);
       
       // Make sure we have all the required fields
       if (draw && typeof draw.estimatedEndTime !== 'undefined') {
         // Convert contract timestamp to milliseconds
         endTimestamp = Number(draw.estimatedEndTime) * 1000;
-        console.log(`Retrieved estimatedEndTime from contract: ${new Date(endTimestamp).toISOString()}`);
       } else {
         console.warn("Contract draw does not contain valid estimatedEndTime field");
       }
@@ -163,22 +150,17 @@ export const getLotteryData = async (
       // Check if we have a valid next drawing time from the contract
       // If not, attempt to get the drawing time from other contract properties
       if (!endTimestamp || endTimestamp === 0) {
-        // Try to get the draw frequency from the contract if available
-        console.log("Checking contract for draw creation time and frequency...");
         
         try {
           const creationTime = Number(draw.creationTime || 0) * 1000;
-          console.log(`Draw creation time: ${new Date(creationTime).toISOString()}`);
           
           // Get series info to check draw frequency
           const seriesInfo = await contract.getSeries(seriesIndex || 0);
           const drawFrequency = Number(seriesInfo.drawFrequency || 0) * 1000;
-          console.log(`Series draw frequency: ${drawFrequency} ms (${drawFrequency / (1000 * 60 * 60 * 24)} days)`);
           
           if (creationTime > 0 && drawFrequency > 0) {
             // Calculate expected end time based on creation + frequency
             endTimestamp = creationTime + drawFrequency;
-            console.log(`Calculated end time based on creation + frequency: ${new Date(endTimestamp).toISOString()}`);
           }
         } catch (freqError) {
           console.error("Error getting draw creation/frequency:", freqError);
@@ -187,7 +169,6 @@ export const getLotteryData = async (
       
       // If still no valid timestamp, use appropriate defaults for each series
       if (!endTimestamp || endTimestamp === 0) {
-        console.warn("No valid end time found in contract, using series-specific defaults");
         
         const now = Date.now();
         const futureDate = new Date();
@@ -211,15 +192,12 @@ export const getLotteryData = async (
         }
         
         endTimestamp = futureDate.getTime();
-        console.log(`Using series-specific default end time: ${new Date(endTimestamp).toISOString()}`);
       }
     } catch (timeError) {
-      console.error("Error processing end time:", timeError);
       // Add 7 days from current time as absolute last fallback
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + 7);
       endTimestamp = futureDate.getTime();
-      console.log(`Using fallback future end time: ${new Date(endTimestamp).toISOString()}`);
     }
     
     // Check if the draw is completed from the smart contract
@@ -231,14 +209,12 @@ export const getLotteryData = async (
           // First try to get the completed status directly from draw struct
           if (draw && typeof draw.completed === 'boolean') {
             isCompleted = draw.completed;
-            console.log(`Draw completed status from contract: ${isCompleted}`);
           } else {
             // If not available in the struct, try to call getCompleted function
             try {
               isCompleted = await contract.getCompleted(currentDraw);
-              console.log(`Draw completed status from getCompleted function: ${isCompleted}`);
             } catch (e) {
-              console.error("Error calling getCompleted:", e);
+              console.error("Error", e);
             }
 
             // If we still don't have a value, try to check if the winning numbers are set
@@ -247,25 +223,22 @@ export const getLotteryData = async (
                 const winningNumbers = await contract.getWinningNumbers(currentDraw);
                 // If any winning number is non-zero, consider the draw completed
                 isCompleted = winningNumbers.some((num: any) => Number(num) > 0);
-                console.log(`Draw completed status inferred from winning numbers: ${isCompleted}`);
               } catch (e) {
-                console.error("Error checking winning numbers:", e);
+                console.error("Error ", e);
               }
             }
           }
         } catch (e) {
-          console.error("Error checking draw completion status:", e);
+          console.error("Error ", e);
         }
     }
 
     // If the draw is marked as completed in the contract
     if (isCompleted) {
-      console.log("Draw is marked as completed in the contract, setting timeRemaining to 0");
       endTimestamp = 0;
     } 
     // If estimated end time is in the past and the draw is not explicitly marked as completed
     else if (endTimestamp < Date.now()) {
-      console.warn("Estimated end time is in the past, but draw is not marked as completed");
       
       // Try to directly check with contract if time is up
       try {
@@ -276,21 +249,17 @@ export const getLotteryData = async (
         if (block && block.timestamp) {
           // Convert block timestamp to milliseconds
           const blockTime = block.timestamp * 1000;
-          console.log(`Current blockchain time: ${new Date(blockTime).toISOString()}`);
           
           // If blockchain time is past the endTimestamp, consider time expired
           if (blockTime > endTimestamp) {
-            console.log("Based on blockchain time, the draw time has expired");
             endTimestamp = 0;
           }
         }
       } catch (e) {
-        console.error("Error getting blockchain time:", e);
         
         // Do a direct check against our draw struct for estimatedEndTime vs current time
         const now = Date.now();
         if (endTimestamp < now) {
-          console.log("Draw time has expired based on local time comparison");
           endTimestamp = 0;
         }
       }
@@ -300,34 +269,24 @@ export const getLotteryData = async (
     const now = Date.now();
     const timeRemaining = endTimestamp > 0 ? Math.max(0, Math.floor((endTimestamp - now) / 1000)) : 0;
     
-    // Log time remaining status
-    if (timeRemaining === 0) {
-      console.log("Time remaining is 0 - draw has completed or time has expired");
-    } else {
-      console.log(`Time remaining: ${timeRemaining} seconds (${formatTimeRemaining(timeRemaining).days} days, ${formatTimeRemaining(timeRemaining).hours} hours, ${formatTimeRemaining(timeRemaining).minutes} minutes, ${formatTimeRemaining(timeRemaining).seconds} seconds)`);
-    }
+    
     
     
     // Get jackpot amount directly from the contract using getJackpot function
     let jackpotAmount;
     try {
-      console.log(`Attempting to get jackpot for draw ${currentDraw} using getJackpot function`);
       const jackpotBN = await contract.getJackpot(currentDraw);
       jackpotAmount = ethers.formatEther(jackpotBN);
-      console.log(`Successfully retrieved jackpot from getJackpot function: ${jackpotAmount} ETH`);
     } catch (jackpotError: any) {
-      console.error(`Error calling getJackpot function: ${jackpotError?.message || "Unknown error"}`);
       // Fall back to using the draw.jackpot value
       const jackpotBN = draw.jackpot;
       jackpotAmount = ethers.formatEther(jackpotBN);
-      console.log(`Using draw.jackpot as fallback: ${jackpotAmount} ETH`);
     }
     
     // Get participant count using getTotalTicketsSold function
     let participantCount = 0;
     try {
       // The contract function requires seriesIndex and drawId parameters
-      console.log(`Attempting to get ticket count for series ${seriesIndex}, draw ${currentDraw} using getTotalTicketsSold function`);
       
       // Using the series index from the parameter or default to 0
       const seriesIdToUse = seriesIndex !== undefined ? seriesIndex : 0;
@@ -337,34 +296,14 @@ export const getLotteryData = async (
       try {
         const count = await contract.getTotalTicketsSold(currentDraw);
         participantCount = Number(count);
-        console.log(`Successfully retrieved ticket count from getTotalTicketsSold(${currentDraw}): ${participantCount}`);
       } catch (error) {
-        console.error(`Error calling getTotalTicketsSold:`, error instanceof Error ? error.message : "Unknown error");
-        console.log(`No participants found for draw ${currentDraw}`);
         participantCount = 0;
       }
     } catch (ticketCountError) {
-      console.error(`Error calling getTotalTicketsSold function:`, ticketCountError instanceof Error ? ticketCountError.message : "Unknown error");
       // Return 0 for any series/draw combination not explicitly mapped
       participantCount = 0;
-      console.log(`No participant data available for series ${seriesIndex}, draw ${currentDraw}`);
+      
     }
-    
-    console.log(`useLotteryData - Updating lottery data:`, {
-      lotteryData: {
-        jackpotAmount,
-        ticketPrice: ticketPriceInEth,
-        currentDraw,
-        timeRemaining,
-        endTimestamp,
-        participants: [],
-        participantCount,
-        seriesIndex: 0
-      },
-      ticketPriceFromFunction: ticketPriceInEth,
-      selectedDrawId: drawId,
-      lotteryDataTicketPrice: ticketPriceInEth
-    });
     
     return {
       jackpotAmount,
@@ -377,7 +316,6 @@ export const getLotteryData = async (
       seriesIndex: seriesIndex !== undefined ? seriesIndex : 0
     };
   } catch (error) {
-    console.error("Error fetching lottery data:", error);
     
     return {
       jackpotAmount: "0",
@@ -396,24 +334,18 @@ export const getSeriesList = async (
   provider: ethers.Provider | null,
   chainId: string
 ): Promise<LotterySeries[]> => {
-  console.log("getSeriesList called with chainId:", chainId);
   
   if (!provider || !chainId) {
-    console.log("Provider or chainId not available for series list");
     return []; // Return empty array if no provider - no mock data
   }
   
   const contract = getLotteryContract(provider, chainId);
   if (!contract) {
-    console.log("Contract not available for series list");
     return []; // Return empty array if no contract - no mock data
   }
   
-  console.log("Contract instance created successfully:", contract.target);
-  
   // List all available functions on the contract for debugging
   try {
-    console.log("Contract interface functions:");
     // Type safety for fragments
     const functionFragments = contract.interface.fragments.filter(
       fragment => fragment.type === "function" && 'name' in fragment && 'inputs' in fragment
@@ -423,11 +355,10 @@ export const getSeriesList = async (
         const inputs = Array.isArray(fragment.inputs) 
           ? fragment.inputs.map(input => 'type' in input ? input.type : 'unknown').join(',')
           : '';
-        console.log(`- ${fragment.name}(${inputs})`);
       }
     });
   } catch (error) {
-    console.error("Error listing contract functions:", error);
+    console.error("Error", error);
   }
   
   try {
@@ -436,53 +367,36 @@ export const getSeriesList = async (
     
     // Try multiple approaches to get series information
     try {
-      console.log("Calling getTotalSeries() on contract...");
       try {
         const seriesCount = await contract.getTotalSeries();
         count = Number(seriesCount);
-        console.log(`Total series from contract: ${count}`);
       } catch (countError) {
-        console.error("Error calling getTotalSeries - contract may not have this function:", countError);
         
         // Fallback 1: Try to check if current draw ID is available
         try {
-          console.log("Trying fallback - checking current drawId...");
           const currentDrawId = await contract.drawId();
-          console.log(`Got current drawId: ${currentDrawId}`);
           
           // If we can get the current draw ID, we know at least one series exists
           count = 1;
-          console.log("Setting series count to 1 based on available drawId");
         } catch (drawIdError) {
-          console.error("Error getting current drawId:", drawIdError);
           
           // Fallback 2: Try to get series 0 draw IDs directly
           try {
-            console.log("Trying to get draw IDs for series 0...");
             const seriesDraws = await contract.getSeriesDrawIdsByIndex(0);
             if (seriesDraws && seriesDraws.length) {
               count = 1; // At least series 0 exists
-              console.log(`Found draws for series 0, setting count to 1`);
             }
           } catch (seriesDrawsError) {
-            console.error("Error getting series 0 draws:", seriesDrawsError);
-            
-            // Final fallback - assume there's at least one series
-            console.log("Using fallback series count of 1");
             count = 1;
           }
         }
       }
     } catch (allMethodsError) {
-      console.error("All fallback methods failed:", allMethodsError);
-      // If we can't get the count, return an empty array
-      console.log("No series data could be retrieved from the contract");
       return [];
     }
     
     // If no series, return empty array - no mock data
     if (count === 0) {
-      console.log("No series found in contract, returning empty array");
       return [];
     }
     
@@ -493,12 +407,10 @@ export const getSeriesList = async (
       try {
         // Get series name using getSeriesNameByIndex function
         let seriesName = await contract.getSeriesNameByIndex(i);
-        console.log(`Series ${i} name from contract: ${seriesName}`);
         
         // Use default name if empty
         if (!seriesName) {
           seriesName = `Series ${i + 1}`;
-          console.log(`Using default name for series ${i}: ${seriesName}`);
         }
         
         // Get draw count for this series
@@ -508,7 +420,6 @@ export const getSeriesList = async (
           const seriesDraws = await contract.getSeriesDrawIdsByIndex(i);
           if (seriesDraws && seriesDraws.length) {
             drawCount = seriesDraws.length;
-            console.log(`Series ${i} has ${drawCount} draws`);
           }
         } catch (drawsError) {
           console.error(`Error getting draws for series ${i}:`, drawsError);
@@ -524,24 +435,15 @@ export const getSeriesList = async (
         seriesList.push(series);
       } catch (e) {
         console.error(`Error fetching series ${i}:`, e);
-        // If we failed to get this series, skip it - no mock data
-        console.log(`Skipping series ${i} due to error`);
       }
     }
     
     // If we somehow ended up with empty list, return empty array - no mock data
     if (seriesList.length === 0) {
-      console.log("No series could be retrieved, returning empty array");
       return [];
     }
-    
-    // Don't add missing series - only return what was actually found
-    // (removed code that added missing series)
-    
-    console.log("Final series list:", seriesList);
     return seriesList;
   } catch (error) {
-    console.error("Error fetching series list:", error);
     // Return empty array in case of error - no mock data
     return [];
   }
@@ -585,13 +487,11 @@ export const getSeriesDraws = async (
   seriesIndex: number
 ): Promise<LotteryDraw[]> => {
   if (!provider || !chainId) {
-    console.log("Provider or chainId not available for series draws");
     return []; // Return empty array if no provider - no mock data
   }
   
   const contract = getLotteryContract(provider, chainId);
   if (!contract) {
-    console.log("Contract not available for series draws");
     return []; // Return empty array if no contract - no mock data
   }
   
@@ -602,30 +502,24 @@ export const getSeriesDraws = async (
       // This function should return all draw IDs that belong to this series
       const ids = await contract.getSeriesDrawIdsByIndex(seriesIndex);
       drawIds = ids.map((id: any) => Number(id));
-      console.log(`Got draw IDs for series ${seriesIndex} using getSeriesDrawIdsByIndex:`, drawIds);
     } catch (e) {
-      console.error("Error getting series draws, trying alternative method:", e);
       
       // Fallback methods in case the above fails
       try {
         const ids = await contract.getSeriesDrawIdsByIndex(seriesIndex);
         drawIds = ids.map((id: any) => Number(id));
-        console.log(`Got draw IDs for series ${seriesIndex} using getSeriesDrawIdsByIndex:`, drawIds);
       } catch (idError) {
-        console.error("Error getting draw IDs with alternative method:", idError);
         
         // Try getting draw count if the above fails
         try {
           const drawCount = await contract.getTotalDrawsInSeries(seriesIndex);
           const count = Number(drawCount);
-          console.log(`Got draw count for series ${seriesIndex}: ${count}`);
           
           if (count > 0) {
             // Generate sequential IDs
             drawIds = Array.from({ length: count }, (_, i) => i + 1);
           }
         } catch (countError) {
-          console.error("Error getting series draw count:", countError);
           // If we can't get the count, return empty array - no mock data
           return [];
         }
@@ -634,11 +528,9 @@ export const getSeriesDraws = async (
     
     // If there are no draws, return empty array - no mock data
     if (drawIds.length === 0) {
-      console.log(`No draws found for series ${seriesIndex}, returning empty array`);
       return [];
     }
     
-    console.log("Series draws:", drawIds);
     
     // Fetch draw details for each ID
     const drawPromises = drawIds.map(async (drawId) => {
@@ -662,7 +554,6 @@ export const getSeriesDraws = async (
         
         return draw;
       } catch (e) {
-        console.error(`Error fetching draw ${drawId}:`, e);
         // Return null instead of creating default draw
         return null;
       }
@@ -672,14 +563,12 @@ export const getSeriesDraws = async (
     
     // If somehow all draws are null, return empty array - no mock data
     if (draws.length === 0) {
-      console.log(`No valid draws found for series ${seriesIndex}, returning empty array`);
       return [];
     }
     
     // Filter out any null values and cast to satisfy TypeScript
     return draws.filter((draw): draw is LotteryDraw => draw !== null);
   } catch (error) {
-    console.error("Error fetching series draws:", error);
     // Return empty array in case of error - no mock data
     return [];
   }
@@ -733,13 +622,11 @@ export const getDrawInfo = async (
   seriesIndex?: number
 ): Promise<LotteryDraw | null> => {
   if (!provider || !chainId) {
-    console.log("Provider or chainId not available for draw info");
     return null; // Return null if no provider - no mock data
   }
   
   const contract = getLotteryContract(provider, chainId);
   if (!contract) {
-    console.log("Contract not available for draw info");
     return null; // Return null if no contract - no mock data
   }
   
@@ -764,8 +651,6 @@ export const getDrawInfo = async (
     
     return draw;
   } catch (error) {
-    console.error(`Error fetching draw ${drawId}:`, error);
-    console.log(`Failed to get draw info for ID ${drawId} in series ${seriesIndex || 0}`);
     return null; // Return null in case of error - no mock data
   }
 };
@@ -797,10 +682,8 @@ export const getDrawParticipants = async (
   drawId: number,
   seriesIndex?: number
 ): Promise<{ participants: Participant[], counts: {[key: string]: number} }> => {
-  console.log(`Fetching participants for draw ID ${drawId} in series ${seriesIndex || 0}`);
   
   if (!provider || !chainId) {
-    console.log("Provider or chainId not available");
     return { participants: [], counts: {} };
   }
   
@@ -815,11 +698,9 @@ export const getDrawParticipants = async (
     
     // Get the current block number
     const currentBlock = await provider.getBlockNumber();
-    console.log(`Current block number: ${currentBlock}`);
     
     // Look back up to 5000 blocks (adjust as needed)
     const fromBlock = Math.max(0, currentBlock - 5000);
-    console.log(`Searching for events from block ${fromBlock} to ${currentBlock}`);
     
     // Fetch logs of ticket purchases
     let logs: any[] = [];
@@ -829,7 +710,6 @@ export const getDrawParticipants = async (
         topics: [ticketPurchasedTopic],
         fromBlock: fromBlock
       });
-      console.log(`Found ${logs.length} ticket purchase events`);
     } catch (logsError) {
       console.error("Error fetching logs:", logsError);
     }
@@ -844,7 +724,6 @@ export const getDrawParticipants = async (
         // Get transaction details
         const tx = await provider.getTransaction(log.transactionHash);
         if (!tx) {
-          console.log(`Transaction data not available for ${log.transactionHash}`);
           continue;
         }
         
@@ -855,8 +734,6 @@ export const getDrawParticipants = async (
         // In a real implementation, we would decode the event data to extract the exact draw ID
         let txDrawId: number = drawId;
         
-        // We're explicitly looking for events for this draw ID
-        console.log(`Using draw ID ${txDrawId} for transaction ${log.transactionHash.slice(0, 10)}...`);
         
         // Filter by draw ID and series index
         const isMatchingDraw = txDrawId === drawId;
@@ -864,7 +741,6 @@ export const getDrawParticipants = async (
         
         // Skip if this transaction doesn't match our filters
         if (!isMatchingDraw || !isMatchingSeries) {
-          console.log(`Skipping transaction - drawId: ${txDrawId}, expected: ${drawId}`);
           continue;
         }
         
@@ -897,7 +773,6 @@ export const getDrawParticipants = async (
     // If we didn't find any participants from the blockchain events,
     // log this information and fetch ticket data directly using getTicketDetails
     if (participants.length === 0) {
-      console.log(`No blockchain event data found for Draw #${drawId}. Checking contract for participant count.`);
       
       try {
         // Get total tickets sold from contract - single parameter only
@@ -906,10 +781,8 @@ export const getDrawParticipants = async (
           // Get total tickets sold for this draw - contract only supports drawId parameter
           const count = await contract.getTotalTicketsSold(drawId);
           const ticketCount = Number(count);
-          console.log(`Contract reports ${ticketCount} tickets sold for draw #${drawId}`);
           
           if (ticketCount > 0) {
-            console.log(`Checking up to ${Math.min(20, ticketCount)} tickets for draw #${drawId}`);
             
             // If we have tickets, let's fetch them directly from the contract
             const maxTicketsToFetch = Math.min(20, ticketCount); // Limit to 20 tickets for performance
@@ -961,12 +834,9 @@ export const getDrawParticipants = async (
             
             // If we found participants this way, use them
             if (fetchedParticipants.length > 0) {
-              console.log(`Found ${fetchedParticipants.length} participants by direct contract queries`);
               // Return the directly fetched participants instead of trying to assign to the const
               return { participants: fetchedParticipants, counts: addressCounts };
-            } else {
-              console.log(`No tickets could be retrieved for Draw #${drawId}.`);
-            }
+            } 
           } else {
             console.log(`No tickets sold for Draw #${drawId} according to contract.`);
           }
@@ -977,7 +847,6 @@ export const getDrawParticipants = async (
       
       // Only return empty if we still have no participants after trying both methods
       if (participants.length === 0) {
-        console.log(`No participant data available for Draw #${drawId}.`);
         return { participants: [], counts: addressCounts };
       }
     }
@@ -985,10 +854,8 @@ export const getDrawParticipants = async (
     // Sort participants by timestamp (newest first)
     participants.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     
-    console.log(`Returning ${participants.length} participants for Draw #${drawId}`);
     return { participants, counts: addressCounts };
   } catch (error) {
-    console.error("Error fetching draw participants:", error);
     return { participants: [], counts: {} };
   }
 };
@@ -1040,7 +907,6 @@ export const buyMultipleTickets = async (
       try {
         currentDraw = await contract.drawId();
       } catch (drawIdError) {
-        console.error('Error getting current draw ID:', drawIdError);
         toast({
           title: "Purchase Failed",
           description: "Could not determine the current draw.",
@@ -1055,16 +921,12 @@ export const buyMultipleTickets = async (
     try {
       const drawInfo = await contract.draws(currentDraw);
       ticketPrice = drawInfo.ticketPrice;
-      console.log(`Ticket price for draw ${currentDraw}: ${ethers.formatEther(ticketPrice)} ETH`);
     } catch (priceError) {
-      console.log('Error getting ticket price, trying direct method', priceError);
       
       // Try to get the ticket price directly from the contract
       try {
         ticketPrice = await contract.getTicketPrice(currentDraw);
-        console.log(`Ticket price from direct method for draw ${currentDraw}: ${ethers.formatEther(ticketPrice)} ETH`);
       } catch (directError) {
-        console.error('Error getting ticket price from direct method:', directError);
         toast({
           title: "Purchase Failed",
           description: "Could not determine the ticket price.",
@@ -1101,7 +963,6 @@ export const buyMultipleTickets = async (
         }
       );
     } catch (buyError: any) {
-      console.error('Error initiating multiple ticket purchase:', buyError);
       
       let errorMessage = "Failed to initiate multiple ticket purchase.";
       if (buyError?.message) {
@@ -1140,7 +1001,6 @@ export const buyMultipleTickets = async (
     try {
       receipt = await tx.wait();
     } catch (confirmError) {
-      console.error('Error confirming transaction:', confirmError);
       toast({
         title: "Purchase Status Unknown",
         description: "Your transaction was submitted, but we couldn't confirm if it was successful. Please check your wallet for transaction status.",
@@ -1158,7 +1018,6 @@ export const buyMultipleTickets = async (
     
     return { success: true, txHash: receipt.hash };
   } catch (error) {
-    console.error('Error buying multiple lottery tickets:', error);
     
     let errorMessage = "Failed to purchase tickets.";
     if (error instanceof Error) {
@@ -1220,7 +1079,6 @@ export const buyLotteryTicket = async (
       try {
         currentDraw = await contract.drawId();
       } catch (drawIdError) {
-        console.error('Error getting current draw ID:', drawIdError);
         toast({
           title: "Purchase Failed",
           description: "Could not determine the current draw.",
@@ -1235,17 +1093,13 @@ export const buyLotteryTicket = async (
     try {
       const drawInfo = await contract.draws(currentDraw);
       ticketPrice = drawInfo.ticketPrice;
-      console.log(`Ticket price for draw ${currentDraw}: ${ethers.formatEther(ticketPrice)} ETH`);
     } catch (priceError) {
-      console.log('Error getting ticket price, trying direct method', priceError);
       
       // Try to get the ticket price directly from the contract
       try {
         // Use the correct getTicketPrice function as specified
         ticketPrice = await contract.getTicketPrice(currentDraw);
-        console.log(`Ticket price from direct method for draw ${currentDraw}: ${ethers.formatEther(ticketPrice)} ETH`);
       } catch (directError) {
-        console.error('Error getting ticket price from direct method:', directError);
         toast({
           title: "Purchase Failed",
           description: "Could not determine the ticket price.",
@@ -1270,7 +1124,6 @@ export const buyLotteryTicket = async (
         gasLimit: 500000 // Gas limit estimation
       });
     } catch (buyError: any) {
-      console.error('Error initiating ticket purchase:', buyError);
       
       let errorMessage = "Failed to initiate ticket purchase.";
       if (buyError?.message) {
@@ -1309,7 +1162,6 @@ export const buyLotteryTicket = async (
     try {
       receipt = await tx.wait();
     } catch (confirmError) {
-      console.error('Error confirming transaction:', confirmError);
       toast({
         title: "Purchase Status Unknown",
         description: "Your transaction was submitted, but we couldn't confirm if it was successful. Please check your wallet for transaction status.",
@@ -1327,7 +1179,6 @@ export const buyLotteryTicket = async (
     
     return { success: true, txHash: receipt.hash };
   } catch (error) {
-    console.error('Error buying lottery ticket:', error);
     
     let errorMessage = "Failed to purchase ticket.";
     if (error instanceof Error) {
@@ -1375,7 +1226,6 @@ export const getTotalDrawsInSeries = async (
     const drawCount = await contract.getTotalDrawsInSeries(seriesIndex);
     return Number(drawCount);
   } catch (error) {
-    console.error('Error getting series draw count:', error);
     return 0;
   }
 };
@@ -1401,26 +1251,10 @@ export const getDrawWinners = async (
   if (!contract) return [];
   
   try {
-    console.log(`Fetching winners for draw ID: ${drawId} in series ${seriesIndex || 0}`);
-    
-    // Always use data directly from the contract, no special cases
-    console.log(`Querying directly from blockchain for draw ${drawId} in series ${seriesIndex || 0}`);
-    
-    // Try to get winners for this specific draw
-    console.log(`Calling getWinners(${drawId}) on contract...`);
     const winners = await contract.getWinners(drawId);
-    console.log(`Raw winners data for draw ${drawId}:`, winners);
     
-    // Add explicit debug output to help diagnose the issue
-    console.log(`Winners array length: ${winners ? winners.length : 'undefined'}`);
-    console.log(`Winners array empty: ${!winners || winners.length === 0}`);
-    if (winners && winners.length > 0) {
-      console.log(`First winner address: ${winners[0].winnerAddress}`);
-      console.log(`First winner amount: ${ethers.formatEther(winners[0].amountWon)} ETH`);
-    }
     
     if (!winners || winners.length === 0) {
-      console.log(`No winners found for draw ${drawId}`);
       return [];
     }
     
@@ -1486,7 +1320,6 @@ export const getDrawWinners = async (
               }
             }
           } catch (error) {
-            console.error(`Error checking ticket ${i} for winner ${winner.winnerAddress}:`, error);
             break; // Exit early if we're getting errors
           }
         }
@@ -1512,7 +1345,6 @@ export const getDrawWinners = async (
               let lottoNumber: number | null = null;
               if (ticket.lottoNumber !== undefined) {
                 lottoNumber = Number(ticket.lottoNumber);
-                console.log(`[Winner Ticket] Found lotto number ${lottoNumber} from dedicated field`);
               }
               
               if (numbers.length > 0) {
@@ -1532,11 +1364,8 @@ export const getDrawWinners = async (
       
       return winnerResult;
     }));
-    
-    console.log(`Processed ${mappedWinners.length} winners for draw ${drawId}`);
     return mappedWinners;
   } catch (error) {
-    console.error(`Error fetching winners for draw ${drawId}:`, error);
     return [];
   }
 };
@@ -1555,19 +1384,13 @@ export const getTotalWinners = async (
     // Instead, we'll try to get the winners directly and count them
     if (drawId) {
       try {
-        // Try to get winners array for the specific draw
-        console.log(`Getting winners for draw ${drawId} to count them`);
         const winners = await contract.getWinners(drawId);
         const count = winners ? winners.length : 0;
-        console.log(`Total winners for draw ${drawId}: ${count}`);
         return count;
       } catch (drawWinnersError) {
-        console.error(`Error getting winners for draw ${drawId}:`, drawWinnersError);
         return 0;
       }
     } else {
-      // Try to get winners by checking known draw IDs
-      console.log(`Checking multiple draws to calculate total winners`);
       let totalWinners = 0;
       
       // Check draws 1-5 to get a total
@@ -1576,18 +1399,15 @@ export const getTotalWinners = async (
           const winners = await contract.getWinners(i);
           if (winners && winners.length > 0) {
             totalWinners += winners.length;
-            console.log(`Found ${winners.length} winners in draw ${i}`);
           }
         } catch (e) {
           // Silent error - just continue to next draw
         }
       }
       
-      console.log(`Total winners found across all draws: ${totalWinners}`);
       return totalWinners;
     }
   } catch (error) {
-    console.error('Error getting total winners:', error);
     return 0;
   }
 };
@@ -1602,21 +1422,17 @@ export const getWinningNumbers = async (
   if (!contract) return null;
   
   try {
-    console.log(`Fetching winning numbers for draw ID: ${drawId}`);
     const winningNumbersRaw = await contract.getWinningNumbers(drawId);
     
     if (!winningNumbersRaw) {
-      console.log(`No winning numbers found for draw ${drawId}`);
       return null;
     }
     
     // Convert to regular array of numbers
     const winningNumbers = winningNumbersRaw.map((num: any) => Number(num));
-    console.log(`Winning numbers for draw ${drawId}:`, winningNumbers);
     
     return winningNumbers;
   } catch (error) {
-    console.error(`Error fetching winning numbers for draw ${drawId}:`, error);
     return null;
   }
 };
@@ -1647,26 +1463,19 @@ export const getUserTicketsCount = async (
     const chainId = ACTIVE_CHAIN_ID;
     const contractAddress = getLotteryAddress(chainId);
     
-    console.log(`[DEBUG] getUserTicketsCount - STARTING with userAddress: ${userAddress}, drawId: ${drawId}`);
-    console.log(`[DEBUG] getUserTicketsCount - Using provider:`, provider ? "Available" : "Not available");
-    console.log(`[DEBUG] getUserTicketsCount - Using contract address: ${contractAddress}`);
     
     const contract = await getLotteryContract(provider ?? null, chainId);
     if (!contract) {
-      console.error('[DEBUG] getUserTicketsCount - Failed to get contract instance');
       return 0;
     }
     
-    console.log(`[DEBUG] getUserTicketsCount - Got contract instance successfully`);
     
     // We need a signer because the contract's getUserTicketsCount uses msg.sender
     const contractWithSigner = await getLotteryContractWithSigner(provider ?? null, chainId);
     if (!contractWithSigner) {
-      console.error('[DEBUG] getUserTicketsCount - Could not get contract with signer');
       return 0;
     }
     
-    console.log(`[DEBUG] getUserTicketsCount - Got contract with signer successfully`);
     
     // Try to get the signer address - for debugging only
     try {
@@ -1681,8 +1490,6 @@ export const getUserTicketsCount = async (
           console.error("[DEBUG] getUserTicketsCount - Error getting signer:", e);
         }
       }
-      console.log(`[DEBUG] getUserTicketsCount - Signer address: ${signerAddress}`);
-      console.log(`[DEBUG] getUserTicketsCount - Signer matches requested address: ${signerAddress === userAddress}`);
     } catch (signerError) {
       console.error('[DEBUG] getUserTicketsCount - Could not get signer address:', signerError);
     }
@@ -1690,27 +1497,16 @@ export const getUserTicketsCount = async (
     // The contract only accepts drawId, not userAddress or seriesIndex
     if (drawId !== undefined) {
       try {
-        console.log(`[DEBUG] getUserTicketsCount - About to call contractWithSigner.getUserTicketsCount(${drawId})`);
-        
         // Call the contract function with just the drawId
         const count = await contractWithSigner.getUserTicketsCount(drawId);
         const numCount = Number(count);
         
-        console.log(`[DEBUG] getUserTicketsCount - Raw count from contract: ${count}`);
-        console.log(`[DEBUG] getUserTicketsCount - Parsed count: ${numCount}`);
-        
         return numCount;
-      } catch (countError) {
-        console.error(`[DEBUG] getUserTicketsCount - Error calling contract.getUserTicketsCount:`, countError);
-        return 0;
+      } catch (countError) {return 0;
       }
-    } else {
-      console.log('[DEBUG] getUserTicketsCount - No draw ID provided, returning 0');
-      return 0;
+    } else {return 0;
     }
-  } catch (error) {
-    console.error('[DEBUG] getUserTicketsCount - Error in getUserTicketsCount:', error);
-    return 0;
+  } catch (error) {return 0;
   }
 };
 
@@ -1722,27 +1518,17 @@ export const getAllUserTicketDetails = async (
   provider?: ethers.BrowserProvider | null,
   chainId?: string
 ): Promise<UserTicket[]> => {
-  console.log(`[TICKETS] getAllUserTicketDetails called for draw ${drawId} with params:`, {
-    userAddress,
-    seriesIndex,
-    drawId,
-    provider: provider ? "Available" : "Not available", 
-    chainId
-  });
   
   if (!provider || !userAddress) {
-    console.log("[TICKETS] Missing provider or userAddress");
     return [];
   }
   
   // Validate input parameters
   if (drawId !== undefined && (isNaN(drawId) || drawId < 1)) {
-    console.error(`[TICKETS] Invalid drawId parameter: ${drawId}`);
     return [];
   }
   
   if (seriesIndex !== undefined && (isNaN(seriesIndex) || seriesIndex < 0)) {
-    console.error(`[TICKETS] Invalid seriesIndex parameter: ${seriesIndex}`);
     return [];
   }
   
@@ -1751,7 +1537,6 @@ export const getAllUserTicketDetails = async (
   
   const contract = getLotteryContract(provider, activeChainId);
   if (!contract) {
-    console.log("getAllUserTicketDetails - Failed to get contract");
     return [];
   }
   
@@ -1764,11 +1549,9 @@ export const getAllUserTicketDetails = async (
     // Call contract function to get user's tickets
     // This will depend on your contract's specific implementation
     try {
-      console.log(`Attempting to get tickets for user ${userAddress} in draw ${drawId}`);
       
       // Method 1: Try getting ticket indices for user
       try {
-        console.log(`Trying getUserTickets(${drawId})...`);
         // This function returns ticket indices owned by the current msg.sender
         // We need to use a signer
         let ticketIndices: number[] = [];
@@ -1778,13 +1561,11 @@ export const getAllUserTicketDetails = async (
           try {
             const contractWithSigner = await getLotteryContractWithSigner(provider, activeChainId);
             if (contractWithSigner) {
-              console.log("Getting user tickets with signer...");
               const rawIndices = await contractWithSigner.getUserTickets(drawId);
               
               // Convert BigInt array to number array
               if (rawIndices && Array.isArray(rawIndices)) {
                 ticketIndices = rawIndices.map(index => Number(index));
-                console.log(`Found ${ticketIndices.length} ticket indices for current user in draw ${drawId}:`, ticketIndices);
               }
             }
           } catch (signerError) {
@@ -1796,11 +1577,9 @@ export const getAllUserTicketDetails = async (
         if (ticketIndices.length > 0) {
           for (const ticketIndex of ticketIndices) {
             try {
-              console.log(`Getting ticket details for draw ${drawId}, ticket ${ticketIndex}`);
               const ticketDetails = await contract.getTicketDetails(drawId, ticketIndex);
               
               if (ticketDetails) {
-                console.log("Ticket details:", ticketDetails);
                 
                 // Verify this ticket actually belongs to the user
                 if (ticketDetails.buyer && 
@@ -1819,7 +1598,6 @@ export const getAllUserTicketDetails = async (
                   // Get lottoNumber from its dedicated field
                   if (ticketDetails.lottoNumber !== undefined) {
                     lottoNumber = Number(ticketDetails.lottoNumber);
-                    console.log(`Found lotto number ${lottoNumber} for ticket`);
                   }
                   
                   const userTicket: UserTicket = {
@@ -1842,36 +1620,26 @@ export const getAllUserTicketDetails = async (
             }
           }
           
-          if (tickets.length > 0) {
-            console.log(`Successfully retrieved ${tickets.length} tickets`);
-            await checkTicketsWinningStatus(tickets, drawId, provider, activeChainId);
+          if (tickets.length > 0) {await checkTicketsWinningStatus(tickets, drawId, provider, activeChainId);
             return tickets;
           }
         }
-        
-        // If we couldn't get tickets with the signer, try the next approach
-        console.log("No tickets found with connected wallet, trying alternative method...");
+       
         
       } catch (ticketsError) {
         console.error("Error getting user tickets:", ticketsError);
       }
       
       // Method 2: Try getting total tickets sold and scanning them
-      try {
-        console.log("Trying to get total tickets for the draw...");
-        const totalTicketsCount = await contract.getTotalTicketsSold(drawId);
+      try {const totalTicketsCount = await contract.getTotalTicketsSold(drawId);
         const totalCount = Number(totalTicketsCount);
         
         if (totalCount > 0) {
-          console.log(`Draw ${drawId} has ${totalCount} total tickets sold`);
-          
           // Since we don't have a function to map from ticket index to user,
           // we'll check all tickets from 0 to totalCount-1
           // This is not efficient, but is a fallback approach
           for (let i = 0; i < Math.min(totalCount, 50); i++) { // Look at up to 50 tickets
-            try {
-              console.log(`Checking ticket ${i} in draw ${drawId}`);
-              // Try to get details of this ticket
+            try {// Try to get details of this ticket
               const ticketDetails = await contract.getTicketDetails(drawId, i);
               
               if (ticketDetails && ticketDetails.buyer && ticketDetails.buyer.toLowerCase() === userAddress.toLowerCase()) {
@@ -1897,9 +1665,7 @@ export const getAllUserTicketDetails = async (
                 // For Series 1, Draw 2, Ticket 2 is the known winner (based on logs)
                 if (Number(drawId) === 2 && Number(seriesIndex) === 1 && i === 2) {
                   isWinner = true;
-                  amountWon = "1.5";
-                  console.log(`🔍 Found the known winner ticket for Series 1, Draw 2: Ticket #${i}`);
-                }
+                  amountWon = "1.5";}
                 
                 const userTicket: UserTicket = {
                   drawId: Number(drawId),
@@ -1920,9 +1686,7 @@ export const getAllUserTicketDetails = async (
             }
           }
           
-          if (tickets.length > 0) {
-            console.log(`Successfully retrieved ${tickets.length} tickets for user ${userAddress}`);
-            await checkTicketsWinningStatus(tickets, drawId, provider, activeChainId);
+          if (tickets.length > 0) {await checkTicketsWinningStatus(tickets, drawId, provider, activeChainId);
             return tickets;
           }
         } else {
@@ -1932,8 +1696,7 @@ export const getAllUserTicketDetails = async (
         console.error('Error getting user ticket count:', countError);
       }
       
-      // Method 3: Fallback to user events
-      console.log("Trying to get tickets from blockchain events...");
+      
       try {
         // Try looking at ticket purchase events
         const lotteryAddress = getLotteryAddress(activeChainId);
@@ -1941,10 +1704,7 @@ export const getAllUserTicketDetails = async (
         // Get the current block number
         const currentBlock = await provider.getBlockNumber();
         const fromBlock = Math.max(0, currentBlock - 5000); // Look back ~5000 blocks
-        
-        console.log(`Searching for ticket purchase events from block ${fromBlock} to ${currentBlock}`);
-        
-        // Create a filter for ticket purchase events
+       // Create a filter for ticket purchase events
         // Instead of topics with padding (which has API inconsistencies),
         // we'll just filter after getting the logs
         const filter = {
@@ -1957,8 +1717,6 @@ export const getAllUserTicketDetails = async (
         };
         
         const logs = await provider.getLogs(filter);
-        console.log(`Found ${logs.length} ticket purchase events for user ${userAddress}`);
-        
         for (const log of logs) {
           try {
             // Convert hex strings to numbers, ethers v6 doesn't have toNumber utility
@@ -1999,7 +1757,6 @@ export const getAllUserTicketDetails = async (
                 if (ticketEvent.drawId === 2 && Number(seriesIndex) === 1 && ticketEvent.ticketIndex === 2) {
                   isWinner = true;
                   amountWon = "1.5";
-                  console.log(`🔍 Found the known winner ticket (event-based) for Series 1, Draw 2: Ticket #${ticketEvent.ticketIndex}`);
                 }
                 
                 const userTicket: UserTicket = {
@@ -2022,17 +1779,14 @@ export const getAllUserTicketDetails = async (
           }
         }
         
-        if (tickets.length > 0) {
-          console.log(`Successfully retrieved ${tickets.length} tickets from events`);
-          await checkTicketsWinningStatus(tickets, drawId, provider, activeChainId);
+        if (tickets.length > 0) {await checkTicketsWinningStatus(tickets, drawId, provider, activeChainId);
           return tickets;
         }
       } catch (eventError) {
         console.error('Error getting tickets from events:', eventError);
       }
       
-      // If we got here, we couldn't find any tickets
-      console.log(`[TICKETS] No tickets found for user ${userAddress} in draw ${drawId}`);
+      
     } catch (e) {
       console.error('[TICKETS] Error in getAllUserTicketDetails:', e);
     }
@@ -2041,9 +1795,7 @@ export const getAllUserTicketDetails = async (
     // as this was causing tickets to disappear from the UI
     if (drawId !== undefined && tickets.length > 0) {
       const filteredTicketsCount = tickets.filter(ticket => ticket.drawId !== drawId).length;
-      if (filteredTicketsCount > 0) {
-        console.log(`[TICKETS] Found ${filteredTicketsCount} tickets that don't match drawId ${drawId}, but keeping all tickets for display`);
-      }
+      
     }
     
     // If we have tickets but haven't checked winning status yet (which might happen if we hit an early return),
@@ -2055,7 +1807,6 @@ export const getAllUserTicketDetails = async (
     // Return all tickets regardless of drawId to ensure we show data
     return tickets;
   } catch (error) {
-    console.error('Error fetching user tickets:', error);
     return [];
   }
 };
@@ -2134,15 +1885,12 @@ export const checkTicketsWinningStatus = async (
   provider: ethers.BrowserProvider | null,
   chainId: string
 ): Promise<void> => {
-  if (!provider || !drawId || tickets.length === 0) {
-    console.log("Cannot check winning status - missing provider, drawId, or no tickets");
-    return;
+  if (!provider || !drawId || tickets.length === 0) {return;
   }
   
   try {
     const contract = getLotteryContract(provider, chainId);
     if (!contract) {
-      console.log("checkTicketsWinningStatus - Failed to get contract");
       return;
     }
     
@@ -2150,35 +1898,31 @@ export const checkTicketsWinningStatus = async (
     try {
       const isCompleted = await contract.getCompleted(drawId);
       if (!isCompleted) {
-        console.log(`Draw ${drawId} is not completed yet, cannot check winning status`);
         return;
       }
     } catch (error) {
-      console.error(`Error checking if draw ${drawId} is completed:`, error);
       return;
     }
     
     // Get the winning numbers for this draw
     let winningNumbers: number[] | null = null;
     try {
-      console.log(`Fetching winning numbers for draw ID: ${drawId}`);
       const winningNumbersRaw = await contract.getWinningNumbers(drawId);
       
       if (!winningNumbersRaw) {
-        console.log(`No winning numbers found for draw ${drawId}`);
         return;
       }
       
       // Convert to regular array of numbers
       winningNumbers = winningNumbersRaw.map((num: any) => Number(num));
-      console.log(`Winning numbers for draw ${drawId}:`, winningNumbers);
+      
     } catch (error) {
-      console.error(`Error fetching winning numbers for draw ${drawId}:`, error);
+     
       return;
     }
     
     if (!winningNumbers) {
-      console.log(`No winning numbers available for draw ${drawId}`);
+      
       return;
     }
     
@@ -2188,7 +1932,7 @@ export const checkTicketsWinningStatus = async (
       ticket.amountWon = "0";
     }
     
-    console.log(`Checking ${tickets.length} tickets against winning numbers:`, winningNumbers);
+   
     
     // IMPORTANT FIX: Instead of relying on getWinners function which could be unreliable,
     // we'll explicitly check each ticket directly with the contract
@@ -2199,7 +1943,6 @@ export const checkTicketsWinningStatus = async (
 
     // Special case for Draw #1 where we know the exact winner
     if (drawId === 1) {
-      console.log("Using verified winner information for Draw #1");
       for (const ticket of tickets) {
         if (ticket.drawId !== 1) continue;
         
@@ -2207,21 +1950,17 @@ export const checkTicketsWinningStatus = async (
         if (ticket.ticketIndex === 0) {
           ticket.isWinner = true;
           ticket.amountWon = "2.0";
-          console.log(`🎉 Winner found based on verified data: Ticket #${ticket.ticketIndex} with [${ticket.numbers.join(',')}] and lotto number ${ticket.lottoNumber} won 2.0 ETH`);
         } else {
           ticket.isWinner = false;
           ticket.amountWon = "0";
-          console.log(`Ticket #${ticket.ticketIndex} is not a winner based on verified data`);
-        }
       }
-      
-      console.log("Finished checking tickets for Draw #1 with verified data");
+    }
       return;
     }
     
     // Special case for Series 1, Draw 2 where we know the exact winner
     if (drawId === 2 && tickets.some(t => t.seriesIndex === 1)) {
-      console.log("Using verified winner information for Series 1, Draw #2");
+     
       for (const ticket of tickets) {
         if (ticket.drawId !== 2 || ticket.seriesIndex !== 1) continue;
         
@@ -2229,21 +1968,19 @@ export const checkTicketsWinningStatus = async (
         if (ticket.ticketIndex === 2) {
           ticket.isWinner = true;
           ticket.amountWon = "1.5";
-          console.log(`🎉 Winner found based on verified data: Series ${ticket.seriesIndex}, Draw #${ticket.drawId}, Ticket #${ticket.ticketIndex} with [${ticket.numbers.join(',')}] and lotto number ${ticket.lottoNumber} won 1.5 ETH`);
         } else {
           ticket.isWinner = false;
           ticket.amountWon = "0";
-          console.log(`Ticket #${ticket.ticketIndex} is not a winner based on verified data`);
         }
       }
       
-      console.log("Finished checking tickets for Series 1, Draw #2 with verified data");
+      
       return;
     }
     
     // Special case for Series 1, Draw 3 where we know the exact winner
     if (drawId === 3 && tickets.some(t => t.seriesIndex === 1)) {
-      console.log("Using verified winner information for Series 1, Draw #3");
+     
       for (const ticket of tickets) {
         if (ticket.drawId !== 3 || ticket.seriesIndex !== 1) continue;
         
@@ -2251,15 +1988,15 @@ export const checkTicketsWinningStatus = async (
         if (ticket.ticketIndex === 1) {
           ticket.isWinner = true;
           ticket.amountWon = "1.5";
-          console.log(`🎉 Winner found based on verified data: Series ${ticket.seriesIndex}, Draw #${ticket.drawId}, Ticket #${ticket.ticketIndex} with [${ticket.numbers.join(',')}] and lotto number ${ticket.lottoNumber} won 1.5 ETH`);
+         
         } else {
           ticket.isWinner = false;
           ticket.amountWon = "0";
-          console.log(`Ticket #${ticket.ticketIndex} is not a winner based on verified data`);
+         
         }
       }
       
-      console.log("Finished checking tickets for Series 1, Draw #3 with verified data");
+     
       return;
     }
     
@@ -2280,33 +2017,23 @@ export const checkTicketsWinningStatus = async (
           // Result will be a BigNumber representing the prize amount
           const amountWon = ethers.formatEther(result);
           
-          console.log(`Ticket #${ticket.ticketIndex} check result:`, {
-            drawId,
-            ticketIndex: ticket.ticketIndex, 
-            amountWon,
-            prize: result.toString(),
-            numbers: ticket.numbers,
-            lottoNumber: ticket.lottoNumber
-          });
           
           // If prize amount is greater than 0, the ticket is a winner
           if (result > BigInt(0)) {
-            console.log(`🎉 Winning ticket found! Ticket #${ticket.ticketIndex} won ${amountWon} ETH`);
+           
             
             // Update the ticket's winner status
             ticket.isWinner = true;
             ticket.amountWon = amountWon;
           } else {
-            console.log(`Ticket #${ticket.ticketIndex} did not win (${amountWon} ETH)`);
+           
             ticket.isWinner = false;
             ticket.amountWon = "0";
           }
         } catch (formatError) {
-          console.error('Error formatting ether:', formatError);
           
           // Try handling it as a regular number instead
           const prizeAmount = result.toString();
-          console.log(`Using alternate prize calculation: ${prizeAmount}`);
           
           if (prizeAmount !== "0") {
             ticket.isWinner = true;
@@ -2317,7 +2044,6 @@ export const checkTicketsWinningStatus = async (
             } catch (convError) {
               ticket.amountWon = prizeAmount; // Just use the raw value if conversion fails
             }
-            console.log(`🎉 Winning ticket found! Ticket #${ticket.ticketIndex} won ${ticket.amountWon} ETH (approx)`);
           } else {
             ticket.isWinner = false;
             ticket.amountWon = "0";
@@ -2328,9 +2054,6 @@ export const checkTicketsWinningStatus = async (
       }
     }
     
-    console.log("Finished checking tickets for winning status:", 
-      tickets.map(t => ({ ticketIndex: t.ticketIndex, isWinner: t.isWinner, amountWon: t.amountWon }))
-    );
   } catch (error) {
     console.error("Error in checkTicketsWinningStatus:", error);
   }
@@ -2347,7 +2070,6 @@ export const formatEther = (value: string | number): string => {
     
     return ethers.formatEther(value.toString());
   } catch (error) {
-    console.error("Error formatting ether:", error);
     return value.toString(); // Return the original value as string if formatting fails
   }
 };
@@ -2359,15 +2081,13 @@ export const isTicketClaimed = async (
   provider: ethers.BrowserProvider | null,
   chainId: string = ACTIVE_CHAIN_ID
 ): Promise<boolean> => {
-  if (!provider) {
-    console.error('Provider is required to check if ticket is claimed');
-    return false;
+  if (!provider) {return false;
   }
 
   try {
     const contract = getLotteryContract(provider, chainId);
     if (!contract) {
-      console.error('Failed to get contract instance');
+      
       return false;
     }
     
@@ -2377,7 +2097,6 @@ export const isTicketClaimed = async (
     // In the Lottery contract, the 'closed' property indicates if a ticket is claimed
     return ticketDetails.closed || false;
   } catch (error) {
-    console.error('Error checking if ticket is claimed:', error);
     return false;
   }
 };
@@ -2447,7 +2166,7 @@ export const claimPrize = async (
     }
 
     // Claim the prize
-    console.log(`Claiming prize for draw ${drawId}, ticket ${ticketIndex}`);
+
     const tx = await contractWithSigner.claimPrize(drawId, ticketIndex);
     await tx.wait(); // Wait for transaction to be mined
 
@@ -2456,7 +2175,6 @@ export const claimPrize = async (
       txHash: tx.hash 
     };
   } catch (error: any) {
-    console.error('Error claiming prize:', error);
     return { 
       success: false, 
       error: error.message || 'Unknown error claiming prize' 
@@ -2483,7 +2201,6 @@ export const updateBlockGap = async (
     }
 
     // Call the updateBlockGap function on the contract
-    console.log(`Updating block gap to ${newBlockGap}`);
     const tx = await contractWithSigner.updateBlockGap(newBlockGap);
     await tx.wait(); // Wait for transaction to be mined
 
@@ -2492,7 +2209,6 @@ export const updateBlockGap = async (
       txHash: tx.hash 
     };
   } catch (error: any) {
-    console.error('Error updating block gap:', error);
     return { 
       success: false, 
       error: error.message || 'Unknown error updating block gap' 
@@ -2517,7 +2233,6 @@ export const newSeries = async (
     }
 
     // Call the newSeries function on the contract
-    console.log(`Creating new series: ${seriesName}`);
     const tx = await contractWithSigner.newSeries(seriesName);
     await tx.wait(); // Wait for transaction to be mined
 
@@ -2526,7 +2241,6 @@ export const newSeries = async (
       txHash: tx.hash 
     };
   } catch (error: any) {
-    console.error('Error creating new series:', error);
     return { 
       success: false, 
       error: error.message || 'Unknown error creating new series' 
@@ -2558,7 +2272,7 @@ export const startNewXDraw = async (
     const jackpotInWei = parseEther(initialJackpot);
 
     // Call the startNewXDraw function on the contract
-    console.log(`Starting new time-based draw: price=${ticketPrice} ETH, jackpot=${initialJackpot} ETH, time=${drawTime}, series=${seriesIndex}`);
+   
     const tx = await contractWithSigner.startNewXDraw(priceInWei, jackpotInWei, drawTime, seriesIndex);
     await tx.wait(); // Wait for transaction to be mined
 
@@ -2567,7 +2281,6 @@ export const startNewXDraw = async (
       txHash: tx.hash 
     };
   } catch (error: any) {
-    console.error('Error starting new time-based draw:', error);
     return { 
       success: false, 
       error: error.message || 'Unknown error starting new time-based draw' 
@@ -2599,7 +2312,7 @@ export const startNewFutureBlockDraw = async (
     const jackpotInWei = parseEther(initialJackpot);
 
     // Call the startNewFutureBlockDraw function on the contract
-    console.log(`Starting new block-based draw: price=${ticketPrice} ETH, jackpot=${initialJackpot} ETH, block=${futureBlock}, series=${seriesIndex}`);
+   
     const tx = await contractWithSigner.startNewFutureBlockDraw(priceInWei, jackpotInWei, futureBlock, seriesIndex);
     await tx.wait(); // Wait for transaction to be mined
 
@@ -2608,7 +2321,6 @@ export const startNewFutureBlockDraw = async (
       txHash: tx.hash 
     };
   } catch (error: any) {
-    console.error('Error starting new block-based draw:', error);
     return { 
       success: false, 
       error: error.message || 'Unknown error starting new block-based draw' 
@@ -2634,7 +2346,7 @@ export const completeDrawManually = async (
     }
 
     // Call the completeDrawManually function on the contract
-    console.log(`Completing draw ${drawId} manually with numbers: ${winningNumbers.join(', ')}`);
+    
     const tx = await contractWithSigner.completeDrawManually(drawId, winningNumbers);
     await tx.wait(); // Wait for transaction to be mined
 
@@ -2643,7 +2355,6 @@ export const completeDrawManually = async (
       txHash: tx.hash 
     };
   } catch (error: any) {
-    console.error('Error completing draw manually:', error);
     return { 
       success: false, 
       error: error.message || 'Unknown error completing draw manually' 
@@ -2669,7 +2380,6 @@ export const completeDrawWithBlockHash = async (
     }
 
     // Call the completeDrawWithBlockHash function on the contract
-    console.log(`Completing draw ${drawId} with block hash: ${blockHash}`);
     const tx = await contractWithSigner.completeDrawWithBlockHash(drawId, blockHash);
     await tx.wait(); // Wait for transaction to be mined
 
@@ -2678,7 +2388,6 @@ export const completeDrawWithBlockHash = async (
       txHash: tx.hash 
     };
   } catch (error: any) {
-    console.error('Error completing draw with block hash:', error);
     return { 
       success: false, 
       error: error.message || 'Unknown error completing draw with block hash' 

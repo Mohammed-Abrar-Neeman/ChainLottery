@@ -67,7 +67,6 @@ const ContentAdmin: React.FC = () => {
       setIsAdmin(isUserAdmin);
     } catch (error) {
       setIsAdmin(false);
-      console.error('Error in admin check:', error);
     } finally {
       setIsLoading(false);
     }
@@ -99,7 +98,6 @@ const ContentAdmin: React.FC = () => {
         setConfig(null);
         setConfigText("");
         setError("Failed to load config: " + e.message);
-        console.error('Config fetch error:', e);
       })
       .finally(() => setLoadingConfig(false));
   };
@@ -117,7 +115,6 @@ const ContentAdmin: React.FC = () => {
       .then((data) => setImages(data))
       .catch((e) => {
         setImages([]);
-        console.error('Images fetch error:', e);
       })
       .finally(() => setLoadingImages(false));
   };
@@ -240,7 +237,6 @@ const ContentAdmin: React.FC = () => {
 
   // --- Render logic with logs and error boundary ---
   if (isLoading) {
-    console.log('Render: Loading spinner');
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-center items-center py-8">
@@ -251,7 +247,6 @@ const ContentAdmin: React.FC = () => {
     );
   }
   if (!isConnected) {
-    console.log('Render: Wallet not connected');
     return (
       <div className="container mx-auto px-4 py-8">
         <Alert>
@@ -265,7 +260,6 @@ const ContentAdmin: React.FC = () => {
     );
   }
   if (!isAdmin) {
-    console.log('Render: Not admin');
     return (
       <div className="container mx-auto px-4 py-8">
         <Alert variant="destructive" className="mb-6">
@@ -279,7 +273,6 @@ const ContentAdmin: React.FC = () => {
     );
   }
   if (!config && !loadingConfig) {
-    console.log('Render: Config not loaded');
     return (
       <div className="container mx-auto px-4 py-8">
         <Alert variant="destructive">

@@ -92,16 +92,6 @@ const formatUSD = (maticAmount: string) => {
     minutes: Math.floor((lotteryData.timeRemaining % (60 * 60)) / 60)
   } : undefined;
 
-  // Log values for debugging
-  console.log('LotteryStats - Updated values:', {
-    ticketPrice,
-    jackpotAmount,
-    currentRound,
-    participantCount,
-    selectedDraw,
-    sharedDrawId,
-    lotteryData
-  });
 
   return (
     <section className="mb-16">
