@@ -78,10 +78,10 @@ export default function PromoBanner() {
   }, [currentIndex, bannerImages]);
 
   if (isLoading) {
-    return <div className="w-full h-[100svh] flex items-center justify-center text-gray-400 bg-black">Loading banners...</div>;
+    return <div className="w-full h-[66svh] flex items-center justify-center text-gray-400 bg-black">Loading banners...</div>;
   }
   if (error || !bannerImages.length) {
-    return <div className="w-full h-[100svh] flex items-center justify-center text-red-500 bg-black">Failed to load banners.</div>;
+    return <div className="w-full h-[66svh] flex items-center justify-center text-red-500 bg-black">Failed to load banners.</div>;
   }
 
   // Get the current banner
@@ -116,7 +116,7 @@ export default function PromoBanner() {
       {/* Active banner */}
       <div 
         key={currentBanner.id}
-        className="relative w-full min-h-[100svh] md:min-h-[92svh] lg:min-h-[88svh] transition-opacity duration-500"
+        className="relative w-full min-h-[66svh] md:min-h-[60svh] lg:min-h-[58svh] transition-opacity duration-500"
       >
         <div
           className={`absolute inset-0 bg-cover bg-center transition-opacity duration-700 ease-in-out ${hasImageError ? currentBanner.fallbackColor : ''}`}
